@@ -1,0 +1,91 @@
+# 一键私有化部署: 应用 + Postgres(元数据) + MinIO(对象存储)。
+#
+#   1) 在本文件同级建 .env, 至少填:  ANTHROPIC_API_KEY=sk-ant-...
+#                                    AUTH_SECRET=<随机长串>
+#   2) docker compose up -d --build
+#   3) 浏览器开 http://localhost:8000  (默认管理员 admin / 见 DEFAULT_ADMIN_PASSWORD)
+#      MinIO 控制台 http://localhost:9001 (minioadmin/minioadmin)
+#
+# 元数据进 Postgres, 二进制进 MinIO —— 应用本身无状态, 可水平扩容(多副本共享同库同桶)。
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: drawings
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-drawings_pwd}
+      POSTGRES_DB: drawings
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U drawings -d drawings"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    ports:
+      - "9001:9001"          # 控制台(可选, 仅运维查看)
+    volumes:
+      - miniodata:/data
+
+  # 一次性: 等 MinIO 就绪并建桶, 成功后退出; 应用依赖其"成功完成"再启动。
+  createbucket:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until /usr/bin/mc alias set local http://minio:9000 ${S3_ACCESS_KEY:-minioadmin} ${S3_SECRET_KEY:-minioadmin}; do
+        echo 'waiting for minio...'; sleep 2;
+      done;
+      /usr/bin/mc mb -p local/${S3_BUCKET:-drawings} || true;
+      echo 'bucket ready'; exit 0;
+      "
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      createbucket:
+        condition: service_completed_successfully
+    environment:
+      # 元数据 -> Postgres
+      STORAGE_BACKEND: sql
+      DATABASE_URL: postgresql+psycopg://drawings:${POSTGRES_PASSWORD:-drawings_pwd}@db:5432/drawings
+      # 二进制 -> MinIO
+      BLOB_BACKEND: s3
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_BUCKET: ${S3_BUCKET:-drawings}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_REGION: us-east-1
+      # 鉴权
+      AUTH_ENABLED: "true"
+      AUTH_SECRET: ${AUTH_SECRET:-please-change-me}
+      DEFAULT_ADMIN_USER: ${DEFAULT_ADMIN_USER:-admin}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-admin123}
+      # 模型
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-opus-4-8}
+      # 本地缓存目录(S3 materialize 落地, 持久化以免重启回源)
+      DATA_DIR: /app/data
+      TASK_WORKERS: ${TASK_WORKERS:-4}
+    volumes:
+      - appcache:/app/data
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
+  miniodata:
+  appcache:

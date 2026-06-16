@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>成本分析 · 硕磐智能图纸解析与生成</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>成本分析</h1>
+    <span class="subtitle">零件 → 结构化成本拆解(材料/加工/外购/表面/管理/利润)· 联网检索行情 · 可校验/可编辑/可追溯</span>
+    <span id="health" class="health"></span>
+  </header>
+
+  <main class="proc-main">
+    <a class="proc-back" id="backLink" href="index.html">← 返回工作台</a>
+
+    <div class="proc-head">
+      <span class="pid" id="partId"></span>
+      <h2 id="partName">加载中…</h2>
+      <span class="pmat" id="partMat"></span>
+    </div>
+
+    <div class="panel-card extra-input">
+      <div class="card-h">附加信息(可选,用于生成 / 重新生成)</div>
+      <textarea id="extraNote" rows="2"
+        placeholder="补充成本相关说明,如:材料改6061铝、批量500、含运费、需阳极氧化、某外购件已知单价…"></textarea>
+      <input type="file" id="extraFiles" multiple
+        accept="image/*,.txt,.md,.csv,.json,.pdf,.yaml,.yml" />
+    </div>
+
+    <div id="status" class="status"></div>
+    <div id="costArea"></div>
+  </main>
+
+  <!-- 底部固定操作条 -->
+  <div class="proc-actions">
+    <label class="lbl" style="align-self:center;color:#9fb3c8;font-size:12px">批量</label>
+    <input id="qtyInput" type="number" min="1" value="1"
+      style="width:80px;background:#0b0f14;color:#d7dde3;border:1px solid #2a333d;border-radius:5px;padding:5px" />
+    <button id="btnGen" class="act-sm" style="background:#2f6f4f">💰 生成成本分析</button>
+    <button id="btnEdit" class="act-sm" disabled>✏️ 编辑</button>
+    <button id="btnSave" class="act-sm save" style="display:none">💾 保存</button>
+  </div>
+
+  <script type="module" src="cost.js"></script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>硕磐智能图纸解析与生成</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- three.js + STL 加载器 (CDN, importmap) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header>
+    <h1>硕磐智能图纸解析与生成</h1>
+    <span class="subtitle">设备需求原图 → 结构化设计意图(IR) → 确定性 CAD 几何 · 可制造/可校验/可追溯</span>
+    <span id="userBox" class="userbox" style="display:none">
+      <span id="userInfo"></span>
+      <button id="btnAddUser" style="display:none">+用户</button>
+      <button id="btnLogout">登出</button>
+    </span>
+    <span id="health" class="health"></span>
+  </header>
+
+  <!-- 登录遮罩(仅在开启鉴权且未登录时显示) -->
+  <div id="loginOverlay" class="login-overlay" style="display:none">
+    <form id="loginForm" class="login-card">
+      <h2>登录</h2>
+      <div class="login-sub">图纸解析与生成平台 · 私有化部署</div>
+      <input id="loginUser" placeholder="用户名" autocomplete="username" />
+      <input id="loginPass" type="password" placeholder="密码" autocomplete="current-password" />
+      <div id="loginErr" class="login-err"></div>
+      <button type="submit">登 录</button>
+    </form>
+  </div>
+
+  <main>
+    <!-- 左: 控制 + 原图 -->
+    <section class="panel left">
+      <div class="toolbar">
+        <label class="lbl">设备需求原图</label>
+        <input type="file" id="fileInput" accept="image/*" />
+        <label class="lbl">补充文字说明(可选，提升解析置信度)</label>
+        <textarea id="noteInput" rows="3"
+          placeholder="如: 底板厚12mm, 材料Q235; 衬套需过盈配合; 总高95mm..."></textarea>
+        <label class="lbl">佐证文件(可选，可多选: 其它视图图片 / 规格文本)</label>
+        <input type="file" id="attachInput" multiple
+          accept="image/*,.txt,.md,.csv,.json,.log,.yaml,.yml" />
+        <button id="btnUpload">1·上传</button>
+        <button id="btnParse" disabled>2·解析为IR</button>
+        <button id="btnVerify" disabled>3·校验修正</button>
+        <button id="btnDecompose" disabled>4·拆解推荐</button>
+        <button id="btnGenerate" disabled>5·生成几何</button>
+        <button id="btnDrawings" disabled>6·生成2D工程图</button>
+        <button id="btnBom" disabled>导出 BOM (CSV)</button>
+        <div class="divider">或，直接导入 3D 模型反向解析</div>
+        <label class="lbl">3D 模型 (STEP/STP)</label>
+        <input type="file" id="file3d" accept=".step,.stp,.STEP,.STP" />
+        <button id="btnImport3d">导入 3D 并解析</button>
+      </div>
+      <div id="status" class="status"></div>
+
+      <h3>原图 <small>(点击零件框联动选中；红框=低置信度)</small></h3>
+      <div class="image-wrap">
+        <div id="imgStage" class="img-stage">
+          <img id="sourceImg" alt="上传后显示原图" />
+          <div id="bboxLayer" class="bbox-layer"></div>
+        </div>
+      </div>
+
+      <h3>历史项目</h3>
+      <ul id="projectList" class="project-list"></ul>
+    </section>
+
+    <!-- 中: 拆解树 -->
+    <section class="panel mid">
+      <h3>拆解结果 <small id="deviceName"></small></h3>
+      <div id="intent" class="intent"></div>
+      <div id="tree" class="tree"></div>
+
+      <h3>标准件 / 待澄清</h3>
+      <div id="extras" class="extras"></div>
+
+      <h3>版本与校核审签 <small>(可追溯 · 草稿→送审→通过/驳回)</small></h3>
+      <div id="versions" class="versions"></div>
+      <div id="diffView" class="diff-view"></div>
+    </section>
+
+    <!-- 右: 3D 查看器 + 详情 -->
+    <section class="panel right">
+      <h3>3D 视图 <small id="viewerPartName"></small></h3>
+      <div id="viewer" class="viewer"></div>
+      <div id="partDetail" class="part-detail"></div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic==2.10.4
+
+
+anthropic>=0.69.0
+
+
+cadquery==2.5.2
+
+python-dotenv==1.0.1
+
+sqlalchemy==2.0.36
+
