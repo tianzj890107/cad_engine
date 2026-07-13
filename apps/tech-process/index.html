@@ -1,0 +1,3298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>技术工艺管理</title>
+    <!-- antd 4 / React 17 / moment, 与 eimos 主站技术栈一致 -->
+    <link rel="stylesheet" href="https://unpkg.com/antd@4.24.15/dist/antd.min.css" />
+    <script src="https://unpkg.com/react@17.0.2/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@17.0.2/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/moment@2.29.4/min/moment.min.js"></script>
+    <script src="https://unpkg.com/antd@4.24.15/dist/antd.min.js"></script>
+    <script src="https://unpkg.com/@ant-design/icons@4.8.0/dist/index.umd.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
+    <style>
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+        background: #f0f2f5;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      .tp-page {
+        padding: 16px;
+        min-height: 100%;
+      }
+      .tp-card {
+        background: #fff;
+        border-radius: 4px;
+        padding: 20px 24px;
+        position: relative;
+      }
+      .tp-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 12px;
+      }
+      .tp-filter {
+        display: flex;
+        align-items: flex-end;
+        gap: 24px;
+        margin-bottom: 20px;
+      }
+      .tp-filter .tp-field {
+        flex: 1;
+        max-width: 360px;
+      }
+      .tp-field label {
+        display: block;
+        color: #1f2329;
+        margin-bottom: 8px;
+        font-size: 14px;
+      }
+      .tp-filter-actions {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        white-space: nowrap;
+      }
+      .tp-link {
+        color: #1677ff;
+        cursor: pointer;
+      }
+      .tp-detail-title {
+        display: flex;
+        align-items: center;
+        font-size: 22px;
+        font-weight: 600;
+        margin-bottom: 16px;
+      }
+      .tp-detail-title .anticon {
+        margin-right: 10px;
+        cursor: pointer;
+        color: #1f2329;
+      }
+      .tp-section-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin: 20px 0 16px;
+      }
+      .tp-detail-footer {
+        position: sticky;
+        bottom: 0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        padding: 14px 0 4px;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel" data-presets="react">
+      const { useState, useEffect } = React;
+      const {
+        Table, Button, Input, InputNumber, Tag, Pagination, Steps, Tabs, Form, Radio,
+        Select, DatePicker, Row, Col, message, ConfigProvider,
+        Modal, Popconfirm, Spin, Space, Alert, Empty, Descriptions, Divider,
+      } = antd;
+      const {
+        PlusOutlined, LeftCircleOutlined, PlayCircleOutlined,
+        AppstoreOutlined, AimOutlined, FullscreenOutlined,
+        RobotOutlined, CheckCircleOutlined, ReloadOutlined, DeleteOutlined,
+      } = icons;
+      // 与后端同源:本应用由 process_drawing 服务在 /apps/tech-process/ 提供,/api/* 同源。
+      const API = '';
+      async function api(path, opts) {
+        const res = await fetch(API + path, opts);
+        const text = await res.text();
+        let data = {};
+        try { data = text ? JSON.parse(text) : {}; } catch (e) { data = { raw: text }; }
+        if (!res.ok) throw new Error(data.detail || data.raw || ('HTTP ' + res.status));
+        return data;
+      }
+      const { Step } = Steps;
+      const { TabPane } = Tabs;
+      const { Option } = Select;
+
+      // ----- 列表页假数据(复刻销售项目管理列表) -----
+      const STATUS_COLORS = {
+        决策中: 'success', 草稿: 'error', 验证商机: 'processing',
+        拓展商机: 'processing', 评审中: 'warning', 决策完成: 'success',
+      };
+      const ROWS = [
+        ['GY20260520-004', '电子****ET需求-2026', '鲜***', '陈***', '一二三***限公司', 'KH-20251127-003', '2026/05/20 16:01:00', '决策中', false],
+        ['GY20260520-002', '上海芯22是的******...', '贾***', '王***', '西安西***限公司', 'KH-20251218-001', '2026/05/20 15:42:48', '草稿', true],
+        ['GY20260520-001', '上海芯******韦尔股份', '贾***', '严***', '一二三***限公司', 'KH-20251127-003', '2026/05/20 14:56:33', '草稿', true],
+        ['GY20260325-001', 'a家电行业中，中低...', '蒋***', '', '润西微***限公司', 'test001', '2026/03/25 14:18:08', '验证商机', false],
+        ['GY20260320-001', '电子科技-杭州A导电...', '蒋***', '管***', '一二三***限公司', 'KH-20251127-003', '2026/03/20 11:34:19', '拓展商机', false],
+        ['GY20241202-001', '海力绿色建筑科技（...', '12897', '10016', 'KH20231030-001', '-', '2025/12/17 00:00:00', '评审中', false],
+        ['GY20241204-001', '移动端线索测试 1204', '13282', '10018', 'KH20241202-003', '-', '2025/12/17 00:00:00', '决策完成', false],
+      ].map((r, i) => ({
+        key: i, code: r[0], name: r[1], cm: r[2], bm: r[3],
+        buyerName: r[4], buyerCode: r[5], created: r[6], status: r[7], editable: r[8],
+      }));
+
+      // 同一套页面承载两个业务,用 URL 参数 ?biz= 切换文案与流程步骤:
+      //   biz=tech (默认) -> 技术工艺管理
+      //   biz=quote        -> 商机报价管理
+      const BIZ = new URLSearchParams(location.search).get('biz') || 'tech';
+      const CONFIGS = {
+        tech: {
+          pageTitle: '技术工艺管理',
+          createBtn: '新增技术工艺',
+          editTitle: '技术工艺基本信息',
+          codeLabel: '工艺编号',
+          nameLabel: '工艺名称',
+          // 该步骤直接嵌入 process_drawing(AI 图纸拆解平台);null 表示无嵌入步骤。
+          drawingStep: '图纸解析与设计工艺转化',
+          // 该步骤为「材料定性与供应链拆解」,调用 /api/* 真实数据;null 表示无此步骤。
+          materialStep: '材料定性与供应链拆解',
+          // 该步骤为「制造工艺路径规划和BOM编制」,调用 /api/* 真实数据。
+          manufacturingStep: '制造工艺路径规划和BOM编制',
+          // 该步骤为「清洗与洁净度管控方案制定」,调用 /api/* 真实数据。
+          cleaningStep: '清洗与洁净度管控方案制定',
+          // 该步骤为「组装与检测方案制定」,调用 /api/* 真实数据。
+          assemblyStep: '组装与检测方案制定',
+          // 该步骤为「产线匹配与产能评估」,调用 /api/* 真实数据。
+          productionStep: '产线匹配与产能评估',
+          // 该步骤为「技术工艺总结」,汇总各步 + 可编辑 + 导出文档。
+          summaryStep: '技术工艺总结',
+          // 「结束」步:最终确认,录入到技术工艺管理列表。
+          endStep: '结束',
+          costStep: null, // 技术工艺流程无「成本测算」步
+          pricingStep: null,
+          negotiationStep: null,
+          priceNegoStep: null,
+          approvalStep: null,
+          steps: [
+            '开始',
+            '图纸解析与设计工艺转化',
+            '材料定性与供应链拆解',
+            '制造工艺路径规划和BOM编制',
+            '清洗与洁净度管控方案制定',
+            '组装与检测方案制定',
+            '产线匹配与产能评估',
+            '技术工艺总结',
+            '结束',
+          ],
+        },
+        quote: {
+          pageTitle: '商机报价管理',
+          createBtn: '新增报价单',
+          editTitle: '报价单基本信息',
+          codeLabel: '报价编号',
+          nameLabel: '报价名称',
+          drawingStep: null,
+          materialStep: null,
+          manufacturingStep: null,
+          cleaningStep: null,
+          assemblyStep: null,
+          productionStep: null,
+          summaryStep: null,
+          endStep: '结束',
+          costStep: '成本测算', // 报价流程第 1 个真实节点
+          pricingStep: '定价方案制定', // 报价流程第 2 个节点
+          negotiationStep: '商务及谈判策略', // 报价流程第 3 个节点
+          priceNegoStep: '价格协商及谈判', // 报价流程第 4 个节点
+          approvalStep: '报价审批与决策', // 报价流程第 5 个节点
+          steps: [
+            '开始',
+            '成本测算',
+            '定价方案制定',
+            '商务及谈判策略',
+            '价格协商及谈判',
+            '报价审批与决策',
+            '结束',
+          ],
+        },
+      };
+      const CFG = CONFIGS[BIZ] || CONFIGS.tech;
+      document.title = CFG.pageTitle;
+      const TASK_STEPS = CFG.steps;
+
+      // process_drawing(AI 图纸拆解平台)的地址。
+      // 合并后本应用由 process_drawing 服务在 /apps/tech-process/ 提供,与图纸平台同源,
+      // 因此默认用相对地址 '/'(即同一服务的根)。覆盖优先级:
+      //   localStorage['techprocess:drawingUrl'] > ?drawingUrl= > 默认 '/'。
+      const PROCESS_DRAWING_URL = (function () {
+        try {
+          const o = localStorage.getItem('techprocess:drawingUrl');
+          if (o) return o;
+        } catch (e) {}
+        return new URLSearchParams(location.search).get('drawingUrl') || '/';
+      })();
+
+      // ===================== 列表页 =====================
+      function ListPage({ onCreate, onOpen }) {
+        // 已录入的真实记录(来自「结束」步录入),置于演示数据之上。
+        const [records, setRecords] = useState([]);
+        useEffect(() => {
+          api(`/api/techprocess/records?biz=${BIZ}`).then((d) => {
+            setRecords((d.records || []).map((r) => ({
+              key: r.id, code: r.code, name: r.name, cm: '', bm: '',
+              buyerName: '', buyerCode: '', created: r.created_at,
+              status: r.status, editable: true, project_id: r.project_id,
+            })));
+          }).catch(() => {});
+        }, []);
+
+        // 打开记录:若关联了图纸项目,带入 projectId 便于各步加载其数据。
+        const openRow = (row, mode) => {
+          if (row.project_id) {
+            try { localStorage.setItem('techprocess:projectId', row.project_id); } catch (e) {}
+          }
+          onOpen(row, mode);
+        };
+
+        const dataSource = [...records, ...ROWS];
+
+        const columns = [
+          { title: CFG.codeLabel, dataIndex: 'code', sorter: true,
+            render: (t, row) => <span className="tp-link" onClick={() => openRow(row, 'view')}>{t}</span> },
+          { title: CFG.nameLabel, dataIndex: 'name', sorter: true, ellipsis: true },
+          { title: '客户经理', dataIndex: 'cm', sorter: true },
+          { title: '商务经理', dataIndex: 'bm', sorter: true },
+          { title: '采购方（客户名称）', dataIndex: 'buyerName', sorter: true, ellipsis: true },
+          { title: '采购方（客户编码）', dataIndex: 'buyerCode', sorter: true },
+          { title: '创建时间', dataIndex: 'created', sorter: true, width: 170 },
+          { title: '状态', dataIndex: 'status', width: 110,
+            render: (s) => <Tag color={STATUS_COLORS[s] || 'default'}>{s}</Tag> },
+          { title: '操作', dataIndex: 'op', width: 120, fixed: 'right',
+            render: (_, row) => (
+              <span>
+                <a onClick={() => openRow(row, 'view')}>查看</a>
+                {row.editable && <a style={{ marginLeft: 12 }} onClick={() => openRow(row, 'edit')}>编辑</a>}
+              </span>
+            ) },
+        ];
+
+        return (
+          <div className="tp-page">
+            <div className="tp-card">
+              <div className="tp-toolbar">
+                <Button type="primary" icon={<PlusOutlined />} onClick={onCreate}>
+                  {CFG.createBtn}
+                </Button>
+              </div>
+
+              <div className="tp-filter">
+                <div className="tp-field">
+                  <label>{CFG.codeLabel}</label>
+                  <Input placeholder="请输入" allowClear />
+                </div>
+                <div className="tp-field">
+                  <label>{CFG.nameLabel}</label>
+                  <Input placeholder="请输入" allowClear />
+                </div>
+                <div className="tp-filter-actions" style={{ marginLeft: 'auto' }}>
+                  <span className="tp-link">快捷筛选</span>
+                  <span className="tp-link">展开 ⌄</span>
+                  <Button>重 置</Button>
+                  <Button type="primary">搜 索</Button>
+                </div>
+              </div>
+
+              <Table
+                columns={columns}
+                dataSource={dataSource}
+                pagination={false}
+                scroll={{ x: 1200 }}
+                size="middle"
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: 16 }}>
+                <span style={{ marginRight: 16, color: '#646a73' }}>总共: 34 条</span>
+                <Pagination defaultCurrent={1} total={34} pageSize={10}
+                  showSizeChanger pageSizeOptions={['10', '20', '50']} />
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ===================== 供应商目录维护(弹窗) =====================
+      function SuppliersModal({ open, onClose }) {
+        const [list, setList] = useState([]);
+        const [form] = Form.useForm();
+        const reload = () => api('/api/suppliers').then((d) => setList(d.suppliers || [])).catch(() => {});
+        useEffect(() => { if (open) reload(); }, [open]);
+
+        const add = () => {
+          form.validateFields().then((v) => {
+            api('/api/suppliers', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(v),
+            }).then(() => { form.resetFields(); reload(); message.success('已保存供应商'); })
+              .catch((e) => message.error(e.message));
+          });
+        };
+        const del = (id) => api('/api/suppliers/' + id, { method: 'DELETE' })
+          .then(reload).catch((e) => message.error(e.message));
+
+        const cols = [
+          { title: '供应商', dataIndex: 'name' },
+          { title: '可供物料', dataIndex: 'material' },
+          { title: '最高纯度%', dataIndex: 'max_purity_pct', width: 90 },
+          { title: 'D50 区间µm', render: (_, r) => `${r.d50_min_um ?? '-'} ~ ${r.d50_max_um ?? '-'}`, width: 110 },
+          { title: '交期', dataIndex: 'lead_time', width: 90 },
+          { title: '操作', width: 70, render: (_, r) => (
+            <Popconfirm title="删除该供应商?" onConfirm={() => del(r.id)}>
+              <a style={{ color: '#d4380d' }}><DeleteOutlined /></a>
+            </Popconfirm>
+          ) },
+        ];
+
+        return (
+          <Modal title="供应商能力目录" open={open} onCancel={onClose} footer={null} width={860}>
+            <Table size="small" rowKey="id" columns={cols} dataSource={list} pagination={false}
+              style={{ marginBottom: 16 }} />
+            <Divider>新增 / 更新供应商</Divider>
+            <Form form={form} layout="inline" style={{ rowGap: 8, flexWrap: 'wrap' }}>
+              <Form.Item name="name" rules={[{ required: true, message: '名称' }]}><Input placeholder="供应商名称" /></Form.Item>
+              <Form.Item name="material" rules={[{ required: true, message: '物料' }]}><Input placeholder="可供物料(如 氮化铝粉)" /></Form.Item>
+              <Form.Item name="max_purity_pct"><InputNumber placeholder="最高纯度%" /></Form.Item>
+              <Form.Item name="d50_min_um"><InputNumber placeholder="D50下限µm" /></Form.Item>
+              <Form.Item name="d50_max_um"><InputNumber placeholder="D50上限µm" /></Form.Item>
+              <Form.Item name="lead_time"><Input placeholder="交期" /></Form.Item>
+              <Form.Item><Button type="primary" onClick={add}>保存</Button></Form.Item>
+            </Form>
+          </Modal>
+        );
+      }
+
+      // ===================== 材料定性与供应链拆解(真实接口) =====================
+      function emptyMaterialPlan(pid) {
+        return {
+          project_id: pid,
+          body: { candidates: [], selected: null, rationale: null, confirmed: false },
+          metallization: { paste: [], layers: [], rationale: null, confirmed: false },
+          supply: { requirements: [], matches: [], conclusion: null },
+          timing: { status: 'not_started', completed: false },
+          search_sources: [],
+        };
+      }
+
+      function MaterialStep() {
+        const [projects, setProjects] = useState([]);
+        const [projectId, setProjectId] = useState(() => {
+          try { return localStorage.getItem('techprocess:projectId') || ''; } catch (e) { return ''; }
+        });
+        const [plan, setPlan] = useState(null);
+        const [loading, setLoading] = useState(false);
+        const [busy, setBusy] = useState('');         // 'recommend' | 'evaluate' | ''
+        const [suppliersOpen, setSuppliersOpen] = useState(false);
+
+        useEffect(() => {
+          api('/api/projects')
+            .then((d) => setProjects(Array.isArray(d) ? d : (d.projects || [])))
+            .catch((e) => message.error('加载项目失败: ' + e.message));
+        }, []);
+
+        const loadPlan = (pid) => {
+          if (!pid) { setPlan(null); return; }
+          setLoading(true);
+          api(`/api/projects/${pid}/material`)
+            .then((d) => setPlan(d.material || emptyMaterialPlan(pid)))
+            .catch((e) => message.error('加载材料计划失败: ' + e.message))
+            .finally(() => setLoading(false));
+        };
+        useEffect(() => { loadPlan(projectId); }, [projectId]);
+
+        const onPickProject = (pid) => {
+          setProjectId(pid);
+          try { localStorage.setItem('techprocess:projectId', pid); } catch (e) {}
+        };
+
+        const pollTask = (pid, taskId) => new Promise((resolve, reject) => {
+          const tick = () => api(`/api/projects/${pid}/tasks/${taskId}`).then((rec) => {
+            if (rec.status === 'succeeded') resolve(rec.result);
+            else if (rec.status === 'failed') reject(new Error(rec.error || '任务失败'));
+            else setTimeout(tick, 1500);
+          }).catch(reject);
+          tick();
+        });
+
+        const savePlan = (next) => api(`/api/projects/${projectId}/material`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(next),
+        }).then((d) => setPlan(d.material));
+
+        const doRecommend = () => {
+          if (!projectId) return;
+          setBusy('recommend');
+          api(`/api/projects/${projectId}/material/recommend`, { method: 'POST' })
+            .then((d) => pollTask(projectId, d.task_id))
+            .then((result) => { setPlan(result.material); message.success('AI 推荐完成'); })
+            .catch((e) => message.error('推荐失败: ' + e.message))
+            .finally(() => setBusy(''));
+        };
+
+        const confirmSection = (section) => {
+          const go = () => api(`/api/projects/${projectId}/material/confirm?section=${section}`, { method: 'POST' })
+            .then((d) => { setPlan(d.material); message.success('已确认'); })
+            .catch((e) => message.error(e.message));
+          // 确认主体材料前先把选定值持久化
+          if (section === 'body') savePlan(plan).then(go).catch((e) => message.error(e.message));
+          else go();
+        };
+
+        const doEvaluate = () => {
+          setBusy('evaluate');
+          api(`/api/projects/${projectId}/material/evaluate`, { method: 'POST' })
+            .then((d) => { setPlan(d.material); message.success('供应商评估完成'); })
+            .catch((e) => message.error('评估失败: ' + e.message))
+            .finally(() => setBusy(''));
+        };
+
+        const setTiming = (action) => api(`/api/projects/${projectId}/material/timing?action=${action}`, { method: 'POST' })
+          .then((d) => { setPlan(d.material); }).catch((e) => message.error(e.message));
+
+        // ---- 渲染 ----
+        const projOptions = projects.map((p) => ({
+          value: p.project_id,
+          label: `${p.device_name || p.source_filename || p.project_id}(${p.project_id})`,
+        }));
+
+        const header = (
+          <Space wrap style={{ marginBottom: 16 }}>
+            <span>关联图纸项目:</span>
+            <Select
+              showSearch optionFilterProp="label" style={{ width: 360 }}
+              placeholder="选择「图纸解析」步骤产生的项目"
+              value={projectId || undefined} options={projOptions} onChange={onPickProject}
+            />
+            <a onClick={() => { api('/api/projects').then((d) => setProjects(Array.isArray(d) ? d : (d.projects || []))); }}>
+              <ReloadOutlined /> 刷新
+            </a>
+          </Space>
+        );
+
+        if (!projectId) {
+          return (
+            <div style={{ padding: '8px 0' }}>
+              {header}
+              <Alert type="info" showIcon
+                message="请先选择一个图纸项目"
+                description="材料定性基于「图纸解析与设计工艺转化」步骤产生的项目(及其 IR)。先在该步骤上传图纸生成项目,再回到这里选择它。" />
+            </div>
+          );
+        }
+
+        const b = (plan && plan.body) || {};
+        const m = (plan && plan.metallization) || {};
+        const sup = (plan && plan.supply) || {};
+        const tm = (plan && plan.timing) || {};
+
+        const bodyCols = [
+          { title: '材料', dataIndex: 'material', render: (t, r) => (
+            <span>{t} {r.recommended && <Tag color="green">推荐</Tag>}</span>) },
+          { title: '热导率', dataIndex: 'thermal_conductivity' },
+          { title: '介电', dataIndex: 'dielectric' },
+          { title: 'CTE', dataIndex: 'cte', width: 90 },
+          { title: '机械强度', dataIndex: 'mechanical' },
+          { title: '成本', dataIndex: 'cost_level', width: 70 },
+        ];
+        const pasteCols = [
+          { title: '成分', dataIndex: 'component' },
+          { title: '占比 wt%', dataIndex: 'ratio_pct', width: 90 },
+          { title: '作用', dataIndex: 'role' },
+        ];
+        const layerCols = [
+          { title: '层', dataIndex: 'layer' },
+          { title: '材料', dataIndex: 'material' },
+          { title: '厚度 µm', dataIndex: 'thickness_um', width: 90 },
+          { title: '工艺', dataIndex: 'process' },
+        ];
+        const reqCols = [
+          { title: '物料', dataIndex: 'material' },
+          { title: '最低纯度%', dataIndex: 'purity_pct_min', width: 100 },
+          { title: 'D50 区间µm', render: (_, r) => `${r.d50_um_min ?? '-'} ~ ${r.d50_um_max ?? '-'}`, width: 120 },
+          { title: '其它', dataIndex: 'notes' },
+        ];
+        const matchCols = [
+          { title: '供应商', dataIndex: 'supplier' },
+          { title: '物料', dataIndex: 'material' },
+          { title: '纯度%', dataIndex: 'offered_purity_pct', width: 80 },
+          { title: 'D50µm', dataIndex: 'offered_d50_um', width: 80 },
+          { title: '达标', dataIndex: 'qualified', width: 80,
+            render: (q) => <Tag color={q ? 'success' : 'error'}>{q ? '达标' : '不达标'}</Tag> },
+          { title: '说明', dataIndex: 'gap_notes' },
+        ];
+
+        const card = (title, extra, children) => (
+          <div style={{ border: '1px solid #eceff2', borderRadius: 6, padding: '14px 18px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
+              <div style={{ marginLeft: 'auto' }}>{extra}</div>
+            </div>
+            {children}
+          </div>
+        );
+
+        const dur = (() => {
+          if (!tm.started_at || !tm.finished_at) return null;
+          const s = Date.parse(tm.started_at.replace(/-/g, '/'));
+          const f = Date.parse(tm.finished_at.replace(/-/g, '/'));
+          if (isNaN(s) || isNaN(f)) return null;
+          const mins = Math.max(0, Math.round((f - s) / 60000));
+          return mins + ' 分钟';
+        })();
+
+        return (
+          <Spin spinning={loading}>
+            {header}
+
+            {/* ① 陶瓷主体材料 */}
+            {card('① 陶瓷主体材料定性(氧化铝 / 氮化铝 / 其他)',
+              <Space>
+                {b.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {b.confirmed_at}</Tag>}
+                <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>
+                  AI 推荐(联网)
+                </Button>
+              </Space>,
+              <div>
+                {(b.candidates && b.candidates.length) ? (
+                  <Table size="small" rowKey="material" columns={bodyCols} dataSource={b.candidates}
+                    pagination={false}
+                    rowSelection={{
+                      type: 'radio',
+                      selectedRowKeys: b.selected ? [b.selected] : [],
+                      onChange: (keys) => setPlan({ ...plan, body: { ...b, selected: keys[0] } }),
+                    }} />
+                ) : <Empty description="点「AI 推荐」生成候选材料对比" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+                {b.rationale && <div style={{ color: '#646a73', marginTop: 10 }}>推荐理由:{b.rationale}</div>}
+                {b.candidates && b.candidates.length ? (
+                  <div style={{ marginTop: 12 }}>
+                    已选:<b>{b.selected || '未选'}</b>
+                    <Button type="primary" size="small" style={{ marginLeft: 12 }}
+                      disabled={!b.selected} onClick={() => confirmSection('body')}>确认选用</Button>
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            {/* ② 电极浆料与金属化 */}
+            {card('② 电极浆料及金属化层配方',
+              <Space>
+                {m.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {m.confirmed_at}</Tag>}
+                <Button type="primary" size="small" disabled={!(m.paste && m.paste.length)}
+                  onClick={() => confirmSection('metallization')}>确认方案</Button>
+              </Space>,
+              <div>
+                <div style={{ color: '#8a9099', marginBottom: 6 }}>电极浆料成分</div>
+                {(m.paste && m.paste.length) ? (
+                  <Table size="small" rowKey={(r, i) => 'p' + i} columns={pasteCols} dataSource={m.paste} pagination={false} />
+                ) : <Empty description="待 AI 推荐" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+                <div style={{ color: '#8a9099', margin: '12px 0 6px' }}>金属化层结构</div>
+                {(m.layers && m.layers.length) ? (
+                  <Table size="small" rowKey={(r, i) => 'l' + i} columns={layerCols} dataSource={m.layers} pagination={false} />
+                ) : <Empty description="待 AI 推荐" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+                {m.rationale && <div style={{ color: '#646a73', marginTop: 10 }}>方案理由:{m.rationale}</div>}
+              </div>
+            )}
+
+            {/* ③ 供应商评估 */}
+            {card('③ 供应商能否满足纯度/粒径要求',
+              <Space>
+                <Button size="small" onClick={() => setSuppliersOpen(true)}>维护供应商目录</Button>
+                <Button type="primary" size="small" loading={busy === 'evaluate'}
+                  disabled={!(sup.requirements && sup.requirements.length)} onClick={doEvaluate}>评估</Button>
+              </Space>,
+              <div>
+                <div style={{ color: '#8a9099', marginBottom: 6 }}>粉末要求(达标基准)</div>
+                {(sup.requirements && sup.requirements.length) ? (
+                  <Table size="small" rowKey={(r, i) => 'r' + i} columns={reqCols} dataSource={sup.requirements} pagination={false} />
+                ) : <Empty description="先做 AI 推荐生成要求,或在供应商目录中维护后评估" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+                {(sup.matches && sup.matches.length) ? (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ color: '#8a9099', marginBottom: 6 }}>匹配结果</div>
+                    <Table size="small" rowKey={(r, i) => 'm' + i} columns={matchCols} dataSource={sup.matches} pagination={false} />
+                    {sup.conclusion && <Alert style={{ marginTop: 10 }} type="info" showIcon message={sup.conclusion} />}
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            {/* ④ 执行时间与状态 */}
+            {card('④ 执行时间与完成状态',
+              <Tag color={tm.status === 'done' ? 'success' : tm.status === 'in_progress' ? 'processing' : 'default'}>
+                {tm.status === 'done' ? '已完成' : tm.status === 'in_progress' ? '进行中' : '未开始'}
+              </Tag>,
+              <div>
+                <Descriptions size="small" column={3} bordered>
+                  <Descriptions.Item label="开始时间">{tm.started_at || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="完成时间">{tm.finished_at || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="用时">{dur || '—'}</Descriptions.Item>
+                </Descriptions>
+                <Space style={{ marginTop: 12 }}>
+                  <Button onClick={() => setTiming('start')} disabled={tm.status === 'in_progress'}>开始</Button>
+                  <Button type="primary" onClick={() => setTiming('finish')} disabled={tm.completed}>标记完成</Button>
+                </Space>
+              </div>
+            )}
+
+            {(plan && plan.search_sources && plan.search_sources.length) ? (
+              <div style={{ color: '#8a9099', fontSize: 12 }}>
+                检索来源:{plan.search_sources.map((s, i) => (
+                  <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ marginRight: 10 }}>{s.title}↗</a>
+                ))}
+              </div>
+            ) : null}
+
+            <SuppliersModal open={suppliersOpen} onClose={() => setSuppliersOpen(false)} />
+          </Spin>
+        );
+      }
+
+      // ===================== 制造工艺路径规划和BOM编制(真实接口) =====================
+      function emptyManufacturingPlan(pid) {
+        return {
+          project_id: pid,
+          path: { steps: [], summary: null, confirmed: false },
+          additional: [],
+          bom: { items: [], summary: null, confirmed: false },
+          timing: { status: 'not_started', completed: false },
+          search_sources: [],
+        };
+      }
+
+      function ManufacturingStep() {
+        const [projects, setProjects] = useState([]);
+        const [projectId, setProjectId] = useState(() => {
+          try { return localStorage.getItem('techprocess:projectId') || ''; } catch (e) { return ''; }
+        });
+        const [plan, setPlan] = useState(null);
+        const [loading, setLoading] = useState(false);
+        const [busy, setBusy] = useState('');
+
+        useEffect(() => {
+          api('/api/projects')
+            .then((d) => setProjects(Array.isArray(d) ? d : (d.projects || [])))
+            .catch((e) => message.error('加载项目失败: ' + e.message));
+        }, []);
+
+        const loadPlan = (pid) => {
+          if (!pid) { setPlan(null); return; }
+          setLoading(true);
+          api(`/api/projects/${pid}/manufacturing`)
+            .then((d) => setPlan(d.manufacturing || emptyManufacturingPlan(pid)))
+            .catch((e) => message.error('加载工艺计划失败: ' + e.message))
+            .finally(() => setLoading(false));
+        };
+        useEffect(() => { loadPlan(projectId); }, [projectId]);
+
+        const onPickProject = (pid) => {
+          setProjectId(pid);
+          try { localStorage.setItem('techprocess:projectId', pid); } catch (e) {}
+        };
+
+        const pollTask = (pid, taskId) => new Promise((resolve, reject) => {
+          const tick = () => api(`/api/projects/${pid}/tasks/${taskId}`).then((rec) => {
+            if (rec.status === 'succeeded') resolve(rec.result);
+            else if (rec.status === 'failed') reject(new Error(rec.error || '任务失败'));
+            else setTimeout(tick, 1500);
+          }).catch(reject);
+          tick();
+        });
+
+        const doRecommend = () => {
+          if (!projectId) return;
+          setBusy('recommend');
+          api(`/api/projects/${projectId}/manufacturing/recommend`, { method: 'POST' })
+            .then((d) => pollTask(projectId, d.task_id))
+            .then((result) => { setPlan(result.manufacturing); message.success('AI 规划完成'); })
+            .catch((e) => message.error('规划失败: ' + e.message))
+            .finally(() => setBusy(''));
+        };
+
+        const confirmSection = (section) => api(`/api/projects/${projectId}/manufacturing/confirm?section=${section}`, { method: 'POST' })
+          .then((d) => { setPlan(d.manufacturing); message.success('已确认'); })
+          .catch((e) => message.error(e.message));
+
+        const setTiming = (action) => api(`/api/projects/${projectId}/manufacturing/timing?action=${action}`, { method: 'POST' })
+          .then((d) => { setPlan(d.manufacturing); }).catch((e) => message.error(e.message));
+
+        const projOptions = projects.map((p) => ({
+          value: p.project_id,
+          label: `${p.device_name || p.source_filename || p.project_id}(${p.project_id})`,
+        }));
+
+        const header = (
+          <Space wrap style={{ marginBottom: 16 }}>
+            <span>关联图纸项目:</span>
+            <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+              placeholder="选择「图纸解析」步骤产生的项目"
+              value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+          </Space>
+        );
+
+        if (!projectId) {
+          return (
+            <div style={{ padding: '8px 0' }}>
+              {header}
+              <Alert type="info" showIcon message="请先选择一个图纸项目"
+                description="制造工艺规划基于项目 IR 与第 3 步材料计划。先在「图纸解析」步骤生成项目、在「材料定性」步骤确定材料,再回到这里。" />
+            </div>
+          );
+        }
+
+        const path = (plan && plan.path) || {};
+        const add = (plan && plan.additional) || [];
+        const bom = (plan && plan.bom) || {};
+        const tm = (plan && plan.timing) || {};
+
+        const card = (title, extra, children) => (
+          <div style={{ border: '1px solid #eceff2', borderRadius: 6, padding: '14px 18px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
+              <div style={{ marginLeft: 'auto' }}>{extra}</div>
+            </div>
+            {children}
+          </div>
+        );
+
+        const pathCols = [
+          { title: '#', dataIndex: 'seq', width: 50 },
+          { title: '工序', dataIndex: 'name', render: (t, r) => (
+            <span>{t} {r.critical && <Tag color="red">关键</Tag>}</span>) },
+          { title: '类别', dataIndex: 'category', width: 90 },
+          { title: '关键设备', dataIndex: 'equipment' },
+          { title: '关键参数', dataIndex: 'params' },
+          { title: '目的/质量', render: (_, r) => [r.purpose, r.quality].filter(Boolean).join(';') },
+        ];
+        const addCols = [
+          { title: '工艺', dataIndex: 'name' },
+          { title: '是否需要', dataIndex: 'needed', width: 90,
+            render: (n) => <Tag color={n ? 'processing' : 'default'}>{n ? '需要' : '不需要'}</Tag> },
+          { title: '理由', dataIndex: 'reason' },
+          { title: '备注', dataIndex: 'notes' },
+        ];
+        const bomCols = [
+          { title: '序号', dataIndex: 'ref', width: 70 },
+          { title: '项目', dataIndex: 'item' },
+          { title: '类别', dataIndex: 'category', width: 90 },
+          { title: '规格', dataIndex: 'spec' },
+          { title: '数量', render: (_, r) => [r.quantity, r.unit].filter((x) => x !== null && x !== undefined && x !== '').join(' '), width: 90 },
+          { title: '来源工序', dataIndex: 'from_step' },
+          { title: '备注', dataIndex: 'note' },
+        ];
+
+        const dur = (() => {
+          if (!tm.started_at || !tm.finished_at) return null;
+          const s = Date.parse(tm.started_at.replace(/-/g, '/'));
+          const f = Date.parse(tm.finished_at.replace(/-/g, '/'));
+          if (isNaN(s) || isNaN(f)) return null;
+          return Math.max(0, Math.round((f - s) / 60000)) + ' 分钟';
+        })();
+
+        return (
+          <Spin spinning={loading}>
+            {header}
+
+            {/* ① 核心制造工艺路径 */}
+            {card('① 核心制造工艺路径(生坯成型 → 高温共烧 → 精密研磨 …)',
+              <Space>
+                {path.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {path.confirmed_at}</Tag>}
+                <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 规划(联网)</Button>
+              </Space>,
+              <div>
+                {(path.steps && path.steps.length) ? (
+                  <Table size="small" rowKey="seq" columns={pathCols} dataSource={path.steps} pagination={false} />
+                ) : <Empty description="点「AI 规划」生成工艺路径" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+                {path.summary && <div style={{ color: '#646a73', marginTop: 10 }}>路径思路:{path.summary}</div>}
+                {(path.steps && path.steps.length) ? (
+                  <Button type="primary" size="small" style={{ marginTop: 12 }} onClick={() => confirmSection('path')}>确认工艺路径</Button>
+                ) : null}
+              </div>
+            )}
+
+            {/* ② 其它关键制造工艺评估 */}
+            {card('② 其它关键制造工艺评估(共烧、面型控制 …)', null,
+              (add && add.length) ? (
+                <Table size="small" rowKey={(r, i) => 'a' + i} columns={addCols} dataSource={add} pagination={false} />
+              ) : <Empty description="待 AI 规划" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+
+            {/* ③ 工艺 BOM */}
+            {card('③ 工艺 BOM(按工序分解)',
+              <Space>
+                {bom.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {bom.confirmed_at}</Tag>}
+                <Button size="small" disabled={!(bom.items && bom.items.length)}
+                  onClick={() => window.open(`/api/projects/${projectId}/manufacturing/bom.csv`, '_blank')}>导出 CSV</Button>
+                <Button type="primary" size="small" disabled={!(bom.items && bom.items.length)}
+                  onClick={() => confirmSection('bom')}>确认 BOM</Button>
+              </Space>,
+              <div>
+                {(bom.items && bom.items.length) ? (
+                  <Table size="small" rowKey={(r, i) => 'b' + i} columns={bomCols} dataSource={bom.items} pagination={false} />
+                ) : <Empty description="待 AI 规划生成工艺 BOM" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+                {bom.summary && <div style={{ color: '#646a73', marginTop: 10 }}>BOM 结构:{bom.summary}</div>}
+              </div>
+            )}
+
+            {/* ④ 执行时间与状态 */}
+            {card('④ 执行时间与完成状态',
+              <Tag color={tm.status === 'done' ? 'success' : tm.status === 'in_progress' ? 'processing' : 'default'}>
+                {tm.status === 'done' ? '已完成' : tm.status === 'in_progress' ? '进行中' : '未开始'}
+              </Tag>,
+              <div>
+                <Descriptions size="small" column={3} bordered>
+                  <Descriptions.Item label="开始时间">{tm.started_at || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="完成时间">{tm.finished_at || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="用时">{dur || '—'}</Descriptions.Item>
+                </Descriptions>
+                <Space style={{ marginTop: 12 }}>
+                  <Button onClick={() => setTiming('start')} disabled={tm.status === 'in_progress'}>开始</Button>
+                  <Button type="primary" onClick={() => setTiming('finish')} disabled={tm.completed}>标记完成</Button>
+                </Space>
+              </div>
+            )}
+
+            {(plan && plan.search_sources && plan.search_sources.length) ? (
+              <div style={{ color: '#8a9099', fontSize: 12 }}>
+                检索来源:{plan.search_sources.map((s, i) => (
+                  <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ marginRight: 10 }}>{s.title}↗</a>
+                ))}
+              </div>
+            ) : null}
+          </Spin>
+        );
+      }
+
+      // ===================== 清洗与洁净度管控方案制定(真实接口) =====================
+      function emptyCleaningPlan(pid) {
+        return {
+          project_id: pid, cleanliness_grade: null, grade_source: null,
+          chemical_steps: [], rinse_steps: [], controls: [], summary: null,
+          confirmed: false, timing: { status: 'not_started', completed: false }, search_sources: [],
+        };
+      }
+
+      function CleaningStep() {
+        const [projects, setProjects] = useState([]);
+        const [projectId, setProjectId] = useState(() => {
+          try { return localStorage.getItem('techprocess:projectId') || ''; } catch (e) { return ''; }
+        });
+        const [plan, setPlan] = useState(null);
+        const [loading, setLoading] = useState(false);
+        const [busy, setBusy] = useState('');
+
+        useEffect(() => {
+          api('/api/projects')
+            .then((d) => setProjects(Array.isArray(d) ? d : (d.projects || [])))
+            .catch((e) => message.error('加载项目失败: ' + e.message));
+        }, []);
+
+        const loadPlan = (pid) => {
+          if (!pid) { setPlan(null); return; }
+          setLoading(true);
+          api(`/api/projects/${pid}/cleaning`)
+            .then((d) => setPlan(d.cleaning || emptyCleaningPlan(pid)))
+            .catch((e) => message.error('加载清洗方案失败: ' + e.message))
+            .finally(() => setLoading(false));
+        };
+        useEffect(() => { loadPlan(projectId); }, [projectId]);
+
+        const onPickProject = (pid) => {
+          setProjectId(pid);
+          try { localStorage.setItem('techprocess:projectId', pid); } catch (e) {}
+        };
+
+        const pollTask = (pid, taskId) => new Promise((resolve, reject) => {
+          const tick = () => api(`/api/projects/${pid}/tasks/${taskId}`).then((rec) => {
+            if (rec.status === 'succeeded') resolve(rec.result);
+            else if (rec.status === 'failed') reject(new Error(rec.error || '任务失败'));
+            else setTimeout(tick, 1500);
+          }).catch(reject);
+          tick();
+        });
+
+        const doRecommend = () => {
+          if (!projectId) return;
+          setBusy('recommend');
+          api(`/api/projects/${projectId}/cleaning/recommend`, { method: 'POST' })
+            .then((d) => pollTask(projectId, d.task_id))
+            .then((result) => { setPlan(result.cleaning); message.success('AI 方案生成完成'); })
+            .catch((e) => message.error('生成失败: ' + e.message))
+            .finally(() => setBusy(''));
+        };
+
+        const confirmPlan = () => api(`/api/projects/${projectId}/cleaning/confirm`, { method: 'POST' })
+          .then((d) => { setPlan(d.cleaning); message.success('已确认'); })
+          .catch((e) => message.error(e.message));
+
+        const setTiming = (action) => api(`/api/projects/${projectId}/cleaning/timing?action=${action}`, { method: 'POST' })
+          .then((d) => { setPlan(d.cleaning); }).catch((e) => message.error(e.message));
+
+        const projOptions = projects.map((p) => ({
+          value: p.project_id,
+          label: `${p.device_name || p.source_filename || p.project_id}(${p.project_id})`,
+        }));
+
+        const header = (
+          <Space wrap style={{ marginBottom: 16 }}>
+            <span>关联图纸项目:</span>
+            <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+              placeholder="选择「图纸解析」步骤产生的项目"
+              value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+          </Space>
+        );
+
+        if (!projectId) {
+          return (
+            <div style={{ padding: '8px 0' }}>
+              {header}
+              <Alert type="info" showIcon message="请先选择一个图纸项目"
+                description="清洗方案依据图纸标注的洁净度等级与所选材料定制。先在「图纸解析」步骤生成项目,再回到这里。" />
+            </div>
+          );
+        }
+
+        const p = plan || {};
+        const tm = p.timing || {};
+
+        const card = (title, extra, children) => (
+          <div style={{ border: '1px solid #eceff2', borderRadius: 6, padding: '14px 18px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
+              <div style={{ marginLeft: 'auto' }}>{extra}</div>
+            </div>
+            {children}
+          </div>
+        );
+
+        const chemCols = [
+          { title: '#', dataIndex: 'seq', width: 50 },
+          { title: '工步', dataIndex: 'name' },
+          { title: '清洗剂/酸洗液', dataIndex: 'agent' },
+          { title: '浓度/配比', dataIndex: 'concentration' },
+          { title: '温度', dataIndex: 'temperature', width: 80 },
+          { title: '时长(min)', dataIndex: 'duration_min', width: 90 },
+          { title: '去除对象', dataIndex: 'target' },
+          { title: '禁忌/备注', dataIndex: 'notes' },
+        ];
+        const rinseCols = [
+          { title: '#', dataIndex: 'seq', width: 50 },
+          { title: '介质', dataIndex: 'medium' },
+          { title: '方式', dataIndex: 'method' },
+          { title: '终点指标', dataIndex: 'spec' },
+          { title: '时长(min)', dataIndex: 'duration_min', width: 90 },
+          { title: '备注', dataIndex: 'notes' },
+        ];
+        const ctrlCols = [
+          { title: '管控项', dataIndex: 'item' },
+          { title: '方法', dataIndex: 'method' },
+          { title: '判定标准', dataIndex: 'criteria' },
+        ];
+
+        const dur = (() => {
+          if (!tm.started_at || !tm.finished_at) return null;
+          const s = Date.parse(tm.started_at.replace(/-/g, '/'));
+          const f = Date.parse(tm.finished_at.replace(/-/g, '/'));
+          if (isNaN(s) || isNaN(f)) return null;
+          return Math.max(0, Math.round((f - s) / 60000)) + ' 分钟';
+        })();
+
+        return (
+          <Spin spinning={loading}>
+            <Space wrap style={{ marginBottom: 16, width: '100%' }}>
+              <span>关联图纸项目:</span>
+              <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                placeholder="选择「图纸解析」步骤产生的项目"
+                value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 生成方案(联网)</Button>
+              {p.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {p.confirmed_at}</Tag>}
+              <Button type="primary"
+                disabled={!((p.chemical_steps && p.chemical_steps.length) || (p.rinse_steps && p.rinse_steps.length))}
+                onClick={confirmPlan}>确认方案</Button>
+            </Space>
+
+            {/* 洁净度等级 */}
+            {card('洁净度等级(依据图纸标注)', p.grade_source ? <Tag>{p.grade_source}</Tag> : null,
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 600 }}>{p.cleanliness_grade || '—(待 AI 生成 / 图纸未标注)'}</div>
+                {p.grade_notes && <div style={{ color: '#646a73', marginTop: 6 }}>{p.grade_notes}</div>}
+              </div>
+            )}
+
+            {/* ① 化学清洗方案 */}
+            {card('① 化学清洗方案(定制酸洗/碱洗去除表面污染物)', null,
+              (p.chemical_steps && p.chemical_steps.length) ? (
+                <Table size="small" rowKey="seq" columns={chemCols} dataSource={p.chemical_steps} pagination={false} />
+              ) : <Empty description="点「AI 生成方案」生成化学清洗工步" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+
+            {/* ② 高纯水终漂洗流程 */}
+            {card('② 高纯水终漂洗流程', null,
+              (p.rinse_steps && p.rinse_steps.length) ? (
+                <Table size="small" rowKey="seq" columns={rinseCols} dataSource={p.rinse_steps} pagination={false} />
+              ) : <Empty description="待 AI 生成" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+
+            {/* 洁净度管控措施 */}
+            {card('洁净度管控措施', null,
+              (p.controls && p.controls.length) ? (
+                <Table size="small" rowKey={(r, i) => 'c' + i} columns={ctrlCols} dataSource={p.controls} pagination={false} />
+              ) : <Empty description="待 AI 生成" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+
+            {p.summary && (
+              <div style={{ color: '#646a73', margin: '4px 0 16px' }}>方案概述:{p.summary}</div>
+            )}
+
+            {/* 执行时间与状态 */}
+            {card('执行时间与完成状态',
+              <Tag color={tm.status === 'done' ? 'success' : tm.status === 'in_progress' ? 'processing' : 'default'}>
+                {tm.status === 'done' ? '已完成' : tm.status === 'in_progress' ? '进行中' : '未开始'}
+              </Tag>,
+              <div>
+                <Descriptions size="small" column={3} bordered>
+                  <Descriptions.Item label="开始时间">{tm.started_at || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="完成时间">{tm.finished_at || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="用时">{dur || '—'}</Descriptions.Item>
+                </Descriptions>
+                <Space style={{ marginTop: 12 }}>
+                  <Button onClick={() => setTiming('start')} disabled={tm.status === 'in_progress'}>开始</Button>
+                  <Button type="primary" onClick={() => setTiming('finish')} disabled={tm.completed}>标记完成</Button>
+                </Space>
+              </div>
+            )}
+
+            {(p.search_sources && p.search_sources.length) ? (
+              <div style={{ color: '#8a9099', fontSize: 12 }}>
+                检索来源:{p.search_sources.map((s, i) => (
+                  <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ marginRight: 10 }}>{s.title}↗</a>
+                ))}
+              </div>
+            ) : null}
+          </Spin>
+        );
+      }
+
+      // ===================== 组装与检测方案制定(真实接口) =====================
+      function emptyAssemblyPlan(pid) {
+        return {
+          project_id: pid,
+          assembly: { method: null, rationale: null, steps: [], confirmed: false },
+          inspection: { tests: [], confirmed: false },
+          summary: null, timing: { status: 'not_started', completed: false }, search_sources: [],
+        };
+      }
+
+      function AssemblyStep() {
+        const [projects, setProjects] = useState([]);
+        const [projectId, setProjectId] = useState(() => {
+          try { return localStorage.getItem('techprocess:projectId') || ''; } catch (e) { return ''; }
+        });
+        const [plan, setPlan] = useState(null);
+        const [loading, setLoading] = useState(false);
+        const [busy, setBusy] = useState('');
+
+        useEffect(() => {
+          api('/api/projects')
+            .then((d) => setProjects(Array.isArray(d) ? d : (d.projects || [])))
+            .catch((e) => message.error('加载项目失败: ' + e.message));
+        }, []);
+
+        const loadPlan = (pid) => {
+          if (!pid) { setPlan(null); return; }
+          setLoading(true);
+          api(`/api/projects/${pid}/assembly`)
+            .then((d) => setPlan(d.assembly || emptyAssemblyPlan(pid)))
+            .catch((e) => message.error('加载方案失败: ' + e.message))
+            .finally(() => setLoading(false));
+        };
+        useEffect(() => { loadPlan(projectId); }, [projectId]);
+
+        const onPickProject = (pid) => {
+          setProjectId(pid);
+          try { localStorage.setItem('techprocess:projectId', pid); } catch (e) {}
+        };
+
+        const pollTask = (pid, taskId) => new Promise((resolve, reject) => {
+          const tick = () => api(`/api/projects/${pid}/tasks/${taskId}`).then((rec) => {
+            if (rec.status === 'succeeded') resolve(rec.result);
+            else if (rec.status === 'failed') reject(new Error(rec.error || '任务失败'));
+            else setTimeout(tick, 1500);
+          }).catch(reject);
+          tick();
+        });
+
+        const doRecommend = () => {
+          if (!projectId) return;
+          setBusy('recommend');
+          api(`/api/projects/${projectId}/assembly/recommend`, { method: 'POST' })
+            .then((d) => pollTask(projectId, d.task_id))
+            .then((result) => { setPlan(result.assembly); message.success('AI 方案生成完成'); })
+            .catch((e) => message.error('生成失败: ' + e.message))
+            .finally(() => setBusy(''));
+        };
+
+        const confirmSection = (section) => api(`/api/projects/${projectId}/assembly/confirm?section=${section}`, { method: 'POST' })
+          .then((d) => { setPlan(d.assembly); message.success('已确认'); })
+          .catch((e) => message.error(e.message));
+
+        const setTiming = (action) => api(`/api/projects/${projectId}/assembly/timing?action=${action}`, { method: 'POST' })
+          .then((d) => { setPlan(d.assembly); }).catch((e) => message.error(e.message));
+
+        const projOptions = projects.map((p) => ({
+          value: p.project_id,
+          label: `${p.device_name || p.source_filename || p.project_id}(${p.project_id})`,
+        }));
+
+        if (!projectId) {
+          return (
+            <div style={{ padding: '8px 0' }}>
+              <Space wrap style={{ marginBottom: 16 }}>
+                <span>关联图纸项目:</span>
+                <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                  placeholder="选择「图纸解析」步骤产生的项目"
+                  value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              </Space>
+              <Alert type="info" showIcon message="请先选择一个图纸项目"
+                description="组装与检测方案依据材料/制造工艺定制。先在前序步骤生成项目与方案,再回到这里。" />
+            </div>
+          );
+        }
+
+        const asm = (plan && plan.assembly) || {};
+        const insp = (plan && plan.inspection) || {};
+        const tm = (plan && plan.timing) || {};
+
+        const card = (title, extra, children) => (
+          <div style={{ border: '1px solid #eceff2', borderRadius: 6, padding: '14px 18px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
+              <div style={{ marginLeft: 'auto' }}>{extra}</div>
+            </div>
+            {children}
+          </div>
+        );
+
+        const asmCols = [
+          { title: '#', dataIndex: 'seq', width: 50 },
+          { title: '工步', dataIndex: 'name' },
+          { title: '方式', dataIndex: 'method', width: 100 },
+          { title: '焊料/胶', dataIndex: 'material' },
+          { title: '涂胶厚度', dataIndex: 'glue_thickness', width: 100 },
+          { title: '固化/焊接温度', dataIndex: 'cure_temperature', width: 120 },
+          { title: '时间', dataIndex: 'cure_time', width: 80 },
+          { title: '设备/质量', render: (_, r) => [r.equipment, r.quality].filter(Boolean).join(';') },
+        ];
+        const testCols = [
+          { title: '检测项', dataIndex: 'name' },
+          { title: '类别', dataIndex: 'category', width: 90 },
+          { title: '方法', dataIndex: 'method' },
+          { title: '设备', dataIndex: 'equipment' },
+          { title: '判定标准', dataIndex: 'criteria' },
+          { title: '抽样', dataIndex: 'sample', width: 90 },
+        ];
+
+        const dur = (() => {
+          if (!tm.started_at || !tm.finished_at) return null;
+          const s = Date.parse(tm.started_at.replace(/-/g, '/'));
+          const f = Date.parse(tm.finished_at.replace(/-/g, '/'));
+          if (isNaN(s) || isNaN(f)) return null;
+          return Math.max(0, Math.round((f - s) / 60000)) + ' 分钟';
+        })();
+
+        return (
+          <Spin spinning={loading}>
+            <Space wrap style={{ marginBottom: 16 }}>
+              <span>关联图纸项目:</span>
+              <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                placeholder="选择「图纸解析」步骤产生的项目"
+                value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 生成方案(联网)</Button>
+            </Space>
+
+            {/* ① 组装/键合工艺 */}
+            {card('① 组装工艺(陶瓷板 ↔ 金属基座:焊接 / 胶粘)',
+              <Space>
+                {asm.method && <Tag color="blue">{asm.method}</Tag>}
+                {asm.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {asm.confirmed_at}</Tag>}
+                <Button type="primary" size="small" disabled={!(asm.steps && asm.steps.length)}
+                  onClick={() => confirmSection('assembly')}>确认组装工艺</Button>
+              </Space>,
+              <div>
+                {(asm.steps && asm.steps.length) ? (
+                  <Table size="small" rowKey="seq" columns={asmCols} dataSource={asm.steps} pagination={false} />
+                ) : <Empty description="点「AI 生成方案」生成组装工艺(含涂胶厚度/固化温度)" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+                {asm.rationale && <div style={{ color: '#646a73', marginTop: 10 }}>连接方式理由:{asm.rationale}</div>}
+              </div>
+            )}
+
+            {/* ② 检测方案 */}
+            {card('② 检测方案(电性能 / 吸附力均匀性 / 氦气漏率)',
+              <Space>
+                {insp.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {insp.confirmed_at}</Tag>}
+                <Button type="primary" size="small" disabled={!(insp.tests && insp.tests.length)}
+                  onClick={() => confirmSection('inspection')}>确认检测方案</Button>
+              </Space>,
+              (insp.tests && insp.tests.length) ? (
+                <Table size="small" rowKey={(r, i) => 't' + i} columns={testCols} dataSource={insp.tests} pagination={false} />
+              ) : <Empty description="待 AI 生成检测方案" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+
+            {plan && plan.summary && (
+              <div style={{ color: '#646a73', margin: '4px 0 16px' }}>方案概述:{plan.summary}</div>
+            )}
+
+            {/* ③ 执行时间与状态 */}
+            {card('③ 执行时间与完成状态',
+              <Tag color={tm.status === 'done' ? 'success' : tm.status === 'in_progress' ? 'processing' : 'default'}>
+                {tm.status === 'done' ? '已完成' : tm.status === 'in_progress' ? '进行中' : '未开始'}
+              </Tag>,
+              <div>
+                <Descriptions size="small" column={3} bordered>
+                  <Descriptions.Item label="开始时间">{tm.started_at || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="完成时间">{tm.finished_at || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="用时">{dur || '—'}</Descriptions.Item>
+                </Descriptions>
+                <Space style={{ marginTop: 12 }}>
+                  <Button onClick={() => setTiming('start')} disabled={tm.status === 'in_progress'}>开始</Button>
+                  <Button type="primary" onClick={() => setTiming('finish')} disabled={tm.completed}>标记完成</Button>
+                </Space>
+              </div>
+            )}
+
+            {(plan && plan.search_sources && plan.search_sources.length) ? (
+              <div style={{ color: '#8a9099', fontSize: 12 }}>
+                检索来源:{plan.search_sources.map((s, i) => (
+                  <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ marginRight: 10 }}>{s.title}↗</a>
+                ))}
+              </div>
+            ) : null}
+          </Spin>
+        );
+      }
+
+      // ===================== 设备资源台账维护(弹窗) =====================
+      function EquipmentModal({ open, onClose }) {
+        const [list, setList] = useState([]);
+        const [form] = Form.useForm();
+        const reload = () => api('/api/equipment').then((d) => setList(d.equipment || [])).catch(() => {});
+        useEffect(() => { if (open) reload(); }, [open]);
+
+        const add = () => {
+          form.validateFields().then((v) => {
+            api('/api/equipment', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(v),
+            }).then(() => { form.resetFields(); reload(); message.success('已保存设备'); })
+              .catch((e) => message.error(e.message));
+          });
+        };
+        const del = (id) => api('/api/equipment/' + id, { method: 'DELETE' })
+          .then(reload).catch((e) => message.error(e.message));
+
+        const cols = [
+          { title: '设备名/型号', dataIndex: 'name' },
+          { title: '类型', dataIndex: 'type', width: 90 },
+          { title: '归属', dataIndex: 'owner', width: 70,
+            render: (o) => <Tag color={o === '外协' ? 'orange' : 'blue'}>{o}</Tag> },
+          { title: '厂商', dataIndex: 'vendor', width: 120 },
+          { title: '能力', dataIndex: 'capability' },
+          { title: '产能', dataIndex: 'capacity', width: 90 },
+          { title: '操作', width: 60, render: (_, r) => (
+            <Popconfirm title="删除该设备?" onConfirm={() => del(r.id)}>
+              <a style={{ color: '#d4380d' }}><DeleteOutlined /></a>
+            </Popconfirm>
+          ) },
+        ];
+
+        return (
+          <Modal title="设备资源台账(自有产线 + 外协厂商)" open={open} onCancel={onClose} footer={null} width={920}>
+            <Table size="small" rowKey="id" columns={cols} dataSource={list} pagination={false} style={{ marginBottom: 16 }} />
+            <Divider>新增 / 更新设备</Divider>
+            <Form form={form} layout="inline" style={{ rowGap: 8, flexWrap: 'wrap' }} initialValues={{ owner: '自有' }}>
+              <Form.Item name="name" rules={[{ required: true, message: '名称' }]}><Input placeholder="设备名/型号" /></Form.Item>
+              <Form.Item name="type" rules={[{ required: true, message: '类型' }]}><Input placeholder="类型(如 烧结炉)" /></Form.Item>
+              <Form.Item name="owner"><Select style={{ width: 90 }} options={[{ value: '自有' }, { value: '外协' }]} /></Form.Item>
+              <Form.Item name="vendor"><Input placeholder="外协厂商" /></Form.Item>
+              <Form.Item name="capability"><Input placeholder="关键能力" /></Form.Item>
+              <Form.Item name="capacity"><Input placeholder="产能" /></Form.Item>
+              <Form.Item name="cost"><Input placeholder="外协费用" /></Form.Item>
+              <Form.Item><Button type="primary" onClick={add}>保存</Button></Form.Item>
+            </Form>
+          </Modal>
+        );
+      }
+
+      // ===================== 产线匹配与产能评估(真实接口) =====================
+      function emptyProductionPlan(pid) {
+        return {
+          project_id: pid, requirements: [],
+          inhouse: { matches: [], confirmed: false },
+          outsourcing: { plans: [], confirmed: false },
+          capacity_summary: null, conclusion: null,
+          timing: { status: 'not_started', completed: false }, search_sources: [],
+        };
+      }
+
+      function ProductionStep() {
+        const [projects, setProjects] = useState([]);
+        const [projectId, setProjectId] = useState(() => {
+          try { return localStorage.getItem('techprocess:projectId') || ''; } catch (e) { return ''; }
+        });
+        const [plan, setPlan] = useState(null);
+        const [loading, setLoading] = useState(false);
+        const [busy, setBusy] = useState('');
+        const [equipOpen, setEquipOpen] = useState(false);
+
+        useEffect(() => {
+          api('/api/projects')
+            .then((d) => setProjects(Array.isArray(d) ? d : (d.projects || [])))
+            .catch((e) => message.error('加载项目失败: ' + e.message));
+        }, []);
+
+        const loadPlan = (pid) => {
+          if (!pid) { setPlan(null); return; }
+          setLoading(true);
+          api(`/api/projects/${pid}/production`)
+            .then((d) => setPlan(d.production || emptyProductionPlan(pid)))
+            .catch((e) => message.error('加载评估失败: ' + e.message))
+            .finally(() => setLoading(false));
+        };
+        useEffect(() => { loadPlan(projectId); }, [projectId]);
+
+        const onPickProject = (pid) => {
+          setProjectId(pid);
+          try { localStorage.setItem('techprocess:projectId', pid); } catch (e) {}
+        };
+
+        const pollTask = (pid, taskId) => new Promise((resolve, reject) => {
+          const tick = () => api(`/api/projects/${pid}/tasks/${taskId}`).then((rec) => {
+            if (rec.status === 'succeeded') resolve(rec.result);
+            else if (rec.status === 'failed') reject(new Error(rec.error || '任务失败'));
+            else setTimeout(tick, 1500);
+          }).catch(reject);
+          tick();
+        });
+
+        const doRecommend = () => {
+          if (!projectId) return;
+          setBusy('recommend');
+          api(`/api/projects/${projectId}/production/recommend`, { method: 'POST' })
+            .then((d) => pollTask(projectId, d.task_id))
+            .then((result) => { setPlan(result.production); message.success('AI 评估完成'); })
+            .catch((e) => message.error('评估失败: ' + e.message))
+            .finally(() => setBusy(''));
+        };
+
+        const confirmSection = (section) => api(`/api/projects/${projectId}/production/confirm?section=${section}`, { method: 'POST' })
+          .then((d) => { setPlan(d.production); message.success('已确认'); })
+          .catch((e) => message.error(e.message));
+
+        const setTiming = (action) => api(`/api/projects/${projectId}/production/timing?action=${action}`, { method: 'POST' })
+          .then((d) => { setPlan(d.production); }).catch((e) => message.error(e.message));
+
+        const projOptions = projects.map((p) => ({
+          value: p.project_id,
+          label: `${p.device_name || p.source_filename || p.project_id}(${p.project_id})`,
+        }));
+
+        if (!projectId) {
+          return (
+            <div style={{ padding: '8px 0' }}>
+              <Space wrap style={{ marginBottom: 16 }}>
+                <span>关联图纸项目:</span>
+                <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                  placeholder="选择「图纸解析」步骤产生的项目"
+                  value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              </Space>
+              <Alert type="info" showIcon message="请先选择一个图纸项目"
+                description="产线匹配依据第 4 步制造工艺与设备台账评估。先在前序步骤生成项目与工艺,再回到这里。" />
+            </div>
+          );
+        }
+
+        const reqs = (plan && plan.requirements) || [];
+        const inh = (plan && plan.inhouse) || {};
+        const out = (plan && plan.outsourcing) || {};
+        const tm = (plan && plan.timing) || {};
+
+        const card = (title, extra, children) => (
+          <div style={{ border: '1px solid #eceff2', borderRadius: 6, padding: '14px 18px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
+              <div style={{ marginLeft: 'auto' }}>{extra}</div>
+            </div>
+            {children}
+          </div>
+        );
+
+        const reqCols = [
+          { title: '工序', dataIndex: 'process', width: 130 },
+          { title: '设备类型', dataIndex: 'equipment_type', width: 110 },
+          { title: '关键要求', dataIndex: 'key_requirement' },
+          { title: '数量/节拍', dataIndex: 'qty', width: 100 },
+        ];
+        const inhCols = [
+          { title: '设备类型', dataIndex: 'equipment_type', width: 110 },
+          { title: '要求', dataIndex: 'requirement' },
+          { title: '匹配自有设备', dataIndex: 'matched_equipment' },
+          { title: '满足', dataIndex: 'satisfied', width: 80,
+            render: (q) => <Tag color={q ? 'success' : 'error'}>{q ? '满足' : '不满足'}</Tag> },
+          { title: '产能', dataIndex: 'capacity', width: 100 },
+          { title: '差距/说明', dataIndex: 'gap_notes' },
+        ];
+        const outCols = [
+          { title: '设备类型', dataIndex: 'equipment_type', width: 110 },
+          { title: '外协厂商', dataIndex: 'vendor' },
+          { title: '设备', dataIndex: 'equipment' },
+          { title: '满足', dataIndex: 'satisfied', width: 70,
+            render: (q) => <Tag color={q ? 'success' : 'default'}>{q ? '满足' : '否'}</Tag> },
+          { title: '成本', dataIndex: 'cost', width: 90 },
+          { title: '交期', dataIndex: 'lead_time', width: 90 },
+          { title: '建议外协', dataIndex: 'recommend', width: 90,
+            render: (r) => <Tag color={r ? 'orange' : 'default'}>{r ? '建议' : '暂不'}</Tag> },
+          { title: '理由', dataIndex: 'reason' },
+        ];
+
+        const dur = (() => {
+          if (!tm.started_at || !tm.finished_at) return null;
+          const s = Date.parse(tm.started_at.replace(/-/g, '/'));
+          const f = Date.parse(tm.finished_at.replace(/-/g, '/'));
+          if (isNaN(s) || isNaN(f)) return null;
+          return Math.max(0, Math.round((f - s) / 60000)) + ' 分钟';
+        })();
+
+        return (
+          <Spin spinning={loading}>
+            <Space wrap style={{ marginBottom: 16 }}>
+              <span>关联图纸项目:</span>
+              <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                placeholder="选择「图纸解析」步骤产生的项目"
+                value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 评估(联网)</Button>
+              <Button onClick={() => setEquipOpen(true)}>维护设备台账</Button>
+            </Space>
+
+            {/* 设备需求 */}
+            {card('设备需求(源自制造工艺工序)', null,
+              reqs.length ? (
+                <Table size="small" rowKey={(r, i) => 'rq' + i} columns={reqCols} dataSource={reqs} pagination={false} />
+              ) : <Empty description="点「AI 评估」从工艺路径推导设备需求" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+
+            {/* ① 自有产线匹配 */}
+            {card('① 自有产线设备匹配(是否满足图纸要求)',
+              <Space>
+                {inh.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {inh.confirmed_at}</Tag>}
+                <Button type="primary" size="small" disabled={!(inh.matches && inh.matches.length)}
+                  onClick={() => confirmSection('inhouse')}>确认产线匹配</Button>
+              </Space>,
+              (inh.matches && inh.matches.length) ? (
+                <Table size="small" rowKey={(r, i) => 'ih' + i} columns={inhCols} dataSource={inh.matches} pagination={false} />
+              ) : <Empty description="待 AI 评估" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+
+            {/* ② 外协安排 */}
+            {card('② 外协厂商资源匹配与安排(满足且成本合适则建议外协)',
+              <Space>
+                {out.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {out.confirmed_at}</Tag>}
+                <Button type="primary" size="small" disabled={!(out.plans && out.plans.length)}
+                  onClick={() => confirmSection('outsourcing')}>确认外协安排</Button>
+              </Space>,
+              (out.plans && out.plans.length) ? (
+                <Table size="small" rowKey={(r, i) => 'os' + i} columns={outCols} dataSource={out.plans} pagination={false} />
+              ) : <Empty description="自有不满足项会在此给出外协建议" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+
+            {(plan && (plan.capacity_summary || plan.conclusion)) && (
+              <div style={{ marginBottom: 16 }}>
+                {plan.capacity_summary && <Alert style={{ marginBottom: 8 }} type="info" showIcon message={'产能评估:' + plan.capacity_summary} />}
+                {plan.conclusion && <Alert type="success" showIcon message={'结论:' + plan.conclusion} />}
+              </div>
+            )}
+
+            {/* ③ 执行时间与状态 */}
+            {card('③ 执行时间与完成状态',
+              <Tag color={tm.status === 'done' ? 'success' : tm.status === 'in_progress' ? 'processing' : 'default'}>
+                {tm.status === 'done' ? '已完成' : tm.status === 'in_progress' ? '进行中' : '未开始'}
+              </Tag>,
+              <div>
+                <Descriptions size="small" column={3} bordered>
+                  <Descriptions.Item label="开始时间">{tm.started_at || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="完成时间">{tm.finished_at || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="用时">{dur || '—'}</Descriptions.Item>
+                </Descriptions>
+                <Space style={{ marginTop: 12 }}>
+                  <Button onClick={() => setTiming('start')} disabled={tm.status === 'in_progress'}>开始</Button>
+                  <Button type="primary" onClick={() => setTiming('finish')} disabled={tm.completed}>标记完成</Button>
+                </Space>
+              </div>
+            )}
+
+            {(plan && plan.search_sources && plan.search_sources.length) ? (
+              <div style={{ color: '#8a9099', fontSize: 12 }}>
+                检索来源:{plan.search_sources.map((s, i) => (
+                  <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ marginRight: 10 }}>{s.title}↗</a>
+                ))}
+              </div>
+            ) : null}
+
+            <EquipmentModal open={equipOpen} onClose={() => setEquipOpen(false)} />
+          </Spin>
+        );
+      }
+
+      // ===================== 通用步骤编辑器(JSON,直接回写各步接口) =====================
+      function StepEditorModal({ projectId, stepKey, title, open, onClose, onSaved }) {
+        const [text, setText] = useState('');
+        const [loading, setLoading] = useState(false);
+        useEffect(() => {
+          if (!open || !projectId) return;
+          setLoading(true);
+          api(`/api/projects/${projectId}/${stepKey}`)
+            .then((d) => setText(JSON.stringify(d[stepKey] || {}, null, 2)))
+            .catch((e) => message.error(e.message))
+            .finally(() => setLoading(false));
+        }, [open, projectId, stepKey]);
+
+        const save = () => {
+          let obj;
+          try { obj = JSON.parse(text); } catch (e) { message.error('JSON 格式错误: ' + e.message); return; }
+          api(`/api/projects/${projectId}/${stepKey}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj),
+          }).then(() => { message.success('已保存'); onClose(); onSaved && onSaved(); })
+            .catch((e) => message.error('保存失败: ' + e.message));
+        };
+
+        return (
+          <Modal title={`编辑:${title}`} open={open} onCancel={onClose} onOk={save} okText="保存" width={820}>
+            <Spin spinning={loading}>
+              <Alert type="warning" showIcon style={{ marginBottom: 8 }}
+                message="直接编辑该步骤的结构化数据(JSON),保存即回写。请保持字段结构合法。" />
+              <Input.TextArea value={text} onChange={(e) => setText(e.target.value)}
+                autoSize={{ minRows: 16, maxRows: 28 }} style={{ fontFamily: 'monospace', fontSize: 12 }} />
+            </Spin>
+          </Modal>
+        );
+      }
+
+      // ===================== 技术工艺总结(汇总 + 可编辑 + 导出) =====================
+      const SUMMARY_STEPS = [
+        { key: 'material', title: '材料定性与供应链拆解' },
+        { key: 'manufacturing', title: '制造工艺路径规划和BOM编制' },
+        { key: 'cleaning', title: '清洗与洁净度管控方案制定' },
+        { key: 'assembly', title: '组装与检测方案制定' },
+        { key: 'production', title: '产线匹配与产能评估' },
+      ];
+
+      function SummaryStep() {
+        const [projects, setProjects] = useState([]);
+        const [projectId, setProjectId] = useState(() => {
+          try { return localStorage.getItem('techprocess:projectId') || ''; } catch (e) { return ''; }
+        });
+        const [agg, setAgg] = useState(null);
+        const [sum, setSum] = useState({});
+        const [loading, setLoading] = useState(false);
+        const [busy, setBusy] = useState('');
+        const [editor, setEditor] = useState(null); // {key,title}
+
+        useEffect(() => {
+          api('/api/projects')
+            .then((d) => setProjects(Array.isArray(d) ? d : (d.projects || [])))
+            .catch((e) => message.error('加载项目失败: ' + e.message));
+        }, []);
+
+        const load = (pid) => {
+          if (!pid) { setAgg(null); return; }
+          setLoading(true);
+          api(`/api/projects/${pid}/summary`)
+            .then((d) => { setAgg(d); setSum(d.summary || {}); })
+            .catch((e) => message.error('加载汇总失败: ' + e.message))
+            .finally(() => setLoading(false));
+        };
+        useEffect(() => { load(projectId); }, [projectId]);
+
+        const onPickProject = (pid) => {
+          setProjectId(pid);
+          try { localStorage.setItem('techprocess:projectId', pid); } catch (e) {}
+        };
+
+        const pollTask = (pid, taskId) => new Promise((resolve, reject) => {
+          const tick = () => api(`/api/projects/${pid}/tasks/${taskId}`).then((rec) => {
+            if (rec.status === 'succeeded') resolve(rec.result);
+            else if (rec.status === 'failed') reject(new Error(rec.error || '任务失败'));
+            else setTimeout(tick, 1500);
+          }).catch(reject);
+          tick();
+        });
+
+        const aiSummary = () => {
+          setBusy('ai');
+          api(`/api/projects/${projectId}/summary/recommend`, { method: 'POST' })
+            .then((d) => pollTask(projectId, d.task_id))
+            .then((r) => { setSum(r.summary); message.success('AI 摘要生成完成'); })
+            .catch((e) => message.error('生成失败: ' + e.message))
+            .finally(() => setBusy(''));
+        };
+
+        const saveSummary = () => api(`/api/projects/${projectId}/summary`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sum),
+        }).then((d) => { setSum(d.summary); message.success('已保存'); }).catch((e) => message.error(e.message));
+
+        const confirmSummary = () => api(`/api/projects/${projectId}/summary/confirm`, { method: 'POST' })
+          .then((d) => { setSum(d.summary); message.success('已定稿'); }).catch((e) => message.error(e.message));
+
+        const projOptions = projects.map((p) => ({
+          value: p.project_id,
+          label: `${p.device_name || p.source_filename || p.project_id}(${p.project_id})`,
+        }));
+
+        if (!projectId) {
+          return (
+            <div style={{ padding: '8px 0' }}>
+              <Space wrap style={{ marginBottom: 16 }}>
+                <span>关联图纸项目:</span>
+                <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                  placeholder="选择「图纸解析」步骤产生的项目"
+                  value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              </Space>
+              <Alert type="info" showIcon message="请先选择一个图纸项目"
+                description="技术工艺总结会汇总该项目前面各步的结果。" />
+            </div>
+          );
+        }
+
+        const card = (title, extra, children) => (
+          <div style={{ border: '1px solid #eceff2', borderRadius: 6, padding: '14px 18px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
+              <div style={{ marginLeft: 'auto' }}>{extra}</div>
+            </div>
+            {children}
+          </div>
+        );
+
+        const lines = (v) => (Array.isArray(v) ? v.join('\n') : (v || ''));
+        const toArr = (s) => (s || '').split('\n').map((x) => x.trim()).filter(Boolean);
+        const steps = (agg && agg.steps) || {};
+
+        return (
+          <Spin spinning={loading}>
+            <Space wrap style={{ marginBottom: 16 }}>
+              <span>关联图纸项目:</span>
+              <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                placeholder="选择「图纸解析」步骤产生的项目"
+                value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              <Button icon={<RobotOutlined />} loading={busy === 'ai'} onClick={aiSummary}>AI 生成摘要</Button>
+              <Button onClick={() => window.open(`/api/projects/${projectId}/summary.html`, '_blank')}>导出文档(HTML/打印PDF)</Button>
+              <Button onClick={() => window.open(`/api/projects/${projectId}/summary.md`, '_blank')}>导出 Markdown</Button>
+            </Space>
+
+            {/* 执行摘要(可编辑) */}
+            {card('执行摘要(可编辑)',
+              <Space>
+                {sum.confirmed && <Tag color="success"><CheckCircleOutlined /> 已定稿 {sum.confirmed_at}</Tag>}
+                <Button size="small" onClick={saveSummary}>保存</Button>
+                <Button type="primary" size="small" onClick={confirmSummary}>定稿</Button>
+              </Space>,
+              <div>
+                <div style={{ marginBottom: 8 }}>标题
+                  <Input value={sum.title || ''} onChange={(e) => setSum({ ...sum, title: e.target.value })}
+                    placeholder="技术工艺总结报告" style={{ marginTop: 4 }} /></div>
+                <div style={{ marginBottom: 8 }}>总体概述
+                  <Input.TextArea value={sum.overview || ''} onChange={(e) => setSum({ ...sum, overview: e.target.value })}
+                    autoSize={{ minRows: 2 }} style={{ marginTop: 4 }} /></div>
+                <Row gutter={16}>
+                  <Col span={12}>关键亮点(每行一条)
+                    <Input.TextArea value={lines(sum.highlights)} onChange={(e) => setSum({ ...sum, highlights: toArr(e.target.value) })}
+                      autoSize={{ minRows: 3 }} style={{ marginTop: 4 }} /></Col>
+                  <Col span={12}>风险与待办(每行一条)
+                    <Input.TextArea value={lines(sum.risks)} onChange={(e) => setSum({ ...sum, risks: toArr(e.target.value) })}
+                      autoSize={{ minRows: 3 }} style={{ marginTop: 4 }} /></Col>
+                </Row>
+                <div style={{ marginTop: 8 }}>结论
+                  <Input.TextArea value={sum.conclusion || ''} onChange={(e) => setSum({ ...sum, conclusion: e.target.value })}
+                    autoSize={{ minRows: 2 }} style={{ marginTop: 4 }} /></div>
+              </div>
+            )}
+
+            {/* 各步骤汇总 + 编辑入口 */}
+            {card('各步骤结果(可在此修改)', null,
+              <Table size="small" rowKey="key" pagination={false}
+                columns={[
+                  { title: '步骤', dataIndex: 'title' },
+                  { title: '状态', dataIndex: 'key', width: 120, render: (k) => {
+                    const doc = steps[k] || {};
+                    const filled = Object.keys(doc).length > 0;
+                    const done = (doc.timing || {}).completed;
+                    return <Tag color={done ? 'success' : filled ? 'processing' : 'default'}>{done ? '已完成' : filled ? '已填写' : '未开始'}</Tag>;
+                  } },
+                  { title: '操作', width: 90, render: (_, r) => (
+                    <a onClick={() => setEditor({ key: r.key, title: r.title })}>编辑</a>) },
+                ]}
+                dataSource={SUMMARY_STEPS} />
+            )}
+
+            <div style={{ color: '#8a9099', fontSize: 12 }}>
+              提示:「编辑」可直接修改对应步骤的结构化数据;导出文档会包含所有步骤的完整内容。
+            </div>
+
+            {editor && (
+              <StepEditorModal projectId={projectId} stepKey={editor.key} title={editor.title}
+                open={!!editor} onClose={() => setEditor(null)} onSaved={() => load(projectId)} />
+            )}
+          </Spin>
+        );
+      }
+
+      // ===================== 结束:最终确认并录入到管理列表 =====================
+      function EndStep() {
+        const [projects, setProjects] = useState([]);
+        const [projectId, setProjectId] = useState(() => {
+          try { return localStorage.getItem('techprocess:projectId') || ''; } catch (e) { return ''; }
+        });
+        const [name, setName] = useState('');
+        const [record, setRecord] = useState(null);
+        const [busy, setBusy] = useState(false);
+
+        useEffect(() => {
+          api('/api/projects')
+            .then((d) => setProjects(Array.isArray(d) ? d : (d.projects || [])))
+            .catch((e) => message.error('加载项目失败: ' + e.message));
+        }, []);
+
+        // 选定项目后:带出器件名作为默认名称,并查已有录入记录
+        useEffect(() => {
+          if (!projectId) return;
+          const proj = projects.find((p) => p.project_id === projectId);
+          if (proj && !name) setName(proj.device_name || proj.source_filename || '');
+          api(`/api/techprocess/records?biz=${BIZ}`).then((d) => {
+            const r = (d.records || []).find((x) => x.project_id === projectId);
+            if (r) { setRecord(r); if (!name) setName(r.name || ''); }
+          }).catch(() => {});
+        }, [projectId, projects]);
+
+        const onPickProject = (pid) => {
+          setProjectId(pid); setRecord(null); setName('');
+          try { localStorage.setItem('techprocess:projectId', pid); } catch (e) {}
+        };
+
+        const register = () => {
+          setBusy(true);
+          api('/api/techprocess/records', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_id: projectId, biz: BIZ, name: name || '未命名技术工艺' }),
+          }).then((d) => { setRecord(d.record); message.success('已录入到' + CFG.pageTitle); })
+            .catch((e) => message.error('录入失败: ' + e.message))
+            .finally(() => setBusy(false));
+        };
+
+        const projOptions = projects.map((p) => ({
+          value: p.project_id,
+          label: `${p.device_name || p.source_filename || p.project_id}(${p.project_id})`,
+        }));
+
+        return (
+          <div style={{ padding: '8px 0', maxWidth: 720 }}>
+            <Space wrap style={{ marginBottom: 16 }}>
+              <span>关联图纸项目:</span>
+              <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                placeholder="选择「图纸解析」步骤产生的项目"
+                value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+            </Space>
+
+            {!projectId ? (
+              <Alert type="info" showIcon message="请先选择一个图纸项目" />
+            ) : (
+              <div style={{ border: '1px solid #eceff2', borderRadius: 6, padding: '18px 20px' }}>
+                <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 12 }}>最终确认并录入</div>
+                <div style={{ marginBottom: 12 }}>名称
+                  <Input value={name} onChange={(e) => setName(e.target.value)}
+                    placeholder="技术工艺名称" style={{ marginTop: 4 }} /></div>
+                {record ? (
+                  <Alert type="success" showIcon style={{ marginBottom: 12 }}
+                    message={`已录入到《${CFG.pageTitle}》`}
+                    description={`编号 ${record.code} ｜ 状态 ${record.status} ｜ 时间 ${record.created_at}`} />
+                ) : (
+                  <Alert type="info" showIcon style={{ marginBottom: 12 }}
+                    message={`确认后将把本流程录入到《${CFG.pageTitle}》列表。`} />
+                )}
+                <Button type="primary" loading={busy} onClick={register} icon={<CheckCircleOutlined />}>
+                  {record ? '更新录入' : `确认录入到${CFG.pageTitle}`}
+                </Button>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      // ===================== 成本测算(报价流程第 1 步,真实接口) =====================
+      function emptyCostEstimate(pid) {
+        return {
+          project_id: pid, currency: 'CNY',
+          material_costs: [], manufacturing_costs: [], technical_costs: [], logistics_costs: [], market_notes: null,
+          totals: { material_total: 0, manufacturing_total: 0, technical_total: 0, logistics_total: 0, grand_total: 0, currency: 'CNY' },
+          summary: null, confirmed: false, timing: { status: 'not_started', completed: false }, search_sources: [],
+        };
+      }
+
+      function CostEstimateStep() {
+        const [projects, setProjects] = useState([]);
+        const [projectId, setProjectId] = useState(() => {
+          try { return localStorage.getItem('techprocess:projectId') || ''; } catch (e) { return ''; }
+        });
+        const [doc, setDoc] = useState(null);
+        const [loading, setLoading] = useState(false);
+        const [busy, setBusy] = useState('');
+
+        useEffect(() => {
+          api('/api/projects')
+            .then((d) => setProjects(Array.isArray(d) ? d : (d.projects || [])))
+            .catch((e) => message.error('加载项目失败: ' + e.message));
+        }, []);
+
+        const loadDoc = (pid) => {
+          if (!pid) { setDoc(null); return; }
+          setLoading(true);
+          api(`/api/projects/${pid}/costest`)
+            .then((d) => setDoc(d.costest || emptyCostEstimate(pid)))
+            .catch((e) => message.error('加载成本测算失败: ' + e.message))
+            .finally(() => setLoading(false));
+        };
+        useEffect(() => { loadDoc(projectId); }, [projectId]);
+
+        const onPickProject = (pid) => {
+          setProjectId(pid);
+          try { localStorage.setItem('techprocess:projectId', pid); } catch (e) {}
+        };
+
+        const pollTask = (pid, taskId) => new Promise((resolve, reject) => {
+          const tick = () => api(`/api/projects/${pid}/tasks/${taskId}`).then((rec) => {
+            if (rec.status === 'succeeded') resolve(rec.result);
+            else if (rec.status === 'failed') reject(new Error(rec.error || '任务失败'));
+            else setTimeout(tick, 1500);
+          }).catch(reject);
+          tick();
+        });
+
+        const doRecommend = () => {
+          if (!projectId) return;
+          setBusy('recommend');
+          api(`/api/projects/${projectId}/costest/recommend`, { method: 'POST' })
+            .then((d) => pollTask(projectId, d.task_id))
+            .then((r) => { setDoc(r.costest); message.success('AI 成本测算完成'); })
+            .catch((e) => message.error('测算失败: ' + e.message))
+            .finally(() => setBusy(''));
+        };
+
+        const confirm = () => api(`/api/projects/${projectId}/costest/confirm`, { method: 'POST' })
+          .then((d) => { setDoc(d.costest); message.success('已定稿'); }).catch((e) => message.error(e.message));
+
+        const setTiming = (action) => api(`/api/projects/${projectId}/costest/timing?action=${action}`, { method: 'POST' })
+          .then((d) => { setDoc(d.costest); }).catch((e) => message.error(e.message));
+
+        const projOptions = projects.map((p) => ({
+          value: p.project_id,
+          label: `${p.device_name || p.source_filename || p.project_id}(${p.project_id})`,
+        }));
+
+        if (!projectId) {
+          return (
+            <div style={{ padding: '8px 0' }}>
+              <Space wrap style={{ marginBottom: 16 }}>
+                <span>关联图纸项目:</span>
+                <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                  placeholder="选择图纸项目(关联其材料/制造工艺与 BOM)"
+                  value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              </Space>
+              <Alert type="info" showIcon message="请先选择一个图纸项目"
+                description="成本测算依托该项目的材料计划与制造工艺(工序+BOM)。建议先完成相应技术工艺步骤。" />
+            </div>
+          );
+        }
+
+        const d = doc || {};
+        const tm = d.timing || {};
+
+        // 可编辑：直接改本地 doc（不改 = AI 原样；改了点「保存修改」回写后端并重算合计）
+        const upd = (field, idx, key, val) => {
+          const rows = (d[field] || []).slice();
+          rows[idx] = { ...rows[idx], [key]: val };
+          setDoc({ ...d, [field]: rows });
+        };
+        const addRow = (field) => setDoc({ ...d, [field]: [...(d[field] || []), {}] });
+        const delRow = (field, idx) => { const rows = (d[field] || []).slice(); rows.splice(idx, 1); setDoc({ ...d, [field]: rows }); };
+        const save = () => api(`/api/projects/${projectId}/costest`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d),
+        }).then((r) => { setDoc(r.costest || d); message.success('已保存修改'); })
+          .catch((e) => message.error('保存失败: ' + e.message));
+
+        // 生成一个可编辑单元格列（num=数字输入）
+        const eCol = (title, field, key, opts) => ({
+          title, dataIndex: key, width: (opts && opts.width),
+          render: (_, row, i) => (opts && opts.num)
+            ? <InputNumber size="small" style={{ width: '100%' }} value={row[key]} onChange={(v) => upd(field, i, key, v)} />
+            : <Input size="small" value={row[key]} onChange={(e) => upd(field, i, key, e.target.value)} />,
+        });
+        const delCol = (field) => ({ title: '', width: 44, render: (_, r, i) => (
+          <a style={{ color: '#c2410c' }} onClick={() => delRow(field, i)}>删</a>) });
+        const addBtn = (field) => (<a onClick={() => addRow(field)}><PlusOutlined /> 新增一行</a>);
+
+        // 前端实时合计（编辑即更新；保存后后端会重算并回填）
+        const nf = (v) => (typeof v === 'number' ? v : (parseFloat(v) || 0));
+        const lt = { material: 0, manufacturing: 0, technical: 0, logistics: 0 };
+        (d.material_costs || []).forEach((it) => { lt.material += (typeof it.amount === 'number' ? it.amount : nf(it.unit_usage) * nf(it.unit_price)); });
+        (d.manufacturing_costs || []).forEach((it) => { lt.manufacturing += (typeof it.subtotal === 'number' ? it.subtotal : nf(it.labor_cost) + nf(it.equipment_depreciation) + nf(it.energy_cost) + nf(it.other)); });
+        (d.technical_costs || []).forEach((it) => { lt.technical += nf(it.amount); });
+        (d.logistics_costs || []).forEach((it) => { lt.logistics += nf(it.amount); });
+        lt.grand = lt.material + lt.manufacturing + lt.technical + lt.logistics;
+
+        const card = (title, extra, children) => (
+          <div style={{ border: '1px solid #eceff2', borderRadius: 6, padding: '14px 18px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
+              <div style={{ marginLeft: 'auto' }}>{extra}</div>
+            </div>
+            {children}
+          </div>
+        );
+
+        const matCols = [
+          eCol('原材料', 'material_costs', 'item'),
+          eCol('规格', 'material_costs', 'spec', { width: 110 }),
+          eCol('用量', 'material_costs', 'unit_usage', { num: true, width: 80 }),
+          eCol('单位', 'material_costs', 'unit', { width: 70 }),
+          eCol('单价(元)', 'material_costs', 'unit_price', { num: true, width: 90 }),
+          eCol('金额(元)', 'material_costs', 'amount', { num: true, width: 90 }),
+          eCol('市场价来源', 'material_costs', 'market_price_source'),
+          eCol('供应稳定性', 'material_costs', 'supply_stability', { width: 100 }),
+          delCol('material_costs'),
+        ];
+        const manCols = [
+          eCol('工序', 'manufacturing_costs', 'process'),
+          eCol('人工', 'manufacturing_costs', 'labor_cost', { num: true, width: 80 }),
+          eCol('设备折旧', 'manufacturing_costs', 'equipment_depreciation', { num: true, width: 90 }),
+          eCol('能耗', 'manufacturing_costs', 'energy_cost', { num: true, width: 80 }),
+          eCol('其它', 'manufacturing_costs', 'other', { num: true, width: 80 }),
+          eCol('小计(元)', 'manufacturing_costs', 'subtotal', { num: true, width: 90 }),
+          eCol('依据', 'manufacturing_costs', 'basis'),
+          delCol('manufacturing_costs'),
+        ];
+        const techCols = [
+          eCol('项目', 'technical_costs', 'item'),
+          eCol('分摊依据', 'technical_costs', 'basis'),
+          eCol('金额(元)', 'technical_costs', 'amount', { num: true, width: 90 }),
+          eCol('备注', 'technical_costs', 'note'),
+          delCol('technical_costs'),
+        ];
+        const logiCols = [
+          eCol('项目', 'logistics_costs', 'item'),
+          eCol('计算依据', 'logistics_costs', 'basis'),
+          eCol('金额(元)', 'logistics_costs', 'amount', { num: true, width: 90 }),
+          eCol('备注', 'logistics_costs', 'note'),
+          delCol('logistics_costs'),
+        ];
+
+        const dur = (() => {
+          if (!tm.started_at || !tm.finished_at) return null;
+          const s = Date.parse(tm.started_at.replace(/-/g, '/'));
+          const f = Date.parse(tm.finished_at.replace(/-/g, '/'));
+          if (isNaN(s) || isNaN(f)) return null;
+          return Math.max(0, Math.round((f - s) / 60000)) + ' 分钟';
+        })();
+
+        return (
+          <Spin spinning={loading}>
+            <Space wrap style={{ marginBottom: 16 }}>
+              <span>关联图纸项目:</span>
+              <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                placeholder="选择图纸项目(关联其材料/制造工艺与 BOM)"
+                value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 成本测算(联网)</Button>
+              <Button type="primary" ghost onClick={save}>保存修改</Button>
+              <Button onClick={() => window.open(`/api/projects/${projectId}/costest.csv`, '_blank')}>导出 CSV</Button>
+              {d.confirmed && <Tag color="success"><CheckCircleOutlined /> 已定稿 {d.confirmed_at}</Tag>}
+              <Button type="primary"
+                disabled={!((d.material_costs && d.material_costs.length) || (d.manufacturing_costs && d.manufacturing_costs.length))}
+                onClick={confirm}>定稿</Button>
+            </Space>
+            <Alert type="info" showIcon style={{ marginBottom: 12 }}
+              message="表格与文字均可直接修改以矫正 AI 结果：改动后点「保存修改」回写并重算合计。" />
+
+            {/* 合计（前端实时） */}
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+              {[['材料成本', lt.material], ['制造成本', lt.manufacturing], ['技术附加', lt.technical],
+                ['物流仓储', lt.logistics], ['单件总成本', lt.grand]].map(([label, val], i, arr) => {
+                const hl = i === arr.length - 1;
+                return (
+                  <div key={i} style={{ flex: 1, minWidth: 130, border: '1px solid #eceff2', borderRadius: 6, padding: '12px 16px',
+                    background: hl ? '#e6f4ff' : '#fff' }}>
+                    <div style={{ color: '#646a73', fontSize: 13 }}>{label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: hl ? '#1677ff' : '#1f2329' }}>
+                      ¥{(val || 0).toFixed ? (val || 0).toFixed(2) : (val || 0)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ① 材料成本 */}
+            {card('① 材料成本(核心原材料单位用量成本)', addBtn('material_costs'),
+              <Table size="small" rowKey={(r, i) => 'm' + i} columns={matCols} dataSource={d.material_costs || []} pagination={false}
+                locale={{ emptyText: '点「AI 成本测算」生成，或「新增一行」手工录入' }} scroll={{ x: 'max-content' }} />
+            )}
+
+            {/* ② 制造成本 */}
+            {card('② 制造成本(按工序:人工/设备折旧/能耗)', addBtn('manufacturing_costs'),
+              <Table size="small" rowKey={(r, i) => 'p' + i} columns={manCols} dataSource={d.manufacturing_costs || []} pagination={false}
+                locale={{ emptyText: '待 AI 测算，或「新增一行」手工录入' }} scroll={{ x: 'max-content' }} />
+            )}
+
+            {/* ③ 技术附加成本 */}
+            {card('③ 技术附加成本(定制研发/客户验证/特殊检测分摊)', addBtn('technical_costs'),
+              <Table size="small" rowKey={(r, i) => 't' + i} columns={techCols} dataSource={d.technical_costs || []} pagination={false}
+                locale={{ emptyText: '待 AI 测算，或「新增一行」手工录入' }} scroll={{ x: 'max-content' }} />
+            )}
+
+            {/* ④ 物流仓储成本 */}
+            {card('④ 物流仓储成本(运输/仓储/包装/装卸 分摊)', addBtn('logistics_costs'),
+              <Table size="small" rowKey={(r, i) => 'l' + i} columns={logiCols} dataSource={d.logistics_costs || []} pagination={false}
+                locale={{ emptyText: '待 AI 测算，或「新增一行」手工录入运输/仓储/包装等费用' }} scroll={{ x: 'max-content' }} />
+            )}
+
+            {/* ⑤ 市场价格与供应稳定性（可编辑） */}
+            {card('⑤ 原材料市场价格与供应稳定性(采购视角)', null,
+              <Input.TextArea value={d.market_notes || ''} rows={3}
+                placeholder="待 AI 测算(联网检索行情)，也可直接在此补充/修改行情与供应说明"
+                onChange={(e) => setDoc({ ...d, market_notes: e.target.value })} />
+            )}
+
+            {d.summary && <div style={{ color: '#646a73', margin: '4px 0 16px' }}>测算思路:{d.summary}</div>}
+
+            {/* 执行时间与状态 */}
+            {card('执行时间与完成状态',
+              <Tag color={tm.status === 'done' ? 'success' : tm.status === 'in_progress' ? 'processing' : 'default'}>
+                {tm.status === 'done' ? '已完成' : tm.status === 'in_progress' ? '进行中' : '未开始'}
+              </Tag>,
+              <div>
+                <Descriptions size="small" column={3} bordered>
+                  <Descriptions.Item label="开始时间">{tm.started_at || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="完成时间">{tm.finished_at || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="用时">{dur || '—'}</Descriptions.Item>
+                </Descriptions>
+                <Space style={{ marginTop: 12 }}>
+                  <Button onClick={() => setTiming('start')} disabled={tm.status === 'in_progress'}>开始</Button>
+                  <Button type="primary" onClick={() => setTiming('finish')} disabled={tm.completed}>标记完成</Button>
+                </Space>
+              </div>
+            )}
+
+            {(d.search_sources && d.search_sources.length) ? (
+              <div style={{ color: '#8a9099', fontSize: 12 }}>
+                检索来源:{d.search_sources.map((s, i) => (
+                  <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ marginRight: 10 }}>{s.title}↗</a>
+                ))}
+              </div>
+            ) : null}
+          </Spin>
+        );
+      }
+
+      // ===================== 定价方案制定(报价流程第 2 步,真实接口) =====================
+      function emptyPricing(pid) {
+        return {
+          project_id: pid, currency: 'CNY',
+          costs: { material_cost: 0, production_cost: 0, management_rate: 10, management_cost: 0, base_cost: 0 },
+          markup_rate: 20, base_price: 0, factors: [], factor_multiplier: 1,
+          suggested_price: 0, final_price: null,
+          approval: { status: 'draft' }, timing: { status: 'not_started', completed: false }, search_sources: [],
+        };
+      }
+
+      function PricingStep() {
+        const [projects, setProjects] = useState([]);
+        const [projectId, setProjectId] = useState(() => {
+          try { return localStorage.getItem('techprocess:projectId') || ''; } catch (e) { return ''; }
+        });
+        const [doc, setDoc] = useState(null);
+        const [loading, setLoading] = useState(false);
+        const [busy, setBusy] = useState('');
+        const [comment, setComment] = useState('');
+
+        useEffect(() => {
+          api('/api/projects')
+            .then((d) => setProjects(Array.isArray(d) ? d : (d.projects || [])))
+            .catch((e) => message.error('加载项目失败: ' + e.message));
+        }, []);
+
+        const loadDoc = (pid) => {
+          if (!pid) { setDoc(null); return; }
+          setLoading(true);
+          api(`/api/projects/${pid}/pricing`)
+            .then((d) => setDoc(d.pricing || emptyPricing(pid)))
+            .catch((e) => message.error('加载定价失败: ' + e.message))
+            .finally(() => setLoading(false));
+        };
+        useEffect(() => { loadDoc(projectId); }, [projectId]);
+
+        const onPickProject = (pid) => {
+          setProjectId(pid);
+          try { localStorage.setItem('techprocess:projectId', pid); } catch (e) {}
+        };
+
+        const pollTask = (pid, taskId) => new Promise((resolve, reject) => {
+          const tick = () => api(`/api/projects/${pid}/tasks/${taskId}`).then((rec) => {
+            if (rec.status === 'succeeded') resolve(rec.result);
+            else if (rec.status === 'failed') reject(new Error(rec.error || '任务失败'));
+            else setTimeout(tick, 1500);
+          }).catch(reject);
+          tick();
+        });
+
+        const doRecommend = () => {
+          if (!projectId) return;
+          setBusy('recommend');
+          api(`/api/projects/${projectId}/pricing/recommend`, { method: 'POST' })
+            .then((d) => pollTask(projectId, d.task_id))
+            .then((r) => { setDoc(r.pricing); message.success('AI 定价建议完成'); })
+            .catch((e) => message.error('生成失败: ' + e.message))
+            .finally(() => setBusy(''));
+        };
+
+        const save = () => api(`/api/projects/${projectId}/pricing`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(doc),
+        }).then((d) => { setDoc(d.pricing); message.success('已保存并重算'); }).catch((e) => message.error(e.message));
+
+        const submit = () => api(`/api/projects/${projectId}/pricing/submit`, { method: 'POST' })
+          .then((d) => { setDoc(d.pricing); message.success('已提交财务审核'); }).catch((e) => message.error(e.message));
+
+        const review = (decision) => api(`/api/projects/${projectId}/pricing/review`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ decision, comment }),
+        }).then((d) => { setDoc(d.pricing); message.success(decision === 'approve' ? '已通过' : '已驳回'); })
+          .catch((e) => message.error(e.message));
+
+        const setTiming = (action) => api(`/api/projects/${projectId}/pricing/timing?action=${action}`, { method: 'POST' })
+          .then((d) => { setDoc(d.pricing); }).catch((e) => message.error(e.message));
+
+        const projOptions = projects.map((p) => ({
+          value: p.project_id,
+          label: `${p.device_name || p.source_filename || p.project_id}(${p.project_id})`,
+        }));
+
+        if (!projectId) {
+          return (
+            <div style={{ padding: '8px 0' }}>
+              <Space wrap style={{ marginBottom: 16 }}>
+                <span>关联图纸项目:</span>
+                <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                  placeholder="选择图纸项目(沿用其成本测算结果)"
+                  value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              </Space>
+              <Alert type="info" showIcon message="请先选择一个图纸项目"
+                description="定价基于该项目的成本测算结果。建议先完成「成本测算」步骤。" />
+            </div>
+          );
+        }
+
+        const d = doc || {};
+        const costs = d.costs || {};
+        const appr = d.approval || {};
+        const tm = d.timing || {};
+        const setCost = (k, v) => setDoc({ ...d, costs: { ...costs, [k]: v } });
+        const setFactor = (i, v) => {
+          const fs = (d.factors || []).map((f, idx) => idx === i ? { ...f, adjustment_pct: v } : f);
+          setDoc({ ...d, factors: fs });
+        };
+
+        const card = (title, extra, children) => (
+          <div style={{ border: '1px solid #eceff2', borderRadius: 6, padding: '14px 18px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
+              <div style={{ marginLeft: 'auto' }}>{extra}</div>
+            </div>
+            {children}
+          </div>
+        );
+
+        const factorCols = [
+          { title: '维度', dataIndex: 'factor', width: 160 },
+          { title: '判断', dataIndex: 'assessment' },
+          { title: '调整系数%', width: 120, render: (_, r, i) => (
+            <InputNumber size="small" value={r.adjustment_pct} step={1}
+              onChange={(v) => setFactor(i, v)} style={{ width: 90 }} />) },
+          { title: '理由', dataIndex: 'rationale' },
+        ];
+
+        const statusTag = {
+          draft: <Tag>草稿</Tag>, submitted: <Tag color="processing">待财务审核</Tag>,
+          approved: <Tag color="success">财务已通过</Tag>, rejected: <Tag color="error">财务驳回</Tag>,
+        }[appr.status || 'draft'];
+
+        const priceBox = (label, val, hi) => (
+          <div style={{ flex: 1, minWidth: 150, border: '1px solid #eceff2', borderRadius: 6,
+            padding: '12px 16px', background: hi ? '#e6f4ff' : '#fff' }}>
+            <div style={{ color: '#646a73', fontSize: 13 }}>{label}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: hi ? '#1677ff' : '#1f2329' }}>
+              ¥{Number(val || 0).toFixed(2)}
+            </div>
+          </div>
+        );
+
+        return (
+          <Spin spinning={loading}>
+            <Space wrap style={{ marginBottom: 16 }}>
+              <span>关联图纸项目:</span>
+              <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                placeholder="选择图纸项目(沿用其成本测算结果)"
+                value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 定价建议(联网)</Button>
+              <Button type="primary" onClick={save}>保存并重算</Button>
+            </Space>
+
+            {/* 成本加成 */}
+            {card('① 成本加成基础(原材料 + 生产加工 + 管理)', null,
+              <div>
+                <Space wrap size="large">
+                  <span>原材料成本: <b>¥{Number(costs.material_cost || 0).toFixed(2)}</b></span>
+                  <span>生产加工成本: <b>¥{Number(costs.production_cost || 0).toFixed(2)}</b></span>
+                  <span>管理费率(%):
+                    <InputNumber size="small" value={costs.management_rate} min={0}
+                      onChange={(v) => setCost('management_rate', v)} style={{ width: 80, marginLeft: 4 }} /></span>
+                  <span>管理成本: <b>¥{Number(costs.management_cost || 0).toFixed(2)}</b></span>
+                  <span>成本基数: <b>¥{Number(costs.base_cost || 0).toFixed(2)}</b></span>
+                </Space>
+                <div style={{ marginTop: 12 }}>
+                  <span>成本加成率/利润率(%):
+                    <InputNumber size="small" value={d.markup_rate} min={0}
+                      onChange={(v) => setDoc({ ...d, markup_rate: v })} style={{ width: 90, marginLeft: 4 }} /></span>
+                  <span style={{ marginLeft: 20 }}>→ 加成后基准价: <b>¥{Number(d.base_price || 0).toFixed(2)}</b></span>
+                </div>
+                <div style={{ color: '#8a9099', fontSize: 12, marginTop: 6 }}>
+                  原材料/生产加工成本取自「成本测算」;改费率/加成率后点「保存并重算」。
+                </div>
+              </div>
+            )}
+
+            {/* 调整维度 */}
+            {card('② 价格调整维度(订单规模/技术难度/客户战略价值/竞争态势/原材料价格联动)', null,
+              (d.factors && d.factors.length) ? (
+                <Table size="small" rowKey={(r, i) => 'f' + i} columns={factorCols} dataSource={d.factors} pagination={false} />
+              ) : <Empty description="点「AI 定价建议」生成各维度调整" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+
+            {/* 定价结果 */}
+            {card('③ 定价结果', null,
+              <div>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
+                  {priceBox('加成后基准价', d.base_price)}
+                  <div style={{ flex: 1, minWidth: 120, border: '1px solid #eceff2', borderRadius: 6, padding: '12px 16px' }}>
+                    <div style={{ color: '#646a73', fontSize: 13 }}>综合调整系数</div>
+                    <div style={{ fontSize: 22, fontWeight: 700 }}>×{Number(d.factor_multiplier || 1).toFixed(3)}</div>
+                  </div>
+                  {priceBox('建议单价', d.suggested_price)}
+                  {priceBox('最终报价', d.final_price, true)}
+                </div>
+                <span>最终报价(可覆盖):
+                  <InputNumber value={d.final_price} min={0} step={0.01} style={{ width: 140, marginLeft: 8 }}
+                    onChange={(v) => setDoc({ ...d, final_price: v })} /></span>
+                {d.summary && <div style={{ color: '#646a73', marginTop: 10 }}>定价思路:{d.summary}</div>}
+              </div>
+            )}
+
+            {/* 审批流 */}
+            {card('④ 审核确认(销售测算 → 财务审核)', statusTag,
+              <div>
+                <Descriptions size="small" column={2} bordered>
+                  <Descriptions.Item label="销售提交">{appr.sales_by ? `${appr.sales_by} ${appr.sales_at}` : '—'}</Descriptions.Item>
+                  <Descriptions.Item label="财务审核">{appr.finance_by ? `${appr.finance_by} ${appr.finance_at}` : '—'}</Descriptions.Item>
+                  <Descriptions.Item label="财务意见" span={2}>{appr.finance_comment || '—'}</Descriptions.Item>
+                </Descriptions>
+                <div style={{ marginTop: 12 }}>
+                  {(appr.status === 'submitted') ? (
+                    <Space>
+                      <Input placeholder="财务审核意见(可选)" value={comment}
+                        onChange={(e) => setComment(e.target.value)} style={{ width: 280 }} />
+                      <Button type="primary" onClick={() => review('approve')}>通过</Button>
+                      <Popconfirm title="确认驳回该定价方案?" onConfirm={() => review('reject')}>
+                        <Button danger>驳回</Button>
+                      </Popconfirm>
+                    </Space>
+                  ) : (
+                    <Button type="primary" onClick={submit}>提交财务审核</Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 时间状态 */}
+            {card('执行时间与完成状态',
+              <Tag color={tm.status === 'done' ? 'success' : tm.status === 'in_progress' ? 'processing' : 'default'}>
+                {tm.status === 'done' ? '已完成' : tm.status === 'in_progress' ? '进行中' : '未开始'}
+              </Tag>,
+              <Space>
+                <Button onClick={() => setTiming('start')} disabled={tm.status === 'in_progress'}>开始</Button>
+                <Button type="primary" onClick={() => setTiming('finish')} disabled={tm.completed}>标记完成</Button>
+              </Space>
+            )}
+
+            {(d.search_sources && d.search_sources.length) ? (
+              <div style={{ color: '#8a9099', fontSize: 12, marginTop: 8 }}>
+                检索来源:{d.search_sources.map((s, i) => (
+                  <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ marginRight: 10 }}>{s.title}↗</a>
+                ))}
+              </div>
+            ) : null}
+          </Spin>
+        );
+      }
+
+      // ===================== 商务及谈判策略(报价流程第 3 步,真实接口) =====================
+      function emptyNegotiation(pid) {
+        return {
+          project_id: pid, terms: [], strategies: [], summary: null,
+          confirmed: false, timing: { status: 'not_started', completed: false }, search_sources: [],
+        };
+      }
+
+      function NegotiationStep() {
+        const [projects, setProjects] = useState([]);
+        const [projectId, setProjectId] = useState(() => {
+          try { return localStorage.getItem('techprocess:projectId') || ''; } catch (e) { return ''; }
+        });
+        const [doc, setDoc] = useState(null);
+        const [loading, setLoading] = useState(false);
+        const [busy, setBusy] = useState('');
+
+        useEffect(() => {
+          api('/api/projects')
+            .then((d) => setProjects(Array.isArray(d) ? d : (d.projects || [])))
+            .catch((e) => message.error('加载项目失败: ' + e.message));
+        }, []);
+
+        const loadDoc = (pid) => {
+          if (!pid) { setDoc(null); return; }
+          setLoading(true);
+          api(`/api/projects/${pid}/negotiation`)
+            .then((d) => setDoc(d.negotiation || emptyNegotiation(pid)))
+            .catch((e) => message.error('加载失败: ' + e.message))
+            .finally(() => setLoading(false));
+        };
+        useEffect(() => { loadDoc(projectId); }, [projectId]);
+
+        const onPickProject = (pid) => {
+          setProjectId(pid);
+          try { localStorage.setItem('techprocess:projectId', pid); } catch (e) {}
+        };
+
+        const pollTask = (pid, taskId) => new Promise((resolve, reject) => {
+          const tick = () => api(`/api/projects/${pid}/tasks/${taskId}`).then((rec) => {
+            if (rec.status === 'succeeded') resolve(rec.result);
+            else if (rec.status === 'failed') reject(new Error(rec.error || '任务失败'));
+            else setTimeout(tick, 1500);
+          }).catch(reject);
+          tick();
+        });
+
+        const doRecommend = () => {
+          if (!projectId) return;
+          setBusy('recommend');
+          api(`/api/projects/${projectId}/negotiation/recommend`, { method: 'POST' })
+            .then((d) => pollTask(projectId, d.task_id))
+            .then((r) => { setDoc(r.negotiation); message.success('AI 策略生成完成'); })
+            .catch((e) => message.error('生成失败: ' + e.message))
+            .finally(() => setBusy(''));
+        };
+
+        const confirm = () => api(`/api/projects/${projectId}/negotiation/confirm`, { method: 'POST' })
+          .then((d) => { setDoc(d.negotiation); message.success('已确认'); }).catch((e) => message.error(e.message));
+
+        const setTiming = (action) => api(`/api/projects/${projectId}/negotiation/timing?action=${action}`, { method: 'POST' })
+          .then((d) => { setDoc(d.negotiation); }).catch((e) => message.error(e.message));
+
+        const projOptions = projects.map((p) => ({
+          value: p.project_id,
+          label: `${p.device_name || p.source_filename || p.project_id}(${p.project_id})`,
+        }));
+
+        if (!projectId) {
+          return (
+            <div style={{ padding: '8px 0' }}>
+              <Space wrap style={{ marginBottom: 16 }}>
+                <span>关联图纸项目:</span>
+                <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                  placeholder="选择图纸项目"
+                  value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              </Space>
+              <Alert type="info" showIcon message="请先选择一个图纸项目"
+                description="商务策略参考该项目的定价结果。建议先完成「定价方案制定」。" />
+            </div>
+          );
+        }
+
+        const d = doc || {};
+        const tm = d.timing || {};
+
+        const card = (title, extra, children) => (
+          <div style={{ border: '1px solid #eceff2', borderRadius: 6, padding: '14px 18px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
+              <div style={{ marginLeft: 'auto' }}>{extra}</div>
+            </div>
+            {children}
+          </div>
+        );
+
+        const termCols = [
+          { title: '条款', dataIndex: 'category', width: 120 },
+          { title: '我方主张', dataIndex: 'clause' },
+          { title: '底线', dataIndex: 'bottom_line' },
+          { title: '可让步空间', dataIndex: 'concession' },
+        ];
+        const stratCols = [
+          { title: '客户类型', dataIndex: 'customer_type', width: 100 },
+          { title: '谈判策略', dataIndex: 'strategy' },
+          { title: '授权权限', dataIndex: 'authorization', width: 220 },
+        ];
+
+        const dur = (() => {
+          if (!tm.started_at || !tm.finished_at) return null;
+          const s = Date.parse(tm.started_at.replace(/-/g, '/'));
+          const f = Date.parse(tm.finished_at.replace(/-/g, '/'));
+          if (isNaN(s) || isNaN(f)) return null;
+          return Math.max(0, Math.round((f - s) / 60000)) + ' 分钟';
+        })();
+
+        return (
+          <Spin spinning={loading}>
+            <Space wrap style={{ marginBottom: 16 }}>
+              <span>关联图纸项目:</span>
+              <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                placeholder="选择图纸项目"
+                value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 生成策略</Button>
+              {d.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {d.confirmed_at}</Tag>}
+              <Button type="primary" disabled={!((d.terms && d.terms.length) || (d.strategies && d.strategies.length))}
+                onClick={confirm}>确认</Button>
+            </Space>
+
+            {/* ① 商务条款 */}
+            {card('① 商务条款(价格/交付/付款/质量保证/知识产权/违约责任)', null,
+              (d.terms && d.terms.length) ? (
+                <Table size="small" rowKey={(r, i) => 'tm' + i} columns={termCols} dataSource={d.terms} pagination={false} />
+              ) : <Empty description="点「AI 生成策略」生成六类条款" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+
+            {/* ② 分客户类型策略 */}
+            {card('② 差异化谈判策略与授权(战略客户 / 新客户 / 海外客户)', null,
+              (d.strategies && d.strategies.length) ? (
+                <Table size="small" rowKey={(r, i) => 'st' + i} columns={stratCols} dataSource={d.strategies} pagination={false} />
+              ) : <Empty description="待 AI 生成" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+
+            {d.summary && <div style={{ color: '#646a73', margin: '4px 0 16px' }}>商务思路:{d.summary}</div>}
+
+            {/* 时间状态 */}
+            {card('执行时间与完成状态',
+              <Tag color={tm.status === 'done' ? 'success' : tm.status === 'in_progress' ? 'processing' : 'default'}>
+                {tm.status === 'done' ? '已完成' : tm.status === 'in_progress' ? '进行中' : '未开始'}
+              </Tag>,
+              <div>
+                <Descriptions size="small" column={3} bordered>
+                  <Descriptions.Item label="开始时间">{tm.started_at || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="完成时间">{tm.finished_at || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="用时">{dur || '—'}</Descriptions.Item>
+                </Descriptions>
+                <Space style={{ marginTop: 12 }}>
+                  <Button onClick={() => setTiming('start')} disabled={tm.status === 'in_progress'}>开始</Button>
+                  <Button type="primary" onClick={() => setTiming('finish')} disabled={tm.completed}>标记完成</Button>
+                </Space>
+              </div>
+            )}
+
+            {(d.search_sources && d.search_sources.length) ? (
+              <div style={{ color: '#8a9099', fontSize: 12 }}>
+                检索来源:{d.search_sources.map((s, i) => (
+                  <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ marginRight: 10 }}>{s.title}↗</a>
+                ))}
+              </div>
+            ) : null}
+          </Spin>
+        );
+      }
+
+      // ===================== 价格协商及谈判(报价流程第 4 步,真实接口) =====================
+      function emptyPriceNego(pid) {
+        return {
+          project_id: pid, initial_quote: { currency: 'CNY' }, rounds: [], tiered_prices: [],
+          price_linkage: {}, special_terms: [], agreed_price: null, summary: null,
+          confirmed: false, timing: { status: 'not_started', completed: false }, search_sources: [],
+        };
+      }
+
+      function PriceNegotiationStep() {
+        const [projects, setProjects] = useState([]);
+        const [projectId, setProjectId] = useState(() => {
+          try { return localStorage.getItem('techprocess:projectId') || ''; } catch (e) { return ''; }
+        });
+        const [doc, setDoc] = useState(null);
+        const [loading, setLoading] = useState(false);
+        const [busy, setBusy] = useState('');
+        const [nr, setNr] = useState({}); // 新一轮协商录入
+
+        useEffect(() => {
+          api('/api/projects')
+            .then((d) => setProjects(Array.isArray(d) ? d : (d.projects || [])))
+            .catch((e) => message.error('加载项目失败: ' + e.message));
+        }, []);
+
+        const loadDoc = (pid) => {
+          if (!pid) { setDoc(null); return; }
+          setLoading(true);
+          api(`/api/projects/${pid}/pricenego`)
+            .then((d) => setDoc(d.pricenego || emptyPriceNego(pid)))
+            .catch((e) => message.error('加载失败: ' + e.message))
+            .finally(() => setLoading(false));
+        };
+        useEffect(() => { loadDoc(projectId); }, [projectId]);
+
+        const onPickProject = (pid) => {
+          setProjectId(pid);
+          try { localStorage.setItem('techprocess:projectId', pid); } catch (e) {}
+        };
+
+        const pollTask = (pid, taskId) => new Promise((resolve, reject) => {
+          const tick = () => api(`/api/projects/${pid}/tasks/${taskId}`).then((rec) => {
+            if (rec.status === 'succeeded') resolve(rec.result);
+            else if (rec.status === 'failed') reject(new Error(rec.error || '任务失败'));
+            else setTimeout(tick, 1500);
+          }).catch(reject);
+          tick();
+        });
+
+        const persist = (next) => api(`/api/projects/${projectId}/pricenego`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next),
+        }).then((d) => setDoc(d.pricenego));
+
+        const doRecommend = () => {
+          if (!projectId) return;
+          setBusy('recommend');
+          api(`/api/projects/${projectId}/pricenego/recommend`, { method: 'POST' })
+            .then((d) => pollTask(projectId, d.task_id))
+            .then((r) => { setDoc(r.pricenego); message.success('AI 报价材料生成完成'); })
+            .catch((e) => message.error('生成失败: ' + e.message))
+            .finally(() => setBusy(''));
+        };
+
+        const save = () => persist(doc).then(() => message.success('已保存')).catch((e) => message.error(e.message));
+
+        const addRound = () => {
+          if (!nr.customer_feedback && !nr.our_response) { message.warning('请填写客户反馈或我方应对'); return; }
+          const rounds = [...(doc.rounds || []), {
+            round_no: (doc.rounds || []).length + 1,
+            date: new Date().toISOString().slice(0, 10),
+            customer_feedback: nr.customer_feedback || '', our_response: nr.our_response || '',
+            adjusted_price: nr.adjusted_price ?? null, conditions: nr.conditions || '',
+          }];
+          const next = { ...doc, rounds };
+          setDoc(next); setNr({});
+          persist(next).then(() => message.success('已添加协商记录')).catch((e) => message.error(e.message));
+        };
+
+        const confirm = () => api(`/api/projects/${projectId}/pricenego/confirm`, { method: 'POST' })
+          .then((d) => { setDoc(d.pricenego); message.success('已确认'); }).catch((e) => message.error(e.message));
+
+        const setTiming = (action) => api(`/api/projects/${projectId}/pricenego/timing?action=${action}`, { method: 'POST' })
+          .then((d) => { setDoc(d.pricenego); }).catch((e) => message.error(e.message));
+
+        const projOptions = projects.map((p) => ({
+          value: p.project_id,
+          label: `${p.device_name || p.source_filename || p.project_id}(${p.project_id})`,
+        }));
+
+        if (!projectId) {
+          return (
+            <div style={{ padding: '8px 0' }}>
+              <Space wrap style={{ marginBottom: 16 }}>
+                <span>关联图纸项目:</span>
+                <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                  placeholder="选择图纸项目"
+                  value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              </Space>
+              <Alert type="info" showIcon message="请先选择一个图纸项目"
+                description="价格协商基于该项目的定价方案与商务条款。建议先完成前序步骤。" />
+            </div>
+          );
+        }
+
+        const d = doc || {};
+        const iq = d.initial_quote || {};
+        const pl = d.price_linkage || {};
+        const tm = d.timing || {};
+        const setIQ = (k, v) => setDoc({ ...d, initial_quote: { ...iq, [k]: v } });
+        const setPL = (k, v) => setDoc({ ...d, price_linkage: { ...pl, [k]: v } });
+
+        const card = (title, extra, children) => (
+          <div style={{ border: '1px solid #eceff2', borderRadius: 6, padding: '14px 18px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
+              <div style={{ marginLeft: 'auto' }}>{extra}</div>
+            </div>
+            {children}
+          </div>
+        );
+
+        const roundCols = [
+          { title: '轮次', dataIndex: 'round_no', width: 60 },
+          { title: '日期', dataIndex: 'date', width: 110 },
+          { title: '客户反馈', dataIndex: 'customer_feedback' },
+          { title: '我方应对', dataIndex: 'our_response' },
+          { title: '调整价', dataIndex: 'adjusted_price', width: 90 },
+          { title: '附加条件', dataIndex: 'conditions' },
+        ];
+        const tierCols = [
+          { title: '数量下限', dataIndex: 'min_qty', width: 90 },
+          { title: '数量上限', dataIndex: 'max_qty', width: 90 },
+          { title: '单价(元)', dataIndex: 'unit_price', width: 90 },
+          { title: '折扣', dataIndex: 'discount', width: 90 },
+          { title: '备注', dataIndex: 'note' },
+        ];
+        const stCols = [
+          { title: '条款', dataIndex: 'item', width: 110 },
+          { title: '我方立场', dataIndex: 'our_position' },
+          { title: '客户诉求', dataIndex: 'customer_request' },
+          { title: '达成', dataIndex: 'agreed' },
+        ];
+
+        const dur = (() => {
+          if (!tm.started_at || !tm.finished_at) return null;
+          const s = Date.parse(tm.started_at.replace(/-/g, '/'));
+          const f = Date.parse(tm.finished_at.replace(/-/g, '/'));
+          if (isNaN(s) || isNaN(f)) return null;
+          return Math.max(0, Math.round((f - s) / 60000)) + ' 分钟';
+        })();
+
+        return (
+          <Spin spinning={loading}>
+            <Space wrap style={{ marginBottom: 16 }}>
+              <span>关联图纸项目:</span>
+              <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                placeholder="选择图纸项目"
+                value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 生成报价材料</Button>
+              <Button type="primary" onClick={save}>保存</Button>
+              {d.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {d.confirmed_at}</Tag>}
+              <Button onClick={confirm}>确认达成</Button>
+            </Space>
+
+            {/* ① 初步报价单 */}
+            {card('① 初步报价单(正式书面报价)', null,
+              <Space wrap size="large">
+                <span>单价(元):<InputNumber value={iq.price} min={0} style={{ width: 120, marginLeft: 4 }}
+                  onChange={(v) => setIQ('price', v)} /></span>
+                <span>交付周期:<Input value={iq.delivery_period || ''} style={{ width: 180, marginLeft: 4 }}
+                  onChange={(e) => setIQ('delivery_period', e.target.value)} /></span>
+                <span>付款条件:<Input value={iq.payment_terms || ''} style={{ width: 220, marginLeft: 4 }}
+                  onChange={(e) => setIQ('payment_terms', e.target.value)} /></span>
+                <span>有效期:<Input value={iq.valid_until || ''} style={{ width: 140, marginLeft: 4 }}
+                  onChange={(e) => setIQ('valid_until', e.target.value)} /></span>
+              </Space>
+            )}
+
+            {/* ② 价格协商记录 */}
+            {card('② 价格协商记录(根据客户反馈调整)',
+              <span>最终达成价(元):<InputNumber value={d.agreed_price} min={0} style={{ width: 120, marginLeft: 4 }}
+                onChange={(v) => setDoc({ ...d, agreed_price: v })} /></span>,
+              <div>
+                {(d.rounds && d.rounds.length) ? (
+                  <Table size="small" rowKey="round_no" columns={roundCols} dataSource={d.rounds} pagination={false} />
+                ) : <Empty description="暂无协商记录,可在下方添加" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+                <div style={{ marginTop: 12, padding: 12, background: '#fafafa', borderRadius: 4 }}>
+                  <Space wrap>
+                    <Input placeholder="客户反馈" value={nr.customer_feedback || ''} style={{ width: 220 }}
+                      onChange={(e) => setNr({ ...nr, customer_feedback: e.target.value })} />
+                    <Input placeholder="我方应对" value={nr.our_response || ''} style={{ width: 220 }}
+                      onChange={(e) => setNr({ ...nr, our_response: e.target.value })} />
+                    <InputNumber placeholder="调整价" value={nr.adjusted_price} min={0} style={{ width: 110 }}
+                      onChange={(v) => setNr({ ...nr, adjusted_price: v })} />
+                    <Input placeholder="附加条件" value={nr.conditions || ''} style={{ width: 180 }}
+                      onChange={(e) => setNr({ ...nr, conditions: e.target.value })} />
+                    <Button type="primary" icon={<PlusOutlined />} onClick={addRound}>添加协商记录</Button>
+                  </Space>
+                </div>
+              </div>
+            )}
+
+            {/* ③ 阶梯价格 */}
+            {card('③ 批量折扣阶梯价格', null,
+              (d.tiered_prices && d.tiered_prices.length) ? (
+                <Table size="small" rowKey={(r, i) => 'tr' + i} columns={tierCols} dataSource={d.tiered_prices} pagination={false} />
+              ) : <Empty description="待 AI 生成阶梯价格" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+
+            {/* ④ 调价联动机制 */}
+            {card('④ 调价机制(与原材料市场联动)', null,
+              <div>
+                <div style={{ marginBottom: 8 }}>机制:<Input value={pl.mechanism || ''}
+                  onChange={(e) => setPL('mechanism', e.target.value)} style={{ marginTop: 4 }} /></div>
+                <Space wrap size="large">
+                  <span>公式:<Input value={pl.formula || ''} style={{ width: 280, marginLeft: 4 }}
+                    onChange={(e) => setPL('formula', e.target.value)} /></span>
+                  <span>触发:<Input value={pl.trigger || ''} style={{ width: 180, marginLeft: 4 }}
+                    onChange={(e) => setPL('trigger', e.target.value)} /></span>
+                  <span>复核周期:<Input value={pl.review_cycle || ''} style={{ width: 120, marginLeft: 4 }}
+                    onChange={(e) => setPL('review_cycle', e.target.value)} /></span>
+                </Space>
+              </div>
+            )}
+
+            {/* ⑤ 特殊条款 */}
+            {card('⑤ 特殊条款谈判(交付/质保/技术支持等非价格条款)', null,
+              (d.special_terms && d.special_terms.length) ? (
+                <Table size="small" rowKey={(r, i) => 'sp' + i} columns={stCols} dataSource={d.special_terms} pagination={false} />
+              ) : <Empty description="待 AI 生成" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+
+            {d.summary && <div style={{ color: '#646a73', margin: '4px 0 16px' }}>协商策略:{d.summary}</div>}
+
+            {/* 时间状态 */}
+            {card('执行时间与完成状态',
+              <Tag color={tm.status === 'done' ? 'success' : tm.status === 'in_progress' ? 'processing' : 'default'}>
+                {tm.status === 'done' ? '已完成' : tm.status === 'in_progress' ? '进行中' : '未开始'}
+              </Tag>,
+              <Space>
+                <Button onClick={() => setTiming('start')} disabled={tm.status === 'in_progress'}>开始</Button>
+                <Button type="primary" onClick={() => setTiming('finish')} disabled={tm.completed}>标记完成</Button>
+              </Space>
+            )}
+
+            {(d.search_sources && d.search_sources.length) ? (
+              <div style={{ color: '#8a9099', fontSize: 12, marginTop: 8 }}>
+                检索来源:{d.search_sources.map((s, i) => (
+                  <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ marginRight: 10 }}>{s.title}↗</a>
+                ))}
+              </div>
+            ) : null}
+          </Spin>
+        );
+      }
+
+      // ===================== 报价审批与决策(报价流程第 5 步,真实接口) =====================
+      const APPROVAL_LEVELS = {
+        1: '级别1 · 销售总监审核(常规订单,符合标准定价区间)',
+        2: '级别2 · 销售总监 + 财务负责人联合审核(非常规定价:大幅让利/特殊付款)',
+        3: '级别3 · 总经理/董事长审批(重大订单/战略客户/超权限定价)',
+      };
+      // 可选审批人(供勾选发送审批流)；LEVEL_ROLES_F 用于按 AI 研判级别预勾选
+      const APPROVER_ROLES = ['销售总监', '财务负责人', '总经理/董事长'];
+      const LEVEL_ROLES_F = { 1: ['销售总监'], 2: ['销售总监', '财务负责人'], 3: ['销售总监', '财务负责人', '总经理/董事长'] };
+
+      function ApprovalStep() {
+        const [projects, setProjects] = useState([]);
+        const [projectId, setProjectId] = useState(() => {
+          try { return localStorage.getItem('techprocess:projectId') || ''; } catch (e) { return ''; }
+        });
+        const [doc, setDoc] = useState(null);
+        const [loading, setLoading] = useState(false);
+        const [busy, setBusy] = useState('');
+        const [comment, setComment] = useState('');
+        const [sendTo, setSendTo] = useState([]);   // 勾选的审批人
+
+        useEffect(() => {
+          api('/api/projects')
+            .then((d) => setProjects(Array.isArray(d) ? d : (d.projects || [])))
+            .catch((e) => message.error('加载项目失败: ' + e.message));
+        }, []);
+        // doc 变化时同步勾选：优先已送审批人，否则按 AI 研判级别预勾选
+        useEffect(() => {
+          setSendTo((doc && doc.approvers && doc.approvers.length)
+            ? doc.approvers
+            : (doc && doc.level ? (LEVEL_ROLES_F[doc.level] || []) : []));
+        }, [doc]);
+
+        const loadDoc = (pid) => {
+          if (!pid) { setDoc(null); return; }
+          setLoading(true);
+          api(`/api/projects/${pid}/approval`)
+            .then((d) => setDoc(d.approval || null))
+            .catch((e) => message.error('加载失败: ' + e.message))
+            .finally(() => setLoading(false));
+        };
+        useEffect(() => { loadDoc(projectId); }, [projectId]);
+
+        const onPickProject = (pid) => {
+          setProjectId(pid);
+          try { localStorage.setItem('techprocess:projectId', pid); } catch (e) {}
+        };
+
+        const pollTask = (pid, taskId) => new Promise((resolve, reject) => {
+          const tick = () => api(`/api/projects/${pid}/tasks/${taskId}`).then((rec) => {
+            if (rec.status === 'succeeded') resolve(rec.result);
+            else if (rec.status === 'failed') reject(new Error(rec.error || '任务失败'));
+            else setTimeout(tick, 1500);
+          }).catch(reject);
+          tick();
+        });
+
+        const doRecommend = () => {
+          if (!projectId) return;
+          setBusy('recommend');
+          api(`/api/projects/${projectId}/approval/recommend`, { method: 'POST' })
+            .then((d) => pollTask(projectId, d.task_id))
+            .then((r) => { setDoc(r.approval); message.success('AI 研判完成'); })
+            .catch((e) => message.error('研判失败: ' + e.message))
+            .finally(() => setBusy(''));
+        };
+
+        const setLevel = (level) => api(`/api/projects/${projectId}/approval/level?level=${level}`, { method: 'POST' })
+          .then((d) => { setDoc(d.approval); message.success('已设为' + APPROVAL_LEVELS[level].split('·')[0]); }).catch((e) => message.error(e.message));
+        const submit = () => api(`/api/projects/${projectId}/approval/submit`, { method: 'POST' })
+          .then((d) => { setDoc(d.approval); message.success('已提交审批'); }).catch((e) => message.error(e.message));
+        // 选择审批人并发送审批流（标记审批中、记录送审人；不在本表单做通过/驳回）
+        const sendApproval = () => {
+          if (!sendTo.length) { message.warning('请至少勾选一位审批人'); return; }
+          api(`/api/projects/${projectId}/approval/send`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ approvers: sendTo, comment }),
+          }).then((d) => { setDoc(d.approval); setComment(''); message.success('审批流已发送'); })
+            .catch((e) => message.error('发送失败: ' + e.message));
+        };
+        const act = (decision) => api(`/api/projects/${projectId}/approval/act`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ decision, comment }),
+        }).then((d) => { setDoc(d.approval); setComment(''); message.success(decision === 'approve' ? '已通过' : '已驳回'); })
+          .catch((e) => message.error(e.message));
+        const setTiming = (action) => api(`/api/projects/${projectId}/approval/timing?action=${action}`, { method: 'POST' })
+          .then((d) => { setDoc(d.approval); }).catch((e) => message.error(e.message));
+
+        const projOptions = projects.map((p) => ({
+          value: p.project_id,
+          label: `${p.device_name || p.source_filename || p.project_id}(${p.project_id})`,
+        }));
+
+        if (!projectId) {
+          return (
+            <div style={{ padding: '8px 0' }}>
+              <Space wrap style={{ marginBottom: 16 }}>
+                <span>关联图纸项目:</span>
+                <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                  placeholder="选择图纸项目"
+                  value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              </Space>
+              <Alert type="info" showIcon message="请先选择一个图纸项目"
+                description="审批级别依据该项目的定价方案与价格协商结果研判。建议先完成前序步骤。" />
+            </div>
+          );
+        }
+
+        const d = doc || {};
+        const cls = d.classification || {};
+        const tm = d.timing || {};
+        const chain = d.chain || [];
+        const curIdx = chain.findIndex((n) => n.status === 'pending');
+        const stepStatusMap = { approved: 'finish', pending: 'process', rejected: 'error', waiting: 'wait' };
+
+        const card = (title, extra, children) => (
+          <div style={{ border: '1px solid #eceff2', borderRadius: 6, padding: '14px 18px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
+              <div style={{ marginLeft: 'auto' }}>{extra}</div>
+            </div>
+            {children}
+          </div>
+        );
+
+        const overallTag = {
+          draft: <Tag>草稿</Tag>, in_review: <Tag color="processing">审批中</Tag>,
+          approved: <Tag color="success">审批通过</Tag>, rejected: <Tag color="error">已驳回</Tag>,
+        }[d.status || 'draft'];
+
+        const dur = (() => {
+          if (!tm.started_at || !tm.finished_at) return null;
+          const s = Date.parse(tm.started_at.replace(/-/g, '/'));
+          const f = Date.parse(tm.finished_at.replace(/-/g, '/'));
+          if (isNaN(s) || isNaN(f)) return null;
+          return Math.max(0, Math.round((f - s) / 60000)) + ' 分钟';
+        })();
+
+        return (
+          <Spin spinning={loading}>
+            <Space wrap style={{ marginBottom: 16 }}>
+              <span>关联图纸项目:</span>
+              <Select showSearch optionFilterProp="label" style={{ width: 360 }}
+                placeholder="选择图纸项目"
+                value={projectId || undefined} options={projOptions} onChange={onPickProject} />
+              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 研判审批级别</Button>
+            </Space>
+
+            {!doc ? (
+              <Empty description="点「AI 研判审批级别」生成分级审批方案" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            ) : (
+              <div>
+                {/* AI 研判 · 分级依据（只读参考） */}
+                {card('AI 研判 · 分级依据（参考）', <Tag>建议{APPROVAL_LEVELS[d.level] ? APPROVAL_LEVELS[d.level].split('·')[0].trim() : ('级别 ' + d.level)}</Tag>,
+                  <div>
+                    {d.level_reason && <div style={{ color: '#646a73', marginBottom: 6 }}>定级依据:{d.level_reason}</div>}
+                    <Descriptions size="small" column={2} bordered>
+                      <Descriptions.Item label="订单规模">{cls.order_scale || '—'}</Descriptions.Item>
+                      <Descriptions.Item label="符合标准定价区间">{cls.pricing_standard || '—'}</Descriptions.Item>
+                      <Descriptions.Item label="让利幅度">{cls.concession || '—'}</Descriptions.Item>
+                      <Descriptions.Item label="特殊付款条件">{cls.payment_special || '—'}</Descriptions.Item>
+                      <Descriptions.Item label="客户类型">{cls.customer_type || '—'}</Descriptions.Item>
+                      <Descriptions.Item label="是否超权限">{cls.over_authority || '—'}</Descriptions.Item>
+                    </Descriptions>
+                  </div>
+                )}
+
+                {/* 发送审批流（选择审批人，不在本表单做通过/驳回） */}
+                {card('发送审批流', overallTag,
+                  <div>
+                    <div style={{ color: '#646a73', marginBottom: 10 }}>
+                      选择审批人并发送审批流，交由对应负责人在各自入口审批；<b>本报价单不进行通过/驳回</b>。
+                    </div>
+                    <Space wrap style={{ marginBottom: 10 }}>
+                      <span>发送给:</span>
+                      <Select mode="multiple" style={{ minWidth: 320 }} placeholder="选择审批人(可多选)"
+                        value={sendTo} onChange={setSendTo} disabled={d.status === 'in_review'}
+                        options={APPROVER_ROLES.map((r) => ({ label: r, value: r }))} />
+                      <Input placeholder="送审说明(可选)" value={comment}
+                        onChange={(e) => setComment(e.target.value)} style={{ width: 260 }} disabled={d.status === 'in_review'} />
+                    </Space>
+                    <div style={{ marginBottom: 14 }}>
+                      {d.status !== 'in_review'
+                        ? <Button type="primary" onClick={sendApproval} disabled={!sendTo.length}>发送审批流</Button>
+                        : <Alert type="info" showIcon
+                            message={'审批流已发送 · 送审人：' + ((d.approvers || []).join('、') || '—') + (d.sent_at ? (' · ' + d.sent_at) : '')}
+                            description="审批人将在各自入口处理，进度见下方。" />}
+                    </div>
+                    {chain.length > 0 && (
+                      <Steps size="small" current={curIdx < 0 ? chain.length : curIdx}
+                        status={d.status === 'rejected' ? 'error' : (d.status === 'approved' ? 'finish' : 'process')}>
+                        {chain.map((n, i) => (
+                          <Step key={i} status={stepStatusMap[n.status] || 'wait'} title={n.role}
+                            description={n.status === 'pending' ? '待审批' : (n.approver ? `${n.status === 'approved' ? '通过' : n.status === 'rejected' ? '驳回' : ''} ${n.approver} ${n.at || ''}` : '')} />
+                        ))}
+                      </Steps>
+                    )}
+                    {d.status === 'approved' && (
+                      <Alert style={{ marginTop: 12 }} type="success" showIcon message="✅ 内部审批通过,可正式报价 / 签约" description={d.decision_note} />
+                    )}
+                    {d.status === 'rejected' && (
+                      <Alert style={{ marginTop: 12 }} type="error" showIcon message={d.decision_note || '已驳回'} />
+                    )}
+                  </div>
+                )}
+
+                {d.summary && <div style={{ color: '#646a73', margin: '4px 0 16px' }}>审批要点:{d.summary}</div>}
+
+                {/* 时间状态 */}
+                {card('执行时间与完成状态',
+                  <Tag color={tm.status === 'done' ? 'success' : tm.status === 'in_progress' ? 'processing' : 'default'}>
+                    {tm.status === 'done' ? '已完成' : tm.status === 'in_progress' ? '进行中' : '未开始'}
+                  </Tag>,
+                  <Space>
+                    <Button onClick={() => setTiming('start')} disabled={tm.status === 'in_progress'}>开始</Button>
+                    <Button type="primary" onClick={() => setTiming('finish')} disabled={tm.completed}>标记完成</Button>
+                  </Space>
+                )}
+              </div>
+            )}
+          </Spin>
+        );
+      }
+
+      // ===================== 详情页(新增技术工艺) =====================
+      function DetailPage({ mode, onBack }) {
+        const [current, setCurrent] = useState(0);
+
+        const baseInfoForm = (
+          <div>
+            <div className="tp-section-title">基本信息</div>
+            <Form layout="vertical">
+              <Row gutter={32}>
+                <Col span={8}>
+                  <Form.Item label="工艺名称" required>
+                    <Input placeholder="请输入" />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item label="关联图纸/线索">
+                    <Input placeholder="请选择" suffix={<icons.SearchOutlined />} />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item label="工艺类型" required>
+                    <Radio.Group defaultValue="quote">
+                      <Radio value="rnd">内部研发</Radio>
+                      <Radio value="bid">投标</Radio>
+                      <Radio value="quote">报价</Radio>
+                    </Radio.Group>
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item label="制造场景" required>
+                    <Select defaultValue="2B">
+                      <Option value="2B">2B</Option>
+                      <Option value="2C">2C</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item label="工艺负责人" required>
+                    <Select defaultValue="t1">
+                      <Option value="t1">田***</Option>
+                      <Option value="t2">王***</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item label="把握度">
+                    <Select placeholder="请选择">
+                      <Option value="high">高</Option>
+                      <Option value="mid">中</Option>
+                      <Option value="low">低</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item label="截止日期" required>
+                    <DatePicker style={{ width: '100%' }} defaultValue={moment()} />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Form>
+          </div>
+        );
+
+        // 每个进度步骤对应的内容:
+        //  - 「图纸解析与设计工艺转化」步骤:直接内嵌 process_drawing(需单独运行);
+        //  - 首个步骤:基本信息表单;
+        //  - 其余步骤:占位。
+        const stepContent = (i, name) => {
+          if (CFG.materialStep && name === CFG.materialStep) {
+            return <MaterialStep />;
+          }
+          if (CFG.manufacturingStep && name === CFG.manufacturingStep) {
+            return <ManufacturingStep />;
+          }
+          if (CFG.cleaningStep && name === CFG.cleaningStep) {
+            return <CleaningStep />;
+          }
+          if (CFG.assemblyStep && name === CFG.assemblyStep) {
+            return <AssemblyStep />;
+          }
+          if (CFG.productionStep && name === CFG.productionStep) {
+            return <ProductionStep />;
+          }
+          if (CFG.summaryStep && name === CFG.summaryStep) {
+            return <SummaryStep />;
+          }
+          if (CFG.costStep && name === CFG.costStep) {
+            return <CostEstimateStep />;
+          }
+          if (CFG.pricingStep && name === CFG.pricingStep) {
+            return <PricingStep />;
+          }
+          if (CFG.negotiationStep && name === CFG.negotiationStep) {
+            return <NegotiationStep />;
+          }
+          if (CFG.priceNegoStep && name === CFG.priceNegoStep) {
+            return <PriceNegotiationStep />;
+          }
+          if (CFG.approvalStep && name === CFG.approvalStep) {
+            return <ApprovalStep />;
+          }
+          if (CFG.endStep && name === CFG.endStep) {
+            return <EndStep />;
+          }
+          if (CFG.drawingStep && name === CFG.drawingStep) {
+            return (
+              <div style={{ padding: '8px 0' }}>
+                <div className="tp-section-title">{name}</div>
+                <div style={{ marginBottom: 8, color: '#8a9099', fontSize: 12 }}>
+                  本步骤直接嵌入「AI 图纸拆解平台」(process_drawing),需先单独启动该服务(默认 {PROCESS_DRAWING_URL})。
+                  <a
+                    href={PROCESS_DRAWING_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ marginLeft: 8 }}
+                  >
+                    新窗口打开 ↗
+                  </a>
+                </div>
+                <iframe
+                  title={name}
+                  src={PROCESS_DRAWING_URL}
+                  style={{
+                    width: '100%',
+                    height: '70vh',
+                    border: '1px solid #eceff2',
+                    borderRadius: 4,
+                  }}
+                  allow="clipboard-write; clipboard-read"
+                />
+              </div>
+            );
+          }
+          if (i === 0) {
+            return baseInfoForm;
+          }
+          return (
+            <div style={{ padding: '24px 0' }}>
+              <div className="tp-section-title">{name}</div>
+              <div style={{ color: '#8a9099' }}>「{name}」内容待接入。</div>
+            </div>
+          );
+        };
+
+        return (
+          <div className="tp-page">
+            <div className="tp-card">
+              <div className="tp-detail-title">
+                <LeftCircleOutlined onClick={onBack} />
+                {mode === 'edit' ? CFG.editTitle : CFG.createBtn}
+              </div>
+
+              {/* 上面部分:任务进度步骤导航,点击某个步骤跳转到对应内容 */}
+              <Tabs
+                activeKey={String(current)}
+                onChange={(k) => setCurrent(Number(k))}
+                tabBarGutter={16}
+              >
+                {TASK_STEPS.map((t, i) => (
+                  <TabPane tab={t} key={String(i)} />
+                ))}
+              </Tabs>
+
+              {/* 任务进度可视化:与上方步骤导航联动,点击节点也可跳转 */}
+              <div className="tp-section-title">任务进度</div>
+              <Steps
+                current={current}
+                onChange={setCurrent}
+                labelPlacement="vertical"
+                size="small"
+                style={{ margin: '8px 0 28px' }}
+              >
+                {TASK_STEPS.map((t, i) => (
+                  <Step
+                    key={t}
+                    title={t}
+                    icon={
+                      i === 0 ? (
+                        <PlayCircleOutlined />
+                      ) : i === TASK_STEPS.length - 1 ? (
+                        <AimOutlined />
+                      ) : (
+                        <AppstoreOutlined />
+                      )
+                    }
+                  />
+                ))}
+              </Steps>
+
+              {/* 当前步骤的内容,随步骤切换 */}
+              <div style={{ minHeight: 220 }}>{stepContent(current, TASK_STEPS[current])}</div>
+
+              <div className="tp-detail-footer">
+                <Button type="primary" ghost onClick={() => message.success('已提交审批')}>提交审批</Button>
+                <Button type="primary" onClick={() => message.success('已保存')}>保 存</Button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ===================== 应用入口 =====================
+      function App() {
+        const [view, setView] = useState({ name: 'list' });
+        return (
+          <ConfigProvider>
+            {view.name === 'list' ? (
+              <ListPage
+                onCreate={() => setView({ name: 'detail', mode: 'create' })}
+                onOpen={(row, mode) => setView({ name: 'detail', mode, row })}
+              />
+            ) : (
+              <DetailPage mode={view.mode} onBack={() => setView({ name: 'list' })} />
+            )}
+          </ConfigProvider>
+        );
+      }
+
+      ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+
+    <!-- ============ 报价助手悬浮入口（仅商机报价管理 biz=quote） ============
+         右下角可点开，内嵌 open-claude 的报价 Agent（默认 http://127.0.0.1:47292/?embed=1）。
+         换地址：localStorage.setItem('techprocess:quoteAgentUrl','http://<host>:<port>/?embed=1') -->
+    <script>
+      (function () {
+        var biz = new URLSearchParams(location.search).get('biz') || 'tech';
+        if (biz !== 'quote') return; // 只在报价业务出现
+
+        var AGENT_URL =
+          (function () { try { return localStorage.getItem('techprocess:quoteAgentUrl'); } catch (e) { return null; } })() ||
+          'http://127.0.0.1:47292/?embed=1';
+
+        var css = document.createElement('style');
+        css.textContent =
+          '#qa-launch{position:fixed;right:24px;bottom:24px;z-index:9000;display:flex;align-items:center;gap:8px;' +
+          'background:#2f6bff;color:#fff;border:none;border-radius:28px;padding:12px 18px;font-size:15px;font-weight:600;' +
+          'box-shadow:0 8px 24px rgba(47,107,255,.35);cursor:pointer;font-family:inherit}' +
+          '#qa-launch:hover{background:#1f4fd0}' +
+          '#qa-panel{position:fixed;right:24px;bottom:24px;z-index:9001;width:980px;height:90vh;' +
+          'max-width:calc(100vw - 48px);max-height:calc(100vh - 48px);background:#fff;border:1px solid #e5e9f2;' +
+          'border-radius:14px;box-shadow:0 24px 60px rgba(20,30,60,.28);display:none;flex-direction:column;overflow:hidden}' +
+          '#qa-panel.full{right:0;bottom:0;top:0;left:0;width:100vw;height:100vh;max-width:100vw;max-height:100vh;border-radius:0}' +
+          '#qa-panel.open{display:flex}' +
+          '#qa-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #e5e9f2;background:#fbfcff;font-weight:700}' +
+          '#qa-head .qa-sp{flex:1}' +
+          '#qa-head button{border:1px solid #e5e9f2;background:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;color:#6b7686;font-size:15px}' +
+          '#qa-head button:hover{color:#1f2733}' +
+          '#qa-frame{flex:1;border:0;width:100%}' +
+          '#qa-launch .qlogo,#qa-head .qlogo{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;' +
+          'border-radius:6px;background:linear-gradient(135deg,#3b82f6,#12a150);color:#fff;font-weight:800;font-size:12px;margin-right:6px}' +
+          '#qa-launch .qlogo{background:rgba(255,255,255,.22)}';
+        document.head.appendChild(css);
+
+        var launch = document.createElement('button');
+        launch.id = 'qa-launch';
+        launch.innerHTML = '<span class="qlogo">¥</span> 智能报价助手';
+
+        var panel = document.createElement('div');
+        panel.id = 'qa-panel';
+        panel.innerHTML =
+          '<div id="qa-head"><span><span class="qlogo">¥</span> 智能报价助手</span><span class="qa-sp"></span>' +
+          '<button id="qa-full" title="全屏">⛶</button>' +
+          '<button id="qa-close" title="收起">—</button></div>';
+
+        var frame = document.createElement('iframe');
+        frame.id = 'qa-frame';
+        frame.title = '智能报价助手';
+        frame.setAttribute('allow', 'clipboard-write; clipboard-read');
+        var loaded = false;
+
+        function open() {
+          if (!loaded) { frame.src = AGENT_URL; loaded = true; }
+          panel.classList.add('open');
+          launch.style.display = 'none';
+        }
+        function close() {
+          panel.classList.remove('open');
+          launch.style.display = 'flex';
+        }
+
+        launch.onclick = open;
+        document.body.appendChild(launch);
+        document.body.appendChild(panel);
+        panel.appendChild(frame);
+        panel.querySelector('#qa-close').onclick = close;
+        panel.querySelector('#qa-full').onclick = function () { panel.classList.toggle('full'); };
+      })();
+    </script>
+  </body>
+</html>

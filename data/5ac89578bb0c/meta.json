@@ -1,0 +1,17 @@
+{
+  "project_id": "5ac89578bb0c",
+  "source_filename": "ChatGPT Image Jun 5, 2026, 02_38_58 PM.png",
+  "source_path": "source.png",
+  "note": "",
+  "owner": "system",
+  "attachments": [],
+  "created_at": "2026-06-24 14:29:53",
+  "stages": {
+    "uploaded": "2026-06-24 14:29:53",
+    "parsed": "2026-06-24 14:31:55",
+    "decomposed": "2026-06-24 14:36:43",
+    "geometry": "2026-06-24 14:37:32",
+    "drawings": "2026-06-24 14:37:36",
+    "process": "2026-06-24 16:27:53"
+  }
+}

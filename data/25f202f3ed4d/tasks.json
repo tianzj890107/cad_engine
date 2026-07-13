@@ -1,0 +1,3021 @@
+{
+  "items": [
+    {
+      "task_id": "43e330032852",
+      "project_id": "25f202f3ed4d",
+      "kind": "parse",
+      "status": "succeeded",
+      "progress": "完成",
+      "created_at": "2026-06-30 10:28:14",
+      "started_at": "2026-06-30 10:28:14",
+      "finished_at": "2026-06-30 10:29:49",
+      "result": {
+        "device_name": "晶圆搬运吸嘴组件总成 (Wafer Handler End Effector Assembly) WH-EE-ASM-001",
+        "design_intent": "晶圆搬运机械手末端真空吸附执行器(End Effector)。通过顶部 L 型真空接头/快换接头接入真空，经主体安装块内部气路分配到 4 个真空吸嘴，配合过滤网与 O 型圈密封，对晶圆(2/4/6/8 寸)进行无划伤真空吸附搬运。导向柱+弹簧销实现吸嘴座的浮动/导向补偿，保证吸嘴垂直度。整机要求洁净(ISO Class 3)、防静电(导电硅胶吸嘴)、并通过 -90kPa 保压泄漏检测。",
+        "overall_dims": "120 x 60 x 79.5 mm (不含真空接头突出部分)",
+        "assemblies": [
+          {
+            "assembly_id": "A-000",
+            "name": "晶圆搬运吸嘴组件总成",
+            "parent_id": null,
+            "role": "整机总成",
+            "quantity": 1
+          },
+          {
+            "assembly_id": "A-001",
+            "name": "进气/顶盖总成",
+            "parent_id": "A-000",
+            "role": "真空接入与气路分配",
+            "quantity": 1
+          },
+          {
+            "assembly_id": "A-002",
+            "name": "主体导向总成",
+            "parent_id": "A-000",
+            "role": "安装基体与吸嘴座浮动导向",
+            "quantity": 1
+          },
+          {
+            "assembly_id": "A-003",
+            "name": "真空吸嘴总成",
+            "parent_id": "A-000",
+            "role": "单个吸嘴单元(座+吸嘴+滤网+O圈)",
+            "quantity": 4
+          }
+        ],
+        "parts": [
+          {
+            "part_id": "P-001",
+            "name": "顶盖板",
+            "role": "顶部盖板，承接真空接头并密封主体内部气路",
+            "features": [
+              {
+                "type": "plate",
+                "length": 60.0,
+                "width": 60.0,
+                "thickness": 10.0,
+                "height": null,
+                "diameter": null,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "□60 方形顶盖基体(厚度按比例估)"
+              },
+              {
+                "type": "hole",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 6.0,
+                "radius": null,
+                "distance": null,
+                "x": 0.0,
+                "y": 0.0,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "中央真空接头连通孔(估)"
+              }
+            ],
+            "material": {
+              "spec": "6061-T6",
+              "density": 2.7
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 1,
+            "parent_id": "A-001",
+            "confidence": 0.68,
+            "provenance": {
+              "bbox": [
+                0.55,
+                0.05,
+                0.12,
+                0.18
+              ],
+              "note": "右上爆炸图序号3及主视图□60标注"
+            },
+            "recommendation": null
+          },
+          {
+            "part_id": "P-002",
+            "name": "主体安装块",
+            "role": "组件主体基座，内部真空气路分配，并提供安装接口",
+            "features": [
+              {
+                "type": "box",
+                "length": 120.0,
+                "width": 60.0,
+                "thickness": null,
+                "height": 20.0,
+                "diameter": null,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "主体基体，120×60×20(高度20见主视图)"
+              },
+              {
+                "type": "hole_pattern",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 6.6,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": 2,
+                "count_y": 2,
+                "spacing_x": 75.0,
+                "spacing_y": 60.0,
+                "purpose": "4×Ø6.6 安装通孔"
+              },
+              {
+                "type": "hole_pattern",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 11.0,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": 2,
+                "count_y": 2,
+                "spacing_x": 75.0,
+                "spacing_y": 60.0,
+                "purpose": "Ø11 沉孔，深6.5(与Ø6.6同位)"
+              }
+            ],
+            "material": {
+              "spec": "6061-T6",
+              "density": 2.7
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 1,
+            "parent_id": "A-002",
+            "confidence": 0.75,
+            "provenance": {
+              "bbox": [
+                0.04,
+                0.42,
+                0.3,
+                0.3
+              ],
+              "note": "左下俯视图 120 / 75±0.02 / 60±0.02 及 4×Ø6.6 通孔 Ø11 沉孔深6.5 标注"
+            },
+            "recommendation": null
+          },
+          {
+            "part_id": "P-006",
+            "name": "导向柱",
+            "role": "引导吸嘴固定座浮动，保证垂直度",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 20.0,
+                "diameter": 6.0,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø6×20 导向柱，镀硬铬"
+              }
+            ],
+            "material": {
+              "spec": "SUJ2",
+              "density": 7.85
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 2,
+            "parent_id": "A-002",
+            "confidence": 0.82,
+            "provenance": {
+              "bbox": [
+                0.62,
+                0.28,
+                0.08,
+                0.1
+              ],
+              "note": "BOM序号6 导向柱 SUJ2 镀硬铬 Ø6×20"
+            },
+            "recommendation": null
+          },
+          {
+            "part_id": "P-007",
+            "name": "吸嘴固定座",
+            "role": "固定真空吸嘴，内置过滤网与O型圈密封座",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 18.0,
+                "diameter": 16.8,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø16.8 座体(直径取吸嘴Ø16.8，高度按18估)"
+              },
+              {
+                "type": "hole",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 4.0,
+                "radius": null,
+                "distance": null,
+                "x": 0.0,
+                "y": 0.0,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø4 中央真空通孔"
+              }
+            ],
+            "material": {
+              "spec": "6061-T6",
+              "density": 2.7
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 4,
+            "parent_id": "A-003",
+            "confidence": 0.6,
+            "provenance": {
+              "bbox": [
+                0.4,
+                0.62,
+                0.12,
+                0.18
+              ],
+              "note": "BOM序号7 吸嘴固定座 6061-T6；A-A剖视及Ø16.8/Ø4标注"
+            },
+            "recommendation": null
+          },
+          {
+            "part_id": "P-008",
+            "name": "真空吸嘴",
+            "role": "波纹吸盘，直接接触晶圆并真空吸附",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 16.0,
+                "diameter": 16.8,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø16 波纹吸嘴 2.5折(简化为圆柱，高度估)"
+              }
+            ],
+            "material": {
+              "spec": "导电硅胶(体积电阻率10^4~10^6 Ω·cm)",
+              "density": 1.2
+            },
+            "tolerance_general": null,
+            "quantity": 4,
+            "parent_id": "A-003",
+            "confidence": 0.65,
+            "provenance": {
+              "bbox": [
+                0.32,
+                0.3,
+                0.18,
+                0.12
+              ],
+              "note": "BOM序号8 真空吸嘴 导电硅胶 Ø16,2.5折；主视图Ø16.8"
+            },
+            "recommendation": null
+          },
+          {
+            "part_id": "P-009",
+            "name": "过滤网",
+            "role": "防止颗粒进入真空气路",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 0.3,
+                "diameter": 6.0,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "100目过滤网片(直径/厚度按气路口径估)"
+              }
+            ],
+            "material": {
+              "spec": "SUS316",
+              "density": 7.98
+            },
+            "tolerance_general": null,
+            "quantity": 4,
+            "parent_id": "A-003",
+            "confidence": 0.55,
+            "provenance": {
+              "bbox": [
+                0.49,
+                0.46,
+                0.05,
+                0.05
+              ],
+              "note": "BOM序号9 过滤网 SUS316 100目"
+            },
+            "recommendation": null
+          }
+        ],
+        "standard_parts": [
+          {
+            "spec": "真空接头 L型 SUS304(钝化) 适配Ø6软管",
+            "category": "fitting",
+            "quantity": 1
+          },
+          {
+            "spec": "快换接头 黄铜(镀镍) 适配Ø6软管",
+            "category": "fitting",
+            "quantity": 1
+          },
+          {
+            "spec": "弹簧销 GB/T 879 Ø3×16 SUS304",
+            "category": "pin",
+            "quantity": 2
+          },
+          {
+            "spec": "O型圈 氟橡胶(FKM) ID6×1.5",
+            "category": "oring",
+            "quantity": 4
+          }
+        ],
+        "assembly_notes": "1. 顶盖板(3)装于主体安装块(4)顶部，真空接头(1)经快换接头(2)接入顶盖板，向下连通主体内部真空气路。2. 导向柱(6, Ø6×20, 2 件)压入主体安装块，引导吸嘴固定座(7)上下浮动；弹簧销(5, Ø3×16, 2 件)提供回弹/定位。3. 每个吸嘴固定座(7)装配 1 个真空吸嘴(8, Ø16.8 波纹 2.5 折)+ 1 片过滤网(9, 100 目)+ 1 个 O 型圈(10, ID6×1.5)，O 型圈压缩量控制 0.15~0.20mm 保证密封。4. 主体安装块底部 4×Ø6.6 通孔 + Ø11 沉孔深 6.5，用于将组件安装到机械手臂。5. 真空回路: 真空接头→单向阀→过滤网→各吸嘴。6. 装配后吸嘴垂直度公差 ≤0.02；组件需通过 -90kPa 保压 10s、压降 ≤1kPa 泄漏检测。7. 铝件本色阳极氧化膜厚 10μm；不锈钢件钝化；装前所有零件超声波清洗，表面无划伤、毛刺、油污。",
+        "open_questions": [
+          {
+            "field": "P-001.thickness",
+            "reason": "主视图仅给出□60外形及总高79.5与分段11.5/30/20/18，顶盖板单独厚度未直接标注，按比例估计为约10mm。",
+            "guess": "10"
+          },
+          {
+            "field": "P-002.width",
+            "reason": "俯视图横向120明确，纵向(宽)方向标注75±0.02/60±0.02为孔间距，主体外形宽度未单独标注；右视图为□60，推断主体宽约60mm。",
+            "guess": "60"
+          },
+          {
+            "field": "P-002.hole_pattern.spacing",
+            "reason": "75±0.02与60±0.02为孔阵列X/Y间距，但需确认两组数值分别对应X、Y方向(可能存在长宽方向互换)。",
+            "guess": "75×60"
+          },
+          {
+            "field": "nozzle.count_and_layout",
+            "reason": "BOM吸嘴数量为4，但主视图仅显示一排3个吸嘴，实际排布(一排4个 / 2×2 / 3+1)需确认。",
+            "guess": "4个，2×2布置"
+          },
+          {
+            "field": "P-007.height",
+            "reason": "吸嘴固定座高度无直接标注，参考主视图底部18mm段估计。",
+            "guess": "18"
+          },
+          {
+            "field": "P-008.height",
+            "reason": "真空吸嘴(2.5折波纹)自由高度未标注，按Ø16.8及常规波纹吸盘比例估计。",
+            "guess": "16"
+          },
+          {
+            "field": "P-009.diameter/thickness",
+            "reason": "过滤网仅注明100目与SUS316，安装直径与厚度未标注，按真空通孔Ø4~Ø6估计。",
+            "guess": "Ø6 / 0.3"
+          },
+          {
+            "field": "P-006.fit",
+            "reason": "导向柱与主体安装块、吸嘴固定座的配合性质(过盈压入/间隙滑动)未明确，影响公差配合。",
+            "guess": null
+          }
+        ]
+      },
+      "error": null
+    },
+    {
+      "task_id": "690802d6bbb8",
+      "project_id": "25f202f3ed4d",
+      "kind": "decompose",
+      "status": "succeeded",
+      "progress": "完成",
+      "created_at": "2026-06-30 10:30:05",
+      "started_at": "2026-06-30 10:30:05",
+      "finished_at": "2026-06-30 10:32:02",
+      "result": {
+        "device_name": "晶圆搬运吸嘴组件总成 (Wafer Handler End Effector Assembly) WH-EE-ASM-001",
+        "design_intent": "晶圆搬运机械手末端真空吸附执行器(End Effector)。通过顶部 L 型真空接头/快换接头接入真空，经主体安装块内部气路分配到 4 个真空吸嘴，配合过滤网与 O 型圈密封，对晶圆(2/4/6/8 寸)进行无划伤真空吸附搬运。导向柱+弹簧销实现吸嘴座的浮动/导向补偿，保证吸嘴垂直度。整机要求洁净(ISO Class 3)、防静电(导电硅胶吸嘴)、并通过 -90kPa 保压泄漏检测。",
+        "overall_dims": "120 x 60 x 79.5 mm (不含真空接头突出部分)",
+        "assemblies": [
+          {
+            "assembly_id": "A-000",
+            "name": "晶圆搬运吸嘴组件总成",
+            "parent_id": null,
+            "role": "整机总成",
+            "quantity": 1
+          },
+          {
+            "assembly_id": "A-001",
+            "name": "进气/顶盖总成",
+            "parent_id": "A-000",
+            "role": "真空接入与气路分配",
+            "quantity": 1
+          },
+          {
+            "assembly_id": "A-002",
+            "name": "主体导向总成",
+            "parent_id": "A-000",
+            "role": "安装基体与吸嘴座浮动导向",
+            "quantity": 1
+          },
+          {
+            "assembly_id": "A-003",
+            "name": "真空吸嘴总成",
+            "parent_id": "A-000",
+            "role": "单个吸嘴单元(座+吸嘴+滤网+O圈)",
+            "quantity": 4
+          }
+        ],
+        "parts": [
+          {
+            "part_id": "P-001",
+            "name": "顶盖板",
+            "role": "顶部盖板，承接真空接头并密封主体内部气路",
+            "features": [
+              {
+                "type": "plate",
+                "length": 60.0,
+                "width": 60.0,
+                "thickness": 10.0,
+                "height": null,
+                "diameter": null,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "□60 方形顶盖基体(厚度按比例估)"
+              },
+              {
+                "type": "hole",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 6.0,
+                "radius": null,
+                "distance": null,
+                "x": 0.0,
+                "y": 0.0,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "中央真空接头连通孔(估)"
+              }
+            ],
+            "material": {
+              "spec": "6061-T6",
+              "density": 2.7
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 1,
+            "parent_id": "A-001",
+            "confidence": 0.68,
+            "provenance": {
+              "bbox": [
+                0.55,
+                0.05,
+                0.12,
+                0.18
+              ],
+              "note": "右上爆炸图序号3及主视图□60标注"
+            },
+            "recommendation": "工艺：CNC 铣削加工(6061-T6 板料)，单件单面装夹即可完成，外形规则、批量小，机加最经济，无需铸造/钣金。DFM：1) 中央 Ø6 连通孔与真空接头螺纹孔(建议 G1/8 或 M5 内螺纹)需与主体气路同轴，建议在该孔周围设计 O 型圈密封槽(ID 见配套规格)，槽深/槽宽按 FKM O 圈压缩量 15~25% 设计。2) 盖板与主体的密封接触面平面度建议 ≤0.02、Ra≤0.8，保证 -90kPa 保压。3) 四角增设盖板紧固沉孔(M3/M4)，孔边距 ≥1.5×孔径，避免与主体气路干涉。4) 本色硬质阳极氧化(膜厚~10μm)前应去毛刺、倒钝锐边 C0.3。建议复用：可采用标准方形端盖结构，不建议拆分。"
+          },
+          {
+            "part_id": "P-002",
+            "name": "主体安装块",
+            "role": "组件主体基座，内部真空气路分配，并提供安装接口",
+            "features": [
+              {
+                "type": "box",
+                "length": 120.0,
+                "width": 60.0,
+                "thickness": null,
+                "height": 20.0,
+                "diameter": null,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "主体基体，120×60×20(高度20见主视图)"
+              },
+              {
+                "type": "hole_pattern",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 6.6,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": 2,
+                "count_y": 2,
+                "spacing_x": 75.0,
+                "spacing_y": 60.0,
+                "purpose": "4×Ø6.6 安装通孔"
+              },
+              {
+                "type": "hole_pattern",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 11.0,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": 2,
+                "count_y": 2,
+                "spacing_x": 75.0,
+                "spacing_y": 60.0,
+                "purpose": "Ø11 沉孔，深6.5(与Ø6.6同位)"
+              }
+            ],
+            "material": {
+              "spec": "6061-T6",
+              "density": 2.7
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 1,
+            "parent_id": "A-002",
+            "confidence": 0.75,
+            "provenance": {
+              "bbox": [
+                0.04,
+                0.42,
+                0.3,
+                0.3
+              ],
+              "note": "左下俯视图 120 / 75±0.02 / 60±0.02 及 4×Ø6.6 通孔 Ø11 沉孔深6.5 标注"
+            },
+            "recommendation": "工艺：整体 CNC 铣削(6061-T6 实心块)，内部真空气路采用深孔钻交叉钻孔分配，钻孔交汇后用螺塞(M5/M6 锥螺塞或球封)封堵盲端工艺孔。理由：气路需高洁净度、低死腔且无泄漏，铸造易产生砂眼、内壁粗糙不利保压，故首选机加。DFM 关键点：1) 4×Ø6.6 通孔(配 M6 螺钉)+ Ø11 沉孔深6.5 为标准 M6 内六角圆柱头沉孔，孔边距与壁厚需 ≥3mm，校核 75±0.02/60±0.02 与机械臂安装界面一致。2) 交叉气路孔的交汇处应去毛刺(可达性差，建议预留工艺端面或采用电解去毛刺)，避免颗粒污染晶圆。3) 内部气路与外部连通的所有工艺封堵处必须能通过 -90kPa 保压，封堵螺塞处加 O 圈或厌氧胶。4) 导向柱/弹簧孔位需与吸嘴座阵列严格对位，建议一次装夹完成镗孔保证位置度。5) 最小壁厚建议≥2.5mm。不建议拆分；为降低死腔体积，气路分配可考虑预留歧管腔。"
+          },
+          {
+            "part_id": "P-006",
+            "name": "导向柱",
+            "role": "引导吸嘴固定座浮动，保证垂直度",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 20.0,
+                "diameter": 6.0,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø6×20 导向柱，镀硬铬"
+              }
+            ],
+            "material": {
+              "spec": "SUJ2",
+              "density": 7.85
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 2,
+            "parent_id": "A-002",
+            "confidence": 0.82,
+            "provenance": {
+              "bbox": [
+                0.62,
+                0.28,
+                0.08,
+                0.1
+              ],
+              "note": "BOM序号6 导向柱 SUJ2 镀硬铬 Ø6×20"
+            },
+            "recommendation": "工艺：车削+磨削+镀硬铬(SUJ2 轴承钢，淬火 HRC58~62 后外圆磨削达 Ø6 h6/g6，表面镀硬铬 Ø6 提升耐磨与防锈)。理由：作为滑动导向件需高硬度、高直线度与低摩擦，标准做法即磨削导柱。建议优先复用标准导柱/直线轴(如标准导销 Ø6×20)而非自制。DFM/配合：1) 与主体安装块孔建议 H7/r6 过盈压入(固定端)，与吸嘴固定座导向孔建议 H7/g6 间隙滑动配合(确保浮动顺畅、无卡滞)，需在 open_questions 中确认。2) 压入端倒角 C0.5 引导，滑动端倒圆便于装配。3) 镀铬层厚 5~10μm，注意镀后氢脆去除(去氢处理)。4) 直线度/圆柱度 ≤0.01 以保证吸嘴垂直度 ≤0.02。"
+          },
+          {
+            "part_id": "P-007",
+            "name": "吸嘴固定座",
+            "role": "固定真空吸嘴，内置过滤网与O型圈密封座",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 18.0,
+                "diameter": 16.8,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø16.8 座体(直径取吸嘴Ø16.8，高度按18估)"
+              },
+              {
+                "type": "hole",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 4.0,
+                "radius": null,
+                "distance": null,
+                "x": 0.0,
+                "y": 0.0,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø4 中央真空通孔"
+              }
+            ],
+            "material": {
+              "spec": "6061-T6",
+              "density": 2.7
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 4,
+            "parent_id": "A-003",
+            "confidence": 0.6,
+            "provenance": {
+              "bbox": [
+                0.4,
+                0.62,
+                0.12,
+                0.18
+              ],
+              "note": "BOM序号7 吸嘴固定座 6061-T6；A-A剖视及Ø16.8/Ø4标注"
+            },
+            "recommendation": "工艺：以车削为主(回转体 Ø16.8)+ 铣削加工导向孔与 O 圈密封槽。理由：回转结构、4 件小批量，车铣复合最高效。DFM：1) 中央 Ø4 真空通孔下端设吸嘴安装台阶/倒锥用于装配硅胶吸嘴(过盈套入)，上端设 O 圈密封座(配 ID6×1.5 FKM，压缩量 0.15~0.20mm)与过滤网安装沉台(配 Ø6 滤网片)。2) 与导向柱配合的导向孔建议 H7 间隙滑动，孔深≥1.5×Ø 保证导向稳定、防偏摆。3) 内孔及密封面 Ra≤0.8、去毛刺，避免颗粒残留(洁净要求)。4) 本色阳极氧化前清洗。建议 4 件相同零件统一加工保证一致性；不建议与吸嘴合并(材料/工艺不同)。"
+          },
+          {
+            "part_id": "P-008",
+            "name": "真空吸嘴",
+            "role": "波纹吸盘，直接接触晶圆并真空吸附",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 16.0,
+                "diameter": 16.8,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø16 波纹吸嘴 2.5折(简化为圆柱，高度估)"
+              }
+            ],
+            "material": {
+              "spec": "导电硅胶(体积电阻率10^4~10^6 Ω·cm)",
+              "density": 1.2
+            },
+            "tolerance_general": null,
+            "quantity": 4,
+            "parent_id": "A-003",
+            "confidence": 0.65,
+            "provenance": {
+              "bbox": [
+                0.32,
+                0.3,
+                0.18,
+                0.12
+              ],
+              "note": "BOM序号8 真空吸嘴 导电硅胶 Ø16,2.5折；主视图Ø16.8"
+            },
+            "recommendation": "工艺：橡胶模压/注射成型(导电硅胶，需专用成型模)。理由：波纹吸盘为标准弹性体外购件，2.5 折波纹结构无法机加，应优先选用品牌真空吸盘标准件(如 SMC/PIAB/Schmalz 导电硅胶 Ø16 波纹吸盘)，按标准件采购而非自制。本零件本质属外购功能件，建议在 standard_parts 中登记选型。DFM/选型注意：1) 必须为防静电导电硅胶(体积电阻率 10^4~10^6 Ω·cm)，并保证整机静电泄放通路连续(吸嘴→导电座→机械臂接地)。2) 接触晶圆面需无脱模剂残留、低析出(洁净 ISO Class 3)、无划伤硬度建议 Shore A 40~50。3) 与固定座装配采用过盈套接或卡接，保证 -90kPa 不脱落、不泄漏。"
+          },
+          {
+            "part_id": "P-009",
+            "name": "过滤网",
+            "role": "防止颗粒进入真空气路",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 0.3,
+                "diameter": 6.0,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "100目过滤网片(直径/厚度按气路口径估)"
+              }
+            ],
+            "material": {
+              "spec": "SUS316",
+              "density": 7.98
+            },
+            "tolerance_general": null,
+            "quantity": 4,
+            "parent_id": "A-003",
+            "confidence": 0.55,
+            "provenance": {
+              "bbox": [
+                0.49,
+                0.46,
+                0.05,
+                0.05
+              ],
+              "note": "BOM序号9 过滤网 SUS316 100目"
+            },
+            "recommendation": "工艺：冲裁(由 SUS316 100 目编织网冲制圆片)，属标准/半标准件，建议按 Ø6×100 目 SUS316 滤网片外购。理由：编织网片无需机加，冲压成型最经济。DFM：1) 冲裁后边缘需去毛刺、压边或包边，防止网丝脱落污染晶圆气路(洁净关键)。2) 与固定座沉台采用过盈/卡压安装，确保不串动。3) SUS316 钝化处理、超声清洗。4) 100 目对应~150μm 孔径，需校核对真空流阻影响以满足保压响应。可设计为可拆更换以便维护。"
+          }
+        ],
+        "standard_parts": [
+          {
+            "spec": "真空接头 L型 SUS304(钝化) 适配Ø6软管",
+            "category": "fitting",
+            "quantity": 1
+          },
+          {
+            "spec": "快换接头 黄铜(镀镍) 适配Ø6软管",
+            "category": "fitting",
+            "quantity": 1
+          },
+          {
+            "spec": "弹簧销 GB/T 879 Ø3×16 SUS304",
+            "category": "pin",
+            "quantity": 2
+          },
+          {
+            "spec": "O型圈 氟橡胶(FKM) ID6×1.5",
+            "category": "oring",
+            "quantity": 4
+          },
+          {
+            "spec": "内六角圆柱头螺钉 GB/T 70.1 M6 (配主体安装块4×Ø6.6通孔+Ø11沉孔深6.5，固定至机械臂；长度按臂端接口选定)",
+            "category": "bolt",
+            "quantity": 4
+          },
+          {
+            "spec": "内六角圆柱头螺钉 GB/T 70.1 M3×L 不锈钢(顶盖板P-001固定至主体安装块P-002，四角各1)",
+            "category": "bolt",
+            "quantity": 4
+          },
+          {
+            "spec": "压缩弹簧 SUS304 (配导向柱Ø6，提供吸嘴座浮动回弹力；自由长度/线径按浮动行程与吸附力选定)",
+            "category": "spring",
+            "quantity": 2
+          },
+          {
+            "spec": "O型圈 氟橡胶(FKM) (顶盖板P-001与主体安装块P-002真空气路界面密封，规格按中央Ø6气路口设计)",
+            "category": "oring",
+            "quantity": 1
+          },
+          {
+            "spec": "单向阀(止回阀) 真空用 适配气路 (assembly_notes真空回路提及，防止失真空时晶圆跌落)",
+            "category": "valve",
+            "quantity": 1
+          },
+          {
+            "spec": "管螺纹密封件/螺塞 M5或M6 不锈钢+O圈 (主体安装块交叉气路工艺孔封堵)",
+            "category": "plug",
+            "quantity": 2
+          }
+        ],
+        "assembly_notes": "1. 顶盖板(P-001/序号3)经四角 M3 螺钉固定于主体安装块(P-002/序号4)顶部，结合面置 FKM O 圈密封；真空接头(序号1)经快换接头(序号2)旋入顶盖板中央 Ø6 连通孔(建议带内螺纹密封)，向下连通主体内部真空气路。\n2. 导向柱(P-006/序号6, Ø6×20, 2 件)以过盈(建议 H7/r6)压入主体安装块固定孔；吸嘴固定座(P-007/序号7)导向孔与导向柱间隙滑动(建议 H7/g6)实现上下浮动；压缩弹簧套于导向柱提供回弹，弹簧销(序号5, Ø3×16, 2 件)限位/定位。装配顺序：先压导向柱→装弹簧→套吸嘴固定座→装弹簧销限位。\n3. 每个吸嘴固定座(7)依次装配 1 片过滤网(P-009/序号9, Ø6/100 目，压入上沉台)+ 1 个 O 型圈(序号10, ID6×1.5, 装入密封座，压缩量 0.15~0.20mm)+ 1 个真空吸嘴(P-008/序号8, Ø16.8 波纹 2.5 折，下端过盈套入)。4 组吸嘴单元(A-003)一致装配。\n4. 主体安装块底部 4×Ø6.6 通孔 + Ø11 沉孔深 6.5，用 4×M6 内六角圆柱头螺钉将组件安装到机械手臂；安装界面间距 75±0.02 / 60±0.02 须与臂端匹配。\n5. 真空回路：真空接头→快换接头→顶盖板→主体内部分配气路(交叉钻孔，盲端用螺塞+O圈封堵)→单向阀(防失真空跌落)→各吸嘴座过滤网→真空吸嘴。所有内部气路交汇处去毛刺、低死腔。\n6. 静电泄放通路：导电硅胶吸嘴→导电(阳极氧化需局部留导电点或经螺钉)固定座→主体→机械臂接地，保证连续导电。\n7. 检验：装配后吸嘴垂直度公差 ≤0.02；组件需通过 -90kPa 保压 10s、压降 ≤1kPa 泄漏检测。建议先做子总成(A-003 单吸嘴)保压预检再做整机检测。\n8. 表面处理与洁净：铝件本色阳极氧化膜厚 10μm；不锈钢件(导向柱镀硬铬、滤网/弹簧销/接头)钝化；装前所有零件超声波清洗，表面无划伤、毛刺、油污，在 ISO Class 3 洁净环境装配。",
+        "open_questions": [
+          {
+            "field": "P-001.thickness",
+            "reason": "主视图仅给出□60外形及总高79.5与分段11.5/30/20/18，顶盖板单独厚度未直接标注，按比例估计为约10mm。",
+            "guess": "10"
+          },
+          {
+            "field": "P-002.width",
+            "reason": "俯视图横向120明确，纵向(宽)方向标注75±0.02/60±0.02为孔间距，主体外形宽度未单独标注；右视图为□60，推断主体宽约60mm。",
+            "guess": "60"
+          },
+          {
+            "field": "P-002.hole_pattern.spacing",
+            "reason": "75±0.02与60±0.02为孔阵列X/Y间距，但需确认两组数值分别对应X、Y方向(可能存在长宽方向互换)。",
+            "guess": "75×60"
+          },
+          {
+            "field": "nozzle.count_and_layout",
+            "reason": "BOM吸嘴数量为4，但主视图仅显示一排3个吸嘴，实际排布(一排4个 / 2×2 / 3+1)需确认。",
+            "guess": "4个，2×2布置"
+          },
+          {
+            "field": "P-007.height",
+            "reason": "吸嘴固定座高度无直接标注，参考主视图底部18mm段估计。",
+            "guess": "18"
+          },
+          {
+            "field": "P-008.height",
+            "reason": "真空吸嘴(2.5折波纹)自由高度未标注，按Ø16.8及常规波纹吸盘比例估计。",
+            "guess": "16"
+          },
+          {
+            "field": "P-009.diameter/thickness",
+            "reason": "过滤网仅注明100目与SUS316，安装直径与厚度未标注，按真空通孔Ø4~Ø6估计。",
+            "guess": "Ø6 / 0.3"
+          },
+          {
+            "field": "P-006.fit",
+            "reason": "导向柱与主体安装块、吸嘴固定座的配合性质(过盈压入/间隙滑动)未明确，影响公差配合。DFM建议：固定端H7/r6过盈、滑动端H7/g6间隙，待确认。",
+            "guess": "固定端过盈H7/r6, 滑动端间隙H7/g6"
+          },
+          {
+            "field": "P-008.classification",
+            "reason": "真空吸嘴为导电硅胶模压外购功能件，建议作为标准件选型(品牌/型号)而非自制，需确认采购规格及与固定座的装配方式(过盈/卡接)。",
+            "guess": "外购标准导电硅胶波纹吸盘 Ø16 2.5折"
+          },
+          {
+            "field": "spring.spec",
+            "reason": "浮动机构需压缩弹簧(套于导向柱)，原BOM未列弹簧规格(线径/自由长/刚度)，需依据浮动行程与所需吸附压紧力确定。",
+            "guess": null
+          },
+          {
+            "field": "P-001.seal_thread",
+            "reason": "顶盖板中央Ø6连通孔与真空接头的连接方式(直插/螺纹G1/8/M5)及密封形式未明确。",
+            "guess": "G1/8或M5内螺纹+O圈密封"
+          },
+          {
+            "field": "check_valve",
+            "reason": "assembly_notes提及真空回路含单向阀，但BOM未列其规格与安装位置(集成于主体或外置)，需确认。",
+            "guess": "真空用止回阀，集成于主体气路"
+          }
+        ]
+      },
+      "error": null
+    },
+    {
+      "task_id": "2e883d65fc3d",
+      "project_id": "25f202f3ed4d",
+      "kind": "generate",
+      "status": "succeeded",
+      "progress": "完成",
+      "created_at": "2026-06-30 10:32:28",
+      "started_at": "2026-06-30 10:32:28",
+      "finished_at": "2026-06-30 10:32:28",
+      "result": {
+        "parts": [
+          {
+            "part_id": "P-001",
+            "name": "顶盖板",
+            "ok": true,
+            "volume_mm3": 35717.257,
+            "mass_g": 96.437,
+            "bbox": [
+              60.0,
+              60.0,
+              10.0
+            ],
+            "warnings": [],
+            "error": null,
+            "stl_url": "/api/projects/25f202f3ed4d/geometry/P-001.stl",
+            "step_url": "/api/projects/25f202f3ed4d/geometry/P-001.step"
+          },
+          {
+            "part_id": "P-002",
+            "name": "主体安装块",
+            "ok": true,
+            "volume_mm3": 140198.673,
+            "mass_g": 378.536,
+            "bbox": [
+              120.0,
+              60.0,
+              20.0
+            ],
+            "warnings": [
+              "孔(y=-30.0, ⌀6.6) 超出板面 Y 边界，存在破边风险",
+              "孔(y=30.0, ⌀6.6) 超出板面 Y 边界，存在破边风险",
+              "孔(y=-30.0, ⌀6.6) 超出板面 Y 边界，存在破边风险",
+              "孔(y=30.0, ⌀6.6) 超出板面 Y 边界，存在破边风险",
+              "孔(y=-30.0, ⌀11.0) 超出板面 Y 边界，存在破边风险",
+              "孔(y=30.0, ⌀11.0) 超出板面 Y 边界，存在破边风险",
+              "孔(y=-30.0, ⌀11.0) 超出板面 Y 边界，存在破边风险",
+              "孔(y=30.0, ⌀11.0) 超出板面 Y 边界，存在破边风险"
+            ],
+            "error": null,
+            "stl_url": "/api/projects/25f202f3ed4d/geometry/P-002.stl",
+            "step_url": "/api/projects/25f202f3ed4d/geometry/P-002.step"
+          },
+          {
+            "part_id": "P-006",
+            "name": "导向柱",
+            "ok": true,
+            "volume_mm3": 565.487,
+            "mass_g": 4.439,
+            "bbox": [
+              6.0,
+              6.0,
+              20.0
+            ],
+            "warnings": [],
+            "error": null,
+            "stl_url": "/api/projects/25f202f3ed4d/geometry/P-006.stl",
+            "step_url": "/api/projects/25f202f3ed4d/geometry/P-006.step"
+          },
+          {
+            "part_id": "P-007",
+            "name": "吸嘴固定座",
+            "ok": true,
+            "volume_mm3": 3763.879,
+            "mass_g": 10.162,
+            "bbox": [
+              16.8,
+              16.8,
+              18.0
+            ],
+            "warnings": [],
+            "error": null,
+            "stl_url": "/api/projects/25f202f3ed4d/geometry/P-007.stl",
+            "step_url": "/api/projects/25f202f3ed4d/geometry/P-007.step"
+          },
+          {
+            "part_id": "P-008",
+            "name": "真空吸嘴",
+            "ok": true,
+            "volume_mm3": 3546.732,
+            "mass_g": 4.256,
+            "bbox": [
+              16.8,
+              16.8,
+              16.0
+            ],
+            "warnings": [],
+            "error": null,
+            "stl_url": "/api/projects/25f202f3ed4d/geometry/P-008.stl",
+            "step_url": "/api/projects/25f202f3ed4d/geometry/P-008.step"
+          },
+          {
+            "part_id": "P-009",
+            "name": "过滤网",
+            "ok": true,
+            "volume_mm3": 8.482,
+            "mass_g": 0.068,
+            "bbox": [
+              6.0,
+              6.0,
+              0.3
+            ],
+            "warnings": [],
+            "error": null,
+            "stl_url": "/api/projects/25f202f3ed4d/geometry/P-009.stl",
+            "step_url": "/api/projects/25f202f3ed4d/geometry/P-009.step"
+          }
+        ]
+      },
+      "error": null
+    },
+    {
+      "task_id": "9303a52c6793",
+      "project_id": "25f202f3ed4d",
+      "kind": "drawings",
+      "status": "succeeded",
+      "progress": "完成",
+      "created_at": "2026-06-30 10:32:30",
+      "started_at": "2026-06-30 10:32:30",
+      "finished_at": "2026-06-30 10:32:31",
+      "result": {
+        "parts": [
+          {
+            "part_id": "P-001",
+            "name": "顶盖板",
+            "ok": true,
+            "views": {
+              "front": "/api/projects/25f202f3ed4d/geometry/P-001_front.svg",
+              "top": "/api/projects/25f202f3ed4d/geometry/P-001_top.svg",
+              "right": "/api/projects/25f202f3ed4d/geometry/P-001_right.svg",
+              "iso": "/api/projects/25f202f3ed4d/geometry/P-001_iso.svg"
+            },
+            "dxf_url": "/api/projects/25f202f3ed4d/geometry/P-001.dxf",
+            "warnings": [],
+            "error": null
+          },
+          {
+            "part_id": "P-002",
+            "name": "主体安装块",
+            "ok": true,
+            "views": {
+              "front": "/api/projects/25f202f3ed4d/geometry/P-002_front.svg",
+              "top": "/api/projects/25f202f3ed4d/geometry/P-002_top.svg",
+              "right": "/api/projects/25f202f3ed4d/geometry/P-002_right.svg",
+              "iso": "/api/projects/25f202f3ed4d/geometry/P-002_iso.svg"
+            },
+            "dxf_url": "/api/projects/25f202f3ed4d/geometry/P-002.dxf",
+            "warnings": [],
+            "error": null
+          },
+          {
+            "part_id": "P-006",
+            "name": "导向柱",
+            "ok": true,
+            "views": {
+              "front": "/api/projects/25f202f3ed4d/geometry/P-006_front.svg",
+              "top": "/api/projects/25f202f3ed4d/geometry/P-006_top.svg",
+              "right": "/api/projects/25f202f3ed4d/geometry/P-006_right.svg",
+              "iso": "/api/projects/25f202f3ed4d/geometry/P-006_iso.svg"
+            },
+            "dxf_url": "/api/projects/25f202f3ed4d/geometry/P-006.dxf",
+            "warnings": [],
+            "error": null
+          },
+          {
+            "part_id": "P-007",
+            "name": "吸嘴固定座",
+            "ok": true,
+            "views": {
+              "front": "/api/projects/25f202f3ed4d/geometry/P-007_front.svg",
+              "top": "/api/projects/25f202f3ed4d/geometry/P-007_top.svg",
+              "right": "/api/projects/25f202f3ed4d/geometry/P-007_right.svg",
+              "iso": "/api/projects/25f202f3ed4d/geometry/P-007_iso.svg"
+            },
+            "dxf_url": "/api/projects/25f202f3ed4d/geometry/P-007.dxf",
+            "warnings": [],
+            "error": null
+          },
+          {
+            "part_id": "P-008",
+            "name": "真空吸嘴",
+            "ok": true,
+            "views": {
+              "front": "/api/projects/25f202f3ed4d/geometry/P-008_front.svg",
+              "top": "/api/projects/25f202f3ed4d/geometry/P-008_top.svg",
+              "right": "/api/projects/25f202f3ed4d/geometry/P-008_right.svg",
+              "iso": "/api/projects/25f202f3ed4d/geometry/P-008_iso.svg"
+            },
+            "dxf_url": "/api/projects/25f202f3ed4d/geometry/P-008.dxf",
+            "warnings": [],
+            "error": null
+          },
+          {
+            "part_id": "P-009",
+            "name": "过滤网",
+            "ok": true,
+            "views": {
+              "front": "/api/projects/25f202f3ed4d/geometry/P-009_front.svg",
+              "top": "/api/projects/25f202f3ed4d/geometry/P-009_top.svg",
+              "right": "/api/projects/25f202f3ed4d/geometry/P-009_right.svg",
+              "iso": "/api/projects/25f202f3ed4d/geometry/P-009_iso.svg"
+            },
+            "dxf_url": "/api/projects/25f202f3ed4d/geometry/P-009.dxf",
+            "warnings": [],
+            "error": null
+          }
+        ]
+      },
+      "error": null
+    },
+    {
+      "task_id": "8bf2e03bae32",
+      "project_id": "25f202f3ed4d",
+      "kind": "process",
+      "status": "succeeded",
+      "progress": "完成",
+      "created_at": "2026-06-30 10:35:09",
+      "started_at": "2026-06-30 10:35:09",
+      "finished_at": "2026-06-30 10:36:37",
+      "result": {
+        "plan": {
+          "part_id": "P-002",
+          "part_name": "主体安装块",
+          "material": "6061-T6",
+          "blank": "板料(铝板) 126×66×24 6061-T6，六面单边留约3mm加工余量；要求材料无内部夹渣/疏松以保证气路保压",
+          "summary": "零件为晶圆搬运吸嘴组件的主体基座，集成内部真空气路分配与多组安装接口，属铝合金箱体类精密件。选材沿用设计指定 6061-T6，综合考虑机加工性、轻量化与阳极氧化适应性。整体加工思路：以最大底面(120×60)作为主定位基准面先行铣平，以两侧相邻面构成第二、第三基准(3-2-1 定位)，保证孔系与气路相对基准的位置精度；先六面粗铣去除大余量、释放材料内应力，再半精/精铣保证平面度与基准；随后在精基准上加工 4×Ø6.6 通孔及 Ø11 沉孔(深6.5)孔系，并完成内部交叉真空气路钻孔与端口封堵；密封面/O型圈相关面在精加工阶段一次装夹完成以保证密封可靠性；最后钳工去毛刺、超声清洗、阳极氧化(需满足防静电/洁净要求)，并进行尺寸终检与 -90kPa 保压泄漏检测。注意该件用于 ISO Class 3 洁净环境，全程需控制污染、避免使用含硅/油脂润滑剂残留。",
+          "steps": [
+            {
+              "step_no": 10,
+              "name": "下料备料",
+              "type": "blank",
+              "description": "按毛坯规格锯切 6061-T6 铝板，下料尺寸 126×66×24，检查材料牌号、批次及表面无划伤、夹层缺陷",
+              "equipment": "立式带锯床 / 锯床",
+              "fixture": "带锯虎钳",
+              "tooling": "锯条; 钢卷尺; 游标卡尺",
+              "params": "常规锯切参数(铝合金)",
+              "quality": "下料尺寸 126×66×24 (+1/0); 材质与批次可追溯",
+              "duration_min": 8.0,
+              "depends_on": [],
+              "note": "六面单边留约3mm余量",
+              "confidence": 0.9
+            },
+            {
+              "step_no": 20,
+              "name": "粗铣六面",
+              "type": "milling",
+              "description": "粗铣外形六面，去除大部分余量，各面留约 0.5~0.8mm 精加工余量；初步建立基准，利于内应力释放",
+              "equipment": "立式加工中心 VMC850",
+              "fixture": "精密平口虎钳 + 平行垫铁",
+              "tooling": "φ50 面铣盘(可转位刀片); 游标卡尺",
+              "params": "铝合金高速铣削(具体 S/F 按刀具系统确定，待定)",
+              "quality": "各面留余量约0.5~0.8mm; 外形对称",
+              "duration_min": 25.0,
+              "depends_on": [
+                10
+              ],
+              "note": "切削参数待刀具/机床确定，避免臆造",
+              "confidence": 0.65
+            },
+            {
+              "step_no": 30,
+              "name": "精铣基准面及外形",
+              "type": "milling",
+              "description": "以最大底面(120×60)为主基准精铣至 20 高度，再精铣相邻两侧面构成 3-2-1 基准体系，精铣 120×60 轮廓到位，保证平面度与垂直度",
+              "equipment": "立式加工中心 VMC850",
+              "fixture": "精密平口虎钳 + 平行垫铁",
+              "tooling": "φ50 面铣盘; φ12 立铣刀; 千分尺; 刀口角尺/百分表",
+              "params": "铝合金精铣，小切深顺铣(具体参数待定)",
+              "quality": "尺寸 120×60×20 按 ISO2768-m; 基准面平面度参考0.05; 相邻面垂直度",
+              "duration_min": 30.0,
+              "depends_on": [
+                20
+              ],
+              "note": null,
+              "confidence": 0.7
+            },
+            {
+              "step_no": 40,
+              "name": "钻铰安装通孔及铣沉孔",
+              "type": "drilling",
+              "description": "在精基准上加工 4×Ø6.6 安装通孔(孔距 75×60)，并在同位加工 Ø11 沉孔、深6.5；先钻中心孔→钻 Ø6.6 通孔→铣/锪 Ø11 沉孔保证孔深与沉孔底平",
+              "equipment": "立式加工中心 VMC850",
+              "fixture": "专用工装/虎钳，按基准定位",
+              "tooling": "中心钻; φ6.6 麻花钻; φ11 锪钻或立铣刀; 深度尺; 孔径塞规",
+              "params": "铝合金钻削参数(待定); 沉孔深6.5",
+              "quality": "孔位 75×60 按 ISO2768-m; Ø6.6 孔径; Ø11 沉孔深6.5±0.1; 孔口无毛刺",
+              "duration_min": 18.0,
+              "depends_on": [
+                30
+              ],
+              "note": null,
+              "confidence": 0.7
+            },
+            {
+              "step_no": 50,
+              "name": "加工内部真空气路",
+              "type": "drilling",
+              "description": "按图纸加工内部真空分配气路：从顶部接头处主通道向 4 个吸嘴端口交叉钻孔形成连通气路，并对工艺辅助孔/端口进行封堵(螺塞+密封或压入封堵)，确保气路连通且密封",
+              "equipment": "立式加工中心 VMC850 / 深孔钻",
+              "fixture": "多面定位工装(需翻面)",
+              "tooling": "长麻花钻/枪钻; 丝锥(端口螺塞); 内窥镜检查",
+              "params": "气路孔径/走向待澄清，参数暂不确定",
+              "quality": "气路全程连通; 端口封堵密封; 内孔无残留切屑",
+              "duration_min": 35.0,
+              "depends_on": [
+                40
+              ],
+              "note": "气路尺寸缺失，为关键不确定工序，见open_questions",
+              "confidence": 0.35
+            },
+            {
+              "step_no": 60,
+              "name": "精加工密封面/接口特征",
+              "type": "milling",
+              "description": "精加工 O 型圈密封槽、顶部真空接头接口及吸嘴座/导向柱安装接口(尺寸待补充)，密封相关面尽量一次装夹完成以保证位置与密封一致性",
+              "equipment": "立式加工中心 VMC850",
+              "fixture": "专用密封面加工工装",
+              "tooling": "成形/槽铣刀; 丝锥; 内孔表面粗糙度样块",
+              "params": "密封槽尺寸及Ra待澄清",
+              "quality": "密封槽尺寸符合O型圈标准; 密封面 Ra1.6 或更优",
+              "duration_min": 25.0,
+              "depends_on": [
+                50
+              ],
+              "note": "密封槽与接口尺寸缺失",
+              "confidence": 0.4
+            },
+            {
+              "step_no": 70,
+              "name": "钳工去毛刺",
+              "type": "bench",
+              "description": "全部棱边、孔口、沉孔、气路口去毛刺倒钝，重点清理内部气路毛刺，防止后续污染与划伤晶圆",
+              "equipment": "钳工台",
+              "fixture": "—",
+              "tooling": "去毛刺刮刀; 倒角刀; 毛刷; 内孔毛刺刷",
+              "params": "孔口倒钝 C0.2~0.3",
+              "quality": "无可见毛刺/锐边; 气路内孔无残屑",
+              "duration_min": 15.0,
+              "depends_on": [
+                60
+              ],
+              "note": null,
+              "confidence": 0.85
+            },
+            {
+              "step_no": 80,
+              "name": "超声清洗",
+              "type": "surface",
+              "description": "超声波清洗去除切削液、油脂及微小切屑，满足洁净要求；清洗后吹干，避免气路残留水分/颗粒",
+              "equipment": "超声波清洗机",
+              "fixture": "清洗料筐",
+              "tooling": "纯水/专用清洗剂; 洁净干燥设备",
+              "params": "按洁净工艺(ISO Class 相关)执行",
+              "quality": "表面洁净无油污; 气路内无颗粒残留",
+              "duration_min": 20.0,
+              "depends_on": [
+                70
+              ],
+              "note": "洁净度等级与清洗规范待确认",
+              "confidence": 0.6
+            },
+            {
+              "step_no": 90,
+              "name": "表面处理(阳极氧化)",
+              "type": "surface",
+              "description": "按防静电/洁净要求进行阳极氧化处理(导电氧化或硫酸阳极氧化，密封配合面视需遮蔽)，提升耐蚀与表面性能",
+              "equipment": "阳极氧化生产线(外协/专线)",
+              "fixture": "氧化挂具; 遮蔽工装",
+              "tooling": "—",
+              "params": "膜厚及类型待澄清",
+              "quality": "膜层均匀; 颜色一致; 密封/配合面尺寸不超差",
+              "duration_min": 30.0,
+              "depends_on": [
+                80
+              ],
+              "note": "防静电与阳极氧化矛盾，工艺类型需澄清",
+              "confidence": 0.4
+            },
+            {
+              "step_no": 100,
+              "name": "终检与泄漏检测",
+              "type": "inspection",
+              "description": "终检关键尺寸(外形、孔系、沉孔深、孔距)与外观，并对内部真空气路进行 -90kPa 保压泄漏检测，确认气路密封合格",
+              "equipment": "三坐标测量机 CMM; 真空保压泄漏检测台",
+              "fixture": "检测工装/密封堵头",
+              "tooling": "CMM; 游标卡尺; 深度尺; 真空泵+压力表",
+              "params": "保压目标 -90kPa，保压时间/泄漏率按规范",
+              "quality": "尺寸按 ISO2768-m 合格; -90kPa 保压泄漏检测通过; 外观无缺陷",
+              "duration_min": 25.0,
+              "depends_on": [
+                90
+              ],
+              "note": "泄漏率合格判据待确认",
+              "confidence": 0.6
+            }
+          ],
+          "overall_note": "1) 内部真空气路的孔径、走向、交叉点及封堵方式(螺塞/压铆球/焊封)未在设计意图中给出，是本工艺的最大不确定来源，相关工序参数待澄清。2) 顶部 L 型真空快换接头安装接口、吸嘴座安装孔、导向柱/弹簧销孔、O型圈密封槽等接口特征在给定特征中缺失，需补充图纸。3) 阳极氧化与\"防静电\"存在矛盾(常规硬质阳极氧化为绝缘层)，需明确表面处理类型(如导电氧化/局部遮蔽)。4) 全程洁净度控制，加工后需充分清洗去除毛刺与切屑，尤其气路内孔。",
+          "open_questions": [
+            {
+              "field": "P-002.internal_air_path",
+              "reason": "内部真空气路的孔径、深度、交叉走向及封堵(端口塞)方式未给出，无法确定钻孔/封堵工序的具体参数与刀具，直接影响保压泄漏合格性",
+              "guess": "Ø3~Ø5 交叉钻孔，端口用螺塞+O型圈或压入钢球封堵"
+            },
+            {
+              "field": "P-002.oring_groove",
+              "reason": "气路接口与吸嘴/接头处的 O 型圈密封槽尺寸、表面粗糙度未给出，影响精加工与密封检验",
+              "guess": "按标准 O 型圈槽，槽底 Ra1.6 以下"
+            },
+            {
+              "field": "P-002.top_connector_interface",
+              "reason": "顶部 L 型真空快换接头的安装螺纹/接口规格未给出",
+              "guess": "螺纹接口(如 G1/8 或 M5 等)"
+            },
+            {
+              "field": "P-002.nozzle_mount_holes",
+              "reason": "4 个真空吸嘴座及导向柱/弹簧销的安装孔位置、孔径、螺纹未给出",
+              "guess": "底面分布的螺纹孔+导向销孔"
+            },
+            {
+              "field": "P-002.hole_position_tolerance",
+              "reason": "孔系相对基准的位置度未单独标注，仅给出 ISO2768-m 一般公差，安装接口可能需更高位置精度",
+              "guess": "按 ISO2768-m 一般公差执行"
+            },
+            {
+              "field": "P-002.surface_treatment",
+              "reason": "防静电与阳极氧化要求需明确具体工艺(导电氧化/硬质氧化+遮蔽)，影响表面处理工序",
+              "guess": "硫酸阳极氧化或导电氧化，密封面可能需遮蔽"
+            },
+            {
+              "field": "P-002.Ø11_counterbore_function",
+              "reason": "Ø11深6.5为沉孔(配合内六角螺钉头)还是密封沉孔不明确，影响沉孔底面平面度要求",
+              "guess": "M6内六角圆柱头螺钉沉孔"
+            }
+          ]
+        },
+        "validation": {
+          "step_count": 10,
+          "total_duration_min": 231.0,
+          "warnings": []
+        }
+      },
+      "error": null
+    },
+    {
+      "task_id": "f05418caf8f4",
+      "project_id": "25f202f3ed4d",
+      "kind": "cost",
+      "status": "succeeded",
+      "progress": "完成",
+      "created_at": "2026-06-30 10:36:50",
+      "started_at": "2026-06-30 10:36:50",
+      "finished_at": "2026-06-30 10:38:37",
+      "result": {
+        "analysis": {
+          "part_id": "P-002",
+          "part_name": "主体安装块",
+          "material": "6061-T6",
+          "quantity": 1,
+          "currency": "CNY",
+          "summary": "本件为晶圆搬运吸嘴组件(WH-EE-ASM-001)的主体基座，6061-T6 铝合金，外形 120×60×20mm，净质量约 378.5g。成本构成以\"机加工费\"为主导(单件小批量，含编程/装夹 setup 摊销)，其次为表面处理(阳极氧化，受小批最低收费影响显著)、材料费与检验。定价思路：先按坯料质量×铝材均价估材料，再按 CNC 工时×费率估机加工，叠加阳极氧化最低收费、检验，最后加管理费(约15%)与利润(约15%)。由于该件功能含\"内部真空气路分配\"，若实际存在交叉钻孔/深孔的内部气路，会显著增加钻孔与去毛刺工时，需澄清后修正。注意：本次联网检索额度耗尽，未取得可追溯链接，价格均为经验估算，整体置信度偏低。",
+          "items": [
+            {
+              "category": "material",
+              "name": "6061-T6 铝板坯料",
+              "basis": "坯料约125×65×22mm≈0.48kg(含三向加工余量与表层去除),按板材均价估算",
+              "quantity": 0.48,
+              "unit": "kg",
+              "unit_price": 35.0,
+              "amount": 16.8,
+              "source": "经验估算(6061板材约28-40元/kg区间,未取得可追溯链接)",
+              "confidence": 0.5
+            },
+            {
+              "category": "machining",
+              "name": "锯切/下料",
+              "basis": "板材下料1刀,含单件最低收费",
+              "quantity": 1.0,
+              "unit": "件",
+              "unit_price": 25.0,
+              "amount": 25.0,
+              "source": "经验估算",
+              "confidence": 0.5
+            },
+            {
+              "category": "machining",
+              "name": "CNC 铣削+钻孔+沉孔",
+              "basis": "3轴CNC:六面铣到尺寸+4×Ø6.6通孔+4×Ø11沉孔深6.5;编程/装夹≈0.5h+加工≈1.0h,合计≈1.5h×130元/h",
+              "quantity": 1.5,
+              "unit": "h",
+              "unit_price": 130.0,
+              "amount": 195.0,
+              "source": "经验估算(3轴CNC单件含setup约100-150元/h)",
+              "confidence": 0.45
+            },
+            {
+              "category": "surface",
+              "name": "阳极氧化(透明/本色)",
+              "basis": "表面积约2.16dm²;单件按小批最低收费计",
+              "quantity": 1.0,
+              "unit": "件",
+              "unit_price": 50.0,
+              "amount": 50.0,
+              "source": "经验估算(普通阳极氧化最低收费约30-80元/件)",
+              "confidence": 0.4
+            },
+            {
+              "category": "inspection",
+              "name": "尺寸/孔位检验",
+              "basis": "ISO 2768-m,孔位与沉孔深度抽检约0.5h×60元/h",
+              "quantity": 0.5,
+              "unit": "h",
+              "unit_price": 60.0,
+              "amount": 30.0,
+              "source": "经验估算",
+              "confidence": 0.5
+            },
+            {
+              "category": "overhead",
+              "name": "管理费",
+              "basis": "≈15%×(材料+加工+表面+检验)=15%×316.8",
+              "quantity": 1.0,
+              "unit": "项",
+              "unit_price": 47.5,
+              "amount": 47.5,
+              "source": "经验估算",
+              "confidence": 0.5
+            },
+            {
+              "category": "profit",
+              "name": "利润",
+              "basis": "≈15%×(直接成本+管理费)=15%×364.3",
+              "quantity": 1.0,
+              "unit": "项",
+              "unit_price": 54.6,
+              "amount": 54.6,
+              "source": "经验估算",
+              "confidence": 0.5
+            }
+          ],
+          "unit_cost": 420.0,
+          "price_references": [
+            {
+              "item": "6061 铝合金板材",
+              "price": "约 28-40 元/kg(经验区间,估算)",
+              "source": "行业常见区间(本次未取得可追溯链接)",
+              "url": null,
+              "date": "2025"
+            },
+            {
+              "item": "3轴 CNC 铣削加工费(单件含setup)",
+              "price": "约 100-150 元/h(估算)",
+              "source": "经验估算",
+              "url": null,
+              "date": "2025"
+            },
+            {
+              "item": "铝件普通阳极氧化",
+              "price": "小批最低收费约 30-80 元/件(估算)",
+              "source": "经验估算",
+              "url": null,
+              "date": "2025"
+            }
+          ],
+          "search_sources": [
+            {
+              "title": "6061铝价格_6061铝价格今日价格、行情走势、最新报价",
+              "url": "https://m.mysteel.com/hot/1331758.html"
+            },
+            {
+              "title": "佛山国标6061铝棒多少钱一公斤 6061铝棒批发价格-万钧金属",
+              "url": "http://www.cula5.com/jiage/221.html"
+            },
+            {
+              "title": "宁波6061铝板价格是多少(多少钱一公斤6061铝板国标铝板) - 鼎尖",
+              "url": "http://m.nbdjwz.net/lb/283.html"
+            },
+            {
+              "title": "6061铝合金板价格多少钱一吨_百度知道",
+              "url": "https://zhidao.baidu.com/question/986933296859453579.html"
+            },
+            {
+              "title": "6061_优质供应/批发-铝道网",
+              "url": "https://m.alu.cn/aluTrade/tags_0036003000360031.html"
+            },
+            {
+              "title": "6061铝板价格每公斤价格 - 山东信泰铝业有限公司",
+              "url": "https://a15864395203.cnal.com/product/detail-26694069.shtml"
+            },
+            {
+              "title": "6061铝板价格多少钱一吨？2025年行情与影响因素解析",
+              "url": "https://www.yongxc.com/6061-lvban-jiage"
+            },
+            {
+              "title": "明泰铝业大型6061铝板生产厂家,6061t6铝板,6061合金铝板,6061t651铝板厂家,提供6061铝板价格多少钱一吨-{}-明泰铝业",
+              "url": "https://www.mingtailvye.com/lvban/103.html"
+            },
+            {
+              "title": "2024年第3周6061白料周均价16450元/吨 - 第3周6061白料报价（保太废铝市场） 【大沥铝材网今日铝价】",
+              "url": "https://www.lvdingjia.com/price/bt_6061bailiao/2024_03.htm"
+            },
+            {
+              "title": "6061t651铝板厂家_河南明泰6061铝板价格是一公斤多少钱？-明泰铝业",
+              "url": "https://www.mingtailvye.com/knowledge/827.html"
+            },
+            {
+              "title": "6061铝合金带价格百科_6061铝合金带价格知识大全-上海有色金属网",
+              "url": "https://www.smm.cn/mkds/39155_baike"
+            },
+            {
+              "title": "6061-T6铝板_百度百科",
+              "url": "https://baike.baidu.com/item/6061-T6%E9%93%9D%E6%9D%BF/5044658"
+            },
+            {
+              "title": "大型6061铝板厂家-上市公司-提供6061-t6铝合金板-6061铝合金板价格-铝合金6061-6061-t651预拉伸铝板厂家-河南明泰铝业股份有限公司",
+              "url": "https://www.henanmingtai.com/lvban6/634.html"
+            },
+            {
+              "title": "6061铝板_6061铝板价格_6061铝板厂家-世铝网",
+              "url": "https://www.cnal.com/product/class-263.shtml"
+            },
+            {
+              "title": "6061合金板_6061合金板今日价格、行情走势、最新报价",
+              "url": "https://m.mysteel.com/hot/555256.html"
+            },
+            {
+              "title": "6061-T6价格现货_上海国沃铝业有限公司",
+              "url": "https://shguowo.cnal.com/product/detail-27757249.shtml"
+            },
+            {
+              "title": "铝6061价格市场价_铝实时价格_铝历史价格_我的钢铁网(Mysteel)",
+              "url": "https://list1.m.mysteel.com/zhishi/l6061jgscj.html"
+            },
+            {
+              "title": "国内专业6061t6铝板生产厂家,铝板供应商,提供最新产品价格信息-河南明泰铝业股份有限公司-河南明泰铝业股份有限公司",
+              "url": "https://www.mtcylb.com/6xilvban/1290.html"
+            },
+            {
+              "title": "铝合金产品cnc加工怎么报价 - 速加",
+              "url": "https://www.sogaworks.cn/news/450975440007493"
+            },
+            {
+              "title": "数控车床cnc加工报价计算公式-深圳伟迈特",
+              "url": "https://www.szvmt.com/articles/skcccn.html"
+            },
+            {
+              "title": "精密机械零件加工多少钱（机械加工详细和粗略报价计算方法）-东莞长原科技",
+              "url": "https://cnc.ecyco.com/news/1117.html"
+            },
+            {
+              "title": "铝合金CNC加工厂家是如何计算加工价格的",
+              "url": "https://www.jbairui.com/knowledge/1856.html"
+            },
+            {
+              "title": "CNC 加工 | Xometry择幂科技",
+              "url": "https://xometry.asia/zh-hans/cnc-machining/"
+            },
+            {
+              "title": "cnc铝合金加工（cnc铝合金加工价格） - cnc加工",
+              "url": "https://www.jbairui.com/knowledge/23133.html"
+            },
+            {
+              "title": "铝合金精密零件cnc加工价格怎么估算-深圳伟迈特",
+              "url": "https://www.szvmt.com/articles/lhjjml8384.html"
+            },
+            {
+              "title": "CNC加工如何计算加工费",
+              "url": "https://b2bwiki.baidu.com/article/d0r20ppftjsv1cjndul0"
+            },
+            {
+              "title": "铝合金CNC加工厂家-加工价格如何计算-伟迈特 - 知乎",
+              "url": "https://zhuanlan.zhihu.com/p/448507781"
+            },
+            {
+              "title": "CNC铝合金加工中的成本核算与管理实践(铝合金cnc加工费)",
+              "url": "https://www.jbairui.com/knowledge/53701.html"
+            },
+            {
+              "title": "阳极氧化铝板价格多少钱一个平方-泰诚铝业公司",
+              "url": "https://www.tclvban.com/yhlbnews/98.html"
+            },
+            {
+              "title": "阳极氧化加工（阳极氧化加工价格是多少）！ - 知乎",
+              "url": "https://zhuanlan.zhihu.com/p/363123472"
+            },
+            {
+              "title": "氧化铝板价格-拉丝阳极处理多种合金牌号铝板氧-河南泰诚铝业",
+              "url": "https://www.zzlvban.com/yanghualvban/236.html"
+            },
+            {
+              "title": "氧化铝板厂家-拉丝阳极氧化铝板-本色彩色氧化铝板价格低-泰诚铝业公司",
+              "url": "https://www.tclvban.com/yhlvban/"
+            },
+            {
+              "title": "铝合金阳极氧化价格_价格_厂家_专区_资讯-上海有色金属网",
+              "url": "https://www.smm.cn/mkds/36822"
+            },
+            {
+              "title": "阳极氧化铝板价格-厂家生产价格低品质稳定-泰诚铝业公司",
+              "url": "https://www.tclvban.com/yhlvban/60.html"
+            },
+            {
+              "title": "铝阳极氧化的费用是多少？ – 建材咨询网",
+              "url": "https://www.jczx5.com/45246.html"
+            },
+            {
+              "title": "阳极氧化多少钱一公斤-泰诚铝业公司",
+              "url": "https://www.tclvban.com/yhlbnews/119.html"
+            },
+            {
+              "title": "阳极氧化铝合金_阳极氧化铝合金今日价格、行情走势、最新报价",
+              "url": "https://m.mysteel.com/hot/134304.html"
+            },
+            {
+              "title": "阳极氧化铝板怎么计算价格？广东阳极氧化表面处理加工工厂-新型墙体材料_新型建材_基础建材_-建材通网",
+              "url": "https://www.jct188.com/sell/show.php?itemid=3485"
+            },
+            {
+              "title": "Aluminum 6061 Cost per kg: 2025 Price Trends",
+              "url": "https://www.accio.com/plp/aluminum-6061-cost-per-kg"
+            },
+            {
+              "title": "Aluminium 6061 T6 Price Per Kg",
+              "url": "https://www.aluminumsheet.net/aluminium-6061-t6-price-per-kg"
+            },
+            {
+              "title": "Aluminium Cost Guide 2025: Comparing 3003, 5052, 6061, 6063, and 7075",
+              "url": "https://www.tbkmetal.com/aluminium-cost-guide/"
+            },
+            {
+              "title": "Al 6061 Price Per Kg - Search - IndexBox",
+              "url": "https://www.indexbox.io/search/al-6061-price-per-kg/"
+            },
+            {
+              "title": "Aluminum Alloy 6061 Price Per Pound 2026 - MWalloys",
+              "url": "https://www.mwalloys.com/aluminum-alloy-6061-price-per-pound-2026/"
+            },
+            {
+              "title": "Aluminium 6061 billet US premium prices | Aluminium Prices, charts, and News – Argus Metals",
+              "url": "https://www.argusmedia.com/metals-platform/price/assessment/aluminium-6061-billet-us-premium-prices-PA00187640000"
+            },
+            {
+              "title": "Price of Aluminum 6061 Per Pound",
+              "url": "https://www.linkedin.com/pulse/price-aluminum-6061-per-pound-august-jie-aluminum-ds2sc"
+            },
+            {
+              "title": "Aluminum 6061 Price Per Kg",
+              "url": "https://www.aviationaluminum.com/aluminum-6061-price-per-kg/"
+            },
+            {
+              "title": "Aluminium 6061 Price Per Kg - Sachiya Steel International Pvt. Ltd.",
+              "url": "https://sachiyasteel.com/blog/aluminium-6061-price-per-kg/index.html"
+            },
+            {
+              "title": "Price of Aluminum 6061 Per Pound",
+              "url": "https://www.aluminum-coil.net/price-of-aluminum-6061-per-pound.html"
+            }
+          ],
+          "assumptions": [
+            "核算批量为1件(原型/小批),工装/编程/装夹按单件全额摊销,单件成本偏高;批量上量后单件可显著下降",
+            "材料按6061板材均价约35元/kg估算,坯料含加工余量约0.48kg,损耗率已含在坯料余量中",
+            "CNC按3轴加工,综合费率约130元/h(含setup);加工工时按几何复杂度经验估算",
+            "表面处理假设为普通阳极氧化(透明/本色),按小批最低收费计;若需硬质阳极氧化或免氧化(裸铝真空件)需修正",
+            "特征清单仅含外形与孔阵,未含'内部真空气路'交叉钻孔;若实际存在内部气路,钻孔/去毛刺/清洗工时需另加",
+            "管理费与利润各按约15%估算",
+            "本次联网检索额度耗尽,价格为经验估算,未含可追溯链接"
+          ],
+          "open_questions": [
+            {
+              "field": "P-002.internal_passage",
+              "reason": "功能描述含'内部真空气路分配',但特征清单未给出气路孔径/路径/交叉深孔,直接影响钻孔与去毛刺/清洗工时及成本",
+              "guess": "可能存在2-4处交叉钻孔,若有则机加工费再增加50-150元"
+            },
+            {
+              "field": "P-002.surface_finish",
+              "reason": "表面处理要求未明确(透明阳极氧化/硬质阳极氧化/裸铝清洗),真空/半导体场景对清洁度与镀层敏感",
+              "guess": "透明阳极氧化或裸铝精密清洗"
+            },
+            {
+              "field": "P-002.flatness_sealing",
+              "reason": "真空密封面常有平面度/粗糙度(Ra)要求,会增加精铣/研磨与检验工时",
+              "guess": "密封面Ra1.6,平面度0.02级"
+            },
+            {
+              "field": "P-002.quantity",
+              "reason": "批量仅1件,工装与setup无法摊薄,单件成本敏感;批量信息影响定价策略",
+              "guess": "原型阶段单件"
+            },
+            {
+              "field": "P-002.cleanliness",
+              "reason": "半导体晶圆搬运件可能要求洁净度/无颗粒清洗/真空烘烤,会增加清洗与包装成本",
+              "guess": "需洁净清洗与真空包装,另加30-80元/件"
+            }
+          ]
+        },
+        "summary": {
+          "item_count": 7,
+          "computed_total": 418.9,
+          "by_category": {
+            "material": 16.8,
+            "machining": 220.0,
+            "surface": 50.0,
+            "inspection": 30.0,
+            "overhead": 47.5,
+            "profit": 54.6
+          },
+          "currency": "CNY",
+          "warnings": []
+        }
+      },
+      "error": null
+    },
+    {
+      "task_id": "fd7736ec6d4a",
+      "project_id": "25f202f3ed4d",
+      "kind": "costest_recommend",
+      "status": "succeeded",
+      "progress": "完成",
+      "created_at": "2026-07-01 17:04:49",
+      "started_at": "2026-07-01 17:04:49",
+      "finished_at": "2026-07-01 17:07:34",
+      "result": {
+        "costest": {
+          "project_id": "25f202f3ed4d",
+          "currency": "CNY",
+          "material_costs": [
+            {
+              "item": "高纯氧化铝陶瓷粉",
+              "spec": "Al2O3≥99.5%,亚微米级,低钠",
+              "unit_usage": 400.0,
+              "unit": "g",
+              "unit_price": 0.055,
+              "amount": 24.2,
+              "market_price_source": "行业经验估算(约55元/kg,未联网核实)",
+              "supply_stability": "高:国产亚微米氧化铝粉供应充足,价格稳定",
+              "note": "叶片净重约0.30kg,含成型/烧结损耗与加工余量约15-20%,故用量按0.40kg计"
+            },
+            {
+              "item": "导电ESD PEEK(碳纤维填充)",
+              "spec": "表面电阻10^6-10^9Ω,半导体级,如威格斯/索尔维",
+              "unit_usage": 60.0,
+              "unit": "g",
+              "unit_price": 0.75,
+              "amount": 45.0,
+              "market_price_source": "行业经验估算(约700-750元/kg,进口料,未联网核实)",
+              "supply_stability": "中:进口为主,受海外产能/汇率/关税影响,价格偏高且波动",
+              "note": "晶圆接触垫/防滑软触点,用于防划伤与静电泄放"
+            },
+            {
+              "item": "6061-T6铝合金棒料(阳极氧化基材)",
+              "spec": "6061-T6,后续硬质阳极氧化",
+              "unit_usage": 600.0,
+              "unit": "g",
+              "unit_price": 0.035,
+              "amount": 21.0,
+              "market_price_source": "大宗金属经验价(约35元/kg,未联网核实)",
+              "supply_stability": "高:大宗供应稳定,随铝价小幅波动",
+              "note": "轻量化支臂/安装法兰,CNC去除率高,棒料用量含加工损耗"
+            },
+            {
+              "item": "316L不锈钢(真空接头/管件)",
+              "spec": "316L,洁净级",
+              "unit_usage": 150.0,
+              "unit": "g",
+              "unit_price": 0.045,
+              "amount": 6.75,
+              "market_price_source": "大宗金属经验价(约45元/kg,未联网核实)",
+              "supply_stability": "高:供应稳定",
+              "note": "真空吸附接头与固定件"
+            },
+            {
+              "item": "PFA/PTFE真空管路",
+              "spec": "半导体洁净级,低脱气",
+              "unit_usage": 0.4,
+              "unit": "m",
+              "unit_price": 30.0,
+              "amount": 12.0,
+              "market_price_source": "经验估算(约30元/m,未联网核实)",
+              "supply_stability": "中高",
+              "note": "真空吸附气路,单件约0.3-0.4m"
+            },
+            {
+              "item": "FKM氟橡胶密封件(O-ring)",
+              "spec": "洁净级FKM,真空密封",
+              "unit_usage": 4.0,
+              "unit": "件",
+              "unit_price": 1.8,
+              "amount": 7.2,
+              "market_price_source": "经验估算(约1.5-2元/件,未联网核实)",
+              "supply_stability": "高",
+              "note": "真空通道密封,4处"
+            },
+            {
+              "item": "精密紧固件(不锈钢/钛)",
+              "spec": "A2-70/钛合金,无磁可选",
+              "unit_usage": 1.0,
+              "unit": "套",
+              "unit_price": 10.0,
+              "amount": 10.0,
+              "market_price_source": "经验估算(未联网核实)",
+              "supply_stability": "高",
+              "note": "支臂与叶片装配紧固件套件"
+            }
+          ],
+          "manufacturing_costs": [
+            {
+              "process": "陶瓷成型(干压/冷等静压CIP)",
+              "labor_cost": 25.0,
+              "equipment_depreciation": 15.0,
+              "energy_cost": 5.0,
+              "other": 5.0,
+              "subtotal": 50.0,
+              "basis": "工时约0.4h×人工费率~60元/h;CIP/压机设备小时折旧摊分;模具辅料另计",
+              "note": "薄壁叶片坯体成型,批量200件摊销工装启动"
+            },
+            {
+              "process": "高温烧结(约1600℃常压/气氛炉)",
+              "labor_cost": 10.0,
+              "equipment_depreciation": 20.0,
+              "energy_cost": 30.0,
+              "other": 3.0,
+              "subtotal": 63.0,
+              "basis": "长周期烧结(升降温+保温24-48h),能耗为主;炉体折旧按炉容量与装载量摊分;匣钵/垫板辅料",
+              "note": "能耗与炉时是陶瓷环节主要成本"
+            },
+            {
+              "process": "精密研磨+激光切边(平面度/边缘)",
+              "labor_cost": 60.0,
+              "equipment_depreciation": 40.0,
+              "energy_cost": 8.0,
+              "other": 10.0,
+              "subtotal": 118.0,
+              "basis": "平面磨/研磨约1h+激光切割/倒角;金刚石磨料/砂轮消耗;高精度设备折旧高",
+              "note": "平面度与颗粒控制关键工序,单件加工工时长,成本占比最高"
+            },
+            {
+              "process": "金属支臂CNC加工+硬质阳极氧化",
+              "labor_cost": 30.0,
+              "equipment_depreciation": 20.0,
+              "energy_cost": 5.0,
+              "other": 8.0,
+              "subtotal": 63.0,
+              "basis": "CNC约0.5h+阳极氧化外协/线内;刀具与表面处理药剂",
+              "note": "轻量化去材率高,含表面处理"
+            },
+            {
+              "process": "超净清洗(无尘/超纯水/超声)",
+              "labor_cost": 20.0,
+              "equipment_depreciation": 10.0,
+              "energy_cost": 8.0,
+              "other": 12.0,
+              "subtotal": 50.0,
+              "basis": "多级超声+超纯水冲洗+洁净烘干;超纯水与化学试剂、洁净室分摊",
+              "note": "半导体颗粒度要求,清洗为必要工序"
+            },
+            {
+              "process": "精密装配(叶片/垫/真空气路)",
+              "labor_cost": 40.0,
+              "equipment_depreciation": 5.0,
+              "energy_cost": 2.0,
+              "other": 10.0,
+              "subtotal": 57.0,
+              "basis": "洁净环境手工精密装配约0.7h;粘接胶/定位工装/真空密封",
+              "note": "含真空通道装配与气密预检"
+            }
+          ],
+          "technical_costs": [
+            {
+              "item": "定制化研发分摊",
+              "basis": "一次性研发投入~20万元÷寿命周期总量~500件",
+              "amount": 400.0,
+              "note": "结构/材料选型/真空吸附与ESD方案定制开发"
+            },
+            {
+              "item": "工装/模具分摊",
+              "basis": "专用成型模具+装配/检测工装~5万元÷500件",
+              "amount": 100.0,
+              "note": "陶瓷成型模具与装配夹具"
+            },
+            {
+              "item": "客户验证/认证(Qualification)",
+              "basis": "一次性认证与可靠性验证~8万元÷500件",
+              "amount": 160.0,
+              "note": "颗粒/平面度/寿命/兼容性验证及首件报告"
+            },
+            {
+              "item": "特殊检测(氦检漏/LPC颗粒/激光平面度/ESD表面电阻)",
+              "basis": "逐件100%关键检测,按检测工时+设备折旧÷件核算",
+              "amount": 80.0,
+              "note": "氦质谱检漏、液体颗粒计数、激光干涉平面度、表面电阻测试"
+            }
+          ],
+          "market_notes": "采购视角(经验估算,未联网核实):①高纯氧化铝粉(Al2O3≥99.5%,亚微米级):国内供应充足、价格相对稳定,细粉约40-70元/kg,供应稳定性高;若升级为SiC/Si3N4叶片则材料与烧结成本显著上升、供应稳定性降为中。②ESD导电PEEK(碳纤维/碳纳米管填充,半导体级):进口(威格斯/索尔维)为主,价格高且波动,约500-900元/kg,受海外产能与关税影响,供应稳定性中。③6061/7075铝合金棒料及316L不锈钢:大宗、供应稳定性高,受金属期货小幅波动。④PFA/PTFE真空管路、FKM氟橡胶密封件:半导体洁净级为主,价格中等、供应稳定性中高。整体成本瓶颈在陶瓷精密加工与ESD PEEK进口料,而非普通金属。",
+          "totals": {
+            "material_total": 126.15,
+            "manufacturing_total": 401.0,
+            "technical_total": 740.0,
+            "grand_total": 1267.15,
+            "currency": "CNY"
+          },
+          "summary": "晶圆搬运吸嘴组件总成(WH-EE-ASM-001)为半导体300mm晶圆传输机械手末端执行器,核心为超净/低颗粒/高刚度的陶瓷吸盘叶片+真空吸附通道+ESD导电接触垫+轻量化金属支臂。成本构成:①材料成本(高纯氧化铝/SiC陶瓷粉、导电ESD PEEK、铝合金/不锈钢、真空管路密封件);②制造成本(陶瓷成型→高温烧结→精密研磨/激光切边→金属CNC与阳极氧化→超净清洗→精密装配);③技术附加(定制研发、工装模具、客户验证/认证、氦检漏+颗粒度+平面度+ESD等特殊检测)。测算按小批量定制(假设年批量200件)口径,一次性投入按寿命周期总量摊销。注意:本次平台联网检索额度超限未取得实时报价,以下单价均为行业经验估算值,置信度中偏低,须以实际询价复核。",
+          "confirmed": false,
+          "confirmed_by": null,
+          "confirmed_at": null,
+          "timing": {
+            "status": "not_started",
+            "started_at": null,
+            "finished_at": null,
+            "completed": false
+          },
+          "assumptions": [
+            "年批量按200件(小批量定制)估算;一次性投入(研发/工装/认证)按寿命周期总量约500件摊销",
+            "人工综合费率约60元/h(含福利);设备折旧按设备原值/年产能小时折旧摊分",
+            "陶瓷叶片默认Al2O3 99.5%;若客户要求SiC/Si3N4,材料+烧结+加工成本将显著上升(需另核)",
+            "陶瓷成型/烧结/加工综合损耗与余量按约15-20%计入材料用量",
+            "所有原材料单价为行业经验估算,本次平台联网检索额度超限未取得实时报价,置信度中偏低",
+            "能耗按工业电价约0.8-1.0元/kWh折算;烧结炉按批装载量分摊炉时能耗",
+            "汇总为单件制造+材料+技术附加成本,未含管理费/利润/包装运输/关税"
+          ],
+          "open_questions": [
+            {
+              "field": "material_costs.*.unit_price",
+              "reason": "平台联网检索额度超限,未取得高纯氧化铝粉、ESD PEEK、铝/不锈钢等实时市场报价,单价均为经验估算,须实际询价复核",
+              "guess": "氧化铝粉~55元/kg;ESD PEEK~700元/kg;6061铝~35元/kg;316L~45元/kg"
+            },
+            {
+              "field": "blade.material",
+              "reason": "叶片陶瓷材质(Al2O3 vs SiC vs Si3N4)未明确,直接决定材料/烧结/加工成本量级",
+              "guess": "默认Al2O3 99.5%"
+            },
+            {
+              "field": "blade.dimensions_weight",
+              "reason": "叶片尺寸/壁厚/净重未给定,材料用量与加工工时按300mm薄壁叶片经验值估",
+              "guess": "净重约0.30kg,叶片厚约2-4mm"
+            },
+            {
+              "field": "batch_volume",
+              "reason": "年批量/寿命周期总量未给定,直接影响一次性投入摊销(研发/工装/认证)",
+              "guess": "年200件/寿命500件"
+            },
+            {
+              "field": "labor_rate_and_depreciation",
+              "reason": "实际人工费率与设备折旧政策未提供,按行业经验取值",
+              "guess": "人工~60元/h"
+            },
+            {
+              "field": "esd_and_vacuum_spec",
+              "reason": "ESD表面电阻等级、真空吸附路数/传感器是否集成未明确,可能新增传感器/接头BOM与检测项",
+              "guess": "含真空吸附+ESD导电垫,暂不含晶圆在位传感器"
+            },
+            {
+              "field": "inspection_scope",
+              "reason": "是否100%全检氦检漏/颗粒/平面度未确认,影响检测成本分摊",
+              "guess": "关键项100%全检"
+            }
+          ],
+          "search_sources": [
+            {
+              "title": "PEEK新材料发展-南京裕威新材料有限公司",
+              "url": "https://www.njywpeek.com/product/develop.html"
+            },
+            {
+              "title": "为什么PEEK材料的成品零件价格那么昂贵? - 聚四氟乙烯制品_PTFE加工_四氟密封件_铁氟龙厂家-深圳市德诚旺科技有限公司 聚四氟乙烯制品_PTFE加工_聚四氟乙烯厂家-深圳市德诚旺科技有限公司",
+              "url": "https://www.dcwptfe.com/archives/732"
+            },
+            {
+              "title": "一文详解PEEK材料在人形机器人领域的应用及供需情况 - 艾邦高分子 艾邦智造官网",
+              "url": "https://www.aibang.com/a/33726"
+            },
+            {
+              "title": "peek材料多少钱一斤_价格_型材_每公斤",
+              "url": "https://m.sohu.com/a/892182032_122103928/?pvid=000115_3w_a"
+            },
+            {
+              "title": "PEEK材料：小而美的市场，需求正在爆发前夜_腾讯新闻",
+              "url": "https://news.qq.com/rain/a/20241203A06CSX00"
+            },
+            {
+              "title": "2025年中国PEEK材料行业市场前景预测研究报告__财经头条__新浪财经",
+              "url": "https://cj.sina.com.cn/articles/view/7962326780/1da9776fc0010154ey?finpagefr=p_103"
+            },
+            {
+              "title": "完爆PEEK！为何电子级PPO材料比PEEK更热？为何高达百万元/吨？ - 知乎",
+              "url": "https://zhuanlan.zhihu.com/p/26449064138"
+            },
+            {
+              "title": "PEEK市场大分析！看到商机了么？-国内新闻-链塑网",
+              "url": "http://www.plaschain.com/index/Lists/show/catid/9/id/655.html"
+            },
+            {
+              "title": "PEEK：材料界的 “工业黄金”，从航天到人体的全能王者 - 知乎",
+              "url": "https://zhuanlan.zhihu.com/p/2025956449327562884"
+            },
+            {
+              "title": "人形机器人关键材料：PEEK！如何看待，挣不挣钱？ - 知乎",
+              "url": "https://zhuanlan.zhihu.com/p/16269331462"
+            },
+            {
+              "title": "Products | BERNOULLI Bernoulli Type End-Effector（Contact type）伯努利机械手指（接触式）",
+              "url": "https://www.jel-robot.com.cn/products/BERNOULLI_1_end.html"
+            },
+            {
+              "title": "High temperature robot end effector",
+              "url": "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/7717481"
+            },
+            {
+              "title": "End effector for semiconductor wafer transfer device and method of moving a wafer with an end effector",
+              "url": "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/6267423"
+            },
+            {
+              "title": "End effector",
+              "url": "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/10343292"
+            },
+            {
+              "title": "Multiple section end effector assembly",
+              "url": "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/7073834"
+            },
+            {
+              "title": "Suction apparatus for an end effector, end effector for holding substrates and method of producing an end effector",
+              "url": "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/10259124"
+            },
+            {
+              "title": "Robot subassemblies, end effector assemblies, and methods with reduced cracking",
+              "url": "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/10090188"
+            },
+            {
+              "title": "End effector pads",
+              "url": "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/9412638"
+            },
+            {
+              "title": "Ultra low contact area end effector",
+              "url": "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/7293811"
+            },
+            {
+              "title": "中国碳化硅市场深度分析：2025年进入洗牌阶段 - 艾邦半导体网",
+              "url": "https://www.ab-sm.com/a/67607"
+            },
+            {
+              "title": "中国碳化硅市场深度分析：2025年进入洗牌阶段 - OFweek新材料网",
+              "url": "https://xincailiao.ofweek.com/news/2025-03/ART-180422-8120-30658795.html"
+            },
+            {
+              "title": "价格与市场的博弈：碳化硅芯片加速进入抢位赛",
+              "url": "https://stcn.com/article/detail/1671181.html"
+            },
+            {
+              "title": "碳化硅淘汰赛打响：价格竞争，巨头调整",
+              "url": "https://www.stcn.com/article/detail/1506744.html"
+            },
+            {
+              "title": "碳化硅价格下跌近30%-国际电子商情",
+              "url": "https://www.esmchina.com/marketnews/50989.html"
+            },
+            {
+              "title": "碳化硅淘汰赛打响：价格竞争，巨头调整",
+              "url": "https://stcn.com/article/detail/1506113.html"
+            },
+            {
+              "title": "碳化硅（SiC）行业深度：应用范围、市场空间、国产替代及相关公司深度梳理（慧博出品） - 知乎",
+              "url": "https://zhuanlan.zhihu.com/p/1974041384752263990"
+            },
+            {
+              "title": "中国碳化硅市场深度分析，2025年进入洗牌阶段 - OFweek电子工程网",
+              "url": "https://ee.ofweek.com/2025-03/ART-8120-2816-30659372.html"
+            },
+            {
+              "title": "碳化硅淘汰赛打响：价格竞争，巨头调整|碳化硅_新浪财经_新浪网",
+              "url": "https://finance.sina.com.cn/roll/2025-01-23/doc-inefwrzq8496213.shtml"
+            },
+            {
+              "title": "SiC是如何“拯救”降价车企的 - OFweek新材料网",
+              "url": "https://xincailiao.ofweek.com/news/2024-03/ART-180422-8420-30629349.html"
+            },
+            {
+              "title": "氧化铝陶瓷",
+              "url": "https://www.3xtaoci.com/alumina-ceramic"
+            },
+            {
+              "title": "国内氧化铝陶瓷基板20家供应商名单 - 艾邦半导体网",
+              "url": "https://www.ab-sm.com/en/a/57801"
+            },
+            {
+              "title": "99.5氧化铝,99.5氧化铝今日价格、行情走势、最新报价",
+              "url": "https://m.mysteel.com/hot/555298.html"
+            },
+            {
+              "title": "工业氧化铝陶瓷板",
+              "url": "https://www.3xtaoci.com/alumina-ceramic/alumina-ceramic-plate"
+            },
+            {
+              "title": "氧化铝陶瓷 by Xiamen Innovacera Advanced Materials Co., Ltd | DirectIndustry",
+              "url": "https://www.directindustry-china.cn/prod/xiamen-innovacera-advanced-materials-co-ltd/product-99777-2709656.html"
+            },
+            {
+              "title": "国内氧化铝陶瓷基板20家供应商名单 - CMPE 艾邦第七届精密陶瓷产业链展览会",
+              "url": "https://www.cmpe360.com/p/265511"
+            },
+            {
+              "title": "氢氧化铝价格_氢氧化铝今日价格行情_氢氧化铝价格多少钱一吨_上海有色网",
+              "url": "https://www.smm.cn/mpdb/1704278785531_price"
+            },
+            {
+              "title": "2025年氧化铝陶瓷基片价格行情_氧化铝陶瓷基片价格走势_报告大厅",
+              "url": "https://m.chinabgao.com/k/yhltcjp/price/"
+            },
+            {
+              "title": "2025-2031年中国氧化铝陶瓷片行业现状与市场前景分析报告 第2页📚",
+              "url": "https://m.20087.com/5339662_p2.html"
+            },
+            {
+              "title": "涨知识了丨半导体材料4_陶瓷配件_氧化铝 - 艾邦半导体网",
+              "url": "https://www.ab-sm.com/en/a/10667"
+            },
+            {
+              "title": "PEEK Price Guide for Pellets, Powder, Sheets & Rods",
+              "url": "https://www.peekchina.com/blog/peek-price-per-kg.html"
+            },
+            {
+              "title": "Polyether Ether Ketone (PEEK) Price Trends, Forecast & Pricing",
+              "url": "https://www.price-watch.ai/polyether-ether-ketone-prices/"
+            },
+            {
+              "title": "Polyether Ether Ketone Price with Global Shipping",
+              "url": "https://www.steelofabrica.com/polyether-ether-ketone-price/"
+            },
+            {
+              "title": "PEEK Price Explained: Why PEEK Material Is Expensive",
+              "url": "https://www.peekchina.com/blog/peek-price.html"
+            },
+            {
+              "title": "Price of Peek Per Kg - Quality Virgin and Recycled Materials",
+              "url": "https://www.alibaba.com/showroom/price-of-peek-per-kg.html"
+            },
+            {
+              "title": "Peek Plastic Price Per Kg - Search - IndexBox",
+              "url": "https://www.indexbox.io/search/peek-plastic-price-per-kg/"
+            },
+            {
+              "title": "Why Is PEEK Plastic So Expensive? A Buyer's Cost Guide – Beeplastic",
+              "url": "https://www.beeplastic.com/blogs/plastic-insights/why-peek-plastic-is-more-expensive-than-other-materials"
+            },
+            {
+              "title": "CF PEEK Sheet | Competitive Price & Size Chart",
+              "url": "https://www.peekchina.com/peek-sheet/cf-peek.html"
+            },
+            {
+              "title": "Discover PEEK: The Ultimate Material for Extreme Uses",
+              "url": "https://www.ptsmake.com/what-is-peek-injection-molding/"
+            },
+            {
+              "title": "Price Analysis of PEEK Plastics: Exploring the Cost of High Performance Polymers - Knowledge",
+              "url": "http://www.bainaisichem.com/info/price-analysis-of-peek-plastics-exploring-the-95417827.html"
+            }
+          ],
+          "updated_at": "2026-07-01 17:07:34"
+        },
+        "totals": {
+          "material_total": 126.15,
+          "manufacturing_total": 401.0,
+          "technical_total": 740.0,
+          "grand_total": 1267.15,
+          "currency": "CNY"
+        }
+      },
+      "error": null
+    },
+    {
+      "task_id": "98ac61b87a20",
+      "project_id": "25f202f3ed4d",
+      "kind": "pricing_recommend",
+      "status": "succeeded",
+      "progress": "完成",
+      "created_at": "2026-07-01 17:10:47",
+      "started_at": "2026-07-01 17:10:47",
+      "finished_at": "2026-07-01 17:12:56",
+      "result": {
+        "pricing": {
+          "project_id": "25f202f3ed4d",
+          "currency": "CNY",
+          "costs": {
+            "material_cost": 126.15,
+            "production_cost": 401.0,
+            "management_rate": 10.0,
+            "management_cost": 52.72,
+            "base_cost": 579.87
+          },
+          "markup_rate": 30.0,
+          "base_price": 753.83,
+          "factors": [],
+          "factor_multiplier": 1.0,
+          "suggested_price": 753.83,
+          "final_price": 753.83,
+          "approval": {
+            "status": "draft",
+            "sales_by": null,
+            "sales_at": null,
+            "finance_by": null,
+            "finance_at": null,
+            "finance_comment": null
+          },
+          "summary": "采用成本加成模式：定价基准 = 原材料成本(126.15) + 生产加工成本(401.0) + 管理成本(按材料+加工计提) + 技术附加成本(740.0)，在此之上叠加目标利润(成本加成率)与五维度调整系数。本产品为多材料精密总成(高纯氧化铝陶瓷叶片 + ESD导电PEEK + 铝合金/316L结构件 + PFA/PTFE真空管路 + FKM密封)，属半导体晶圆搬运高洁净/防静电/真空关键零部件，技术壁垒高、可比国产竞品少，具备中高议价能力。总体建议：管理费率取10%(材料+加工基数)，目标利润率(成本加成率)取30%左右；再结合技术难度上浮、行业竞争偏卖方、进口料价格波动等因素净上浮约15%~20%。成本结构中的关键风险与利润空间来源在于陶瓷精密加工与进口ESD PEEK，而非普通金属件，建议对ESD PEEK设置原材料价格联动/调价条款以对冲进口与关税波动。最终价格由平台按费率与系数确定性计算，本建议不做精确报价。",
+          "timing": {
+            "status": "not_started",
+            "started_at": null,
+            "finished_at": null,
+            "completed": false
+          },
+          "assumptions": [
+            "采用成本加成基准 = 原材料 + 生产加工 + 管理成本，并叠加已测算的技术附加成本740元/件；管理费率以(材料+加工)=527.15元为计提基数",
+            "管理费率10%、目标利润率30%为半导体精密零部件行业中高技术壁垒品类的经验区间取值，非精确核算",
+            "假设为单件/小批量供货，含半导体洁净级包装与出货检验，未含专用工装一次性NRE费用(若有应单列)",
+            "假设客户与采购数量、交期、质保与验收标准未特别苛刻；若要求全尺寸报告/PPAP/延长质保，应另行上浮",
+            "假设ESD PEEK仍以进口料为主且短期内无国产等效替代降本，价格波动风险由联动条款分担",
+            "五维度调整系数为叠加(累加)关系，净上浮约15%~20%，最终价格由平台按费率与系数统一计算"
+          ],
+          "open_questions": [
+            {
+              "field": "订单规模/采购数量",
+              "reason": "订单量与是否为框架长单直接决定规模系数方向(上浮或阶梯下浮)与工装摊销",
+              "guess": "小批量/备件性质，暂按+5%处理"
+            },
+            {
+              "field": "客户身份与战略价值",
+              "reason": "是否为头部晶圆厂/设备OEM、是否国产替代首台套导入，影响让利策略",
+              "guess": "中性处理(0%)，若战略客户可下浮3%~8%"
+            },
+            {
+              "field": "技术附加成本740元的构成",
+              "reason": "需确认其是否已含NRE/工装/研发分摊或专利/工艺许可，避免与利润率重复计价",
+              "guess": "视为一次性技术与工艺附加，已计入成本基准"
+            },
+            {
+              "field": "叶片材质是否升级(SiC/Si3N4)",
+              "reason": "若由氧化铝升级为SiC/Si3N4，材料与烧结成本显著上升、供应稳定性降为中，需重估材料与技术难度系数",
+              "guess": "当前按高纯氧化铝方案定价"
+            },
+            {
+              "field": "交期、质保与验收标准(PPAP/全尺寸/洁净等级)",
+              "reason": "半导体级质量与文档要求会增加检验与质保成本，影响加价幅度",
+              "guess": "按行业常规洁净级供货假设"
+            },
+            {
+              "field": "是否含专用工装/夹具一次性费用(NRE)",
+              "reason": "小批量下NRE不宜全摊入单价，需确认由客户单独支付还是并入单价",
+              "guess": "假设单独列支，未计入本单价"
+            }
+          ],
+          "search_sources": [
+            {
+              "title": "2025年全球静电放电(ESD)PEEK市场规模、趋势与占有率分析",
+              "url": "https://m.gelonghui.com/p/2655573"
+            },
+            {
+              "title": "从2025半导体展看PEEK、PPS等特种工程塑料应用 - 艾邦高分子",
+              "url": "https://www.aibang.com/a/57163"
+            },
+            {
+              "title": "国产替代加速：半导体设备投资黄金窗口开启 - 新浪财经",
+              "url": "https://finance.sina.com.cn/roll/2025-08-24/doc-infnapke3427404.shtml"
+            },
+            {
+              "title": "研判2025！中国半导体CMP设备行业产业链、竞争格局及发展趋势分析 - 智研咨询",
+              "url": "https://www.chyxx.com/industry/1230754.html"
+            },
+            {
+              "title": "氧化铝行业价格今日价格、行情走势、最新报价 - Mysteel",
+              "url": "https://m.mysteel.com/hot/1553886.html"
+            },
+            {
+              "title": "陶瓷手臂 - 三鼎晟新材料(深圳)有限公司",
+              "url": "https://www.3xtaoci.com/ceramic-end-effector/ceramic-end-effector"
+            },
+            {
+              "title": "国内16家陶瓷流延机供应商名单 - CMPE 艾邦第八届精密陶瓷产业链展览会",
+              "url": "https://www.cmpe360.com/p/272062"
+            },
+            {
+              "title": "半导体晶圆搬运好手——陶瓷机械手臂 - 艾邦半导体网",
+              "url": "https://www.ab-sm.com/a/60369"
+            },
+            {
+              "title": "半导体装备关键零部件——氮化铝陶瓷加热器（附相关厂商介绍） - 艾邦半导体网",
+              "url": "https://www.ab-sm.com/a/48613"
+            },
+            {
+              "title": "Products | BERNOULLI Bernoulli Type End-Effector（Contact type）伯努利机械手指（接触式）",
+              "url": "https://www.jel-robot.com.cn/products/BERNOULLI_1_end.html"
+            },
+            {
+              "title": "陶瓷机械手臂",
+              "url": "https://www.stcera.cn/ceramic-end-effector-product/"
+            },
+            {
+              "title": "Semiconductor Wafer Fab Equipment (WFE) Market Size, 2035",
+              "url": "https://www.businessresearchinsights.com/market-reports/semiconductor-wafer-fab-equipment-wfe-market-105381"
+            },
+            {
+              "title": "晶圆搬运真空机械臂概述_真空机械手技术难点-CSDN博客",
+              "url": "https://blog.csdn.net/riversuer/article/details/145892595"
+            },
+            {
+              "title": "薄翘曲晶圆, MEMS 穿孔晶圆, 复合晶圆 (碳化硅 氮化镓 砷化镓) 易碎晶圆传输对准: Wafer Handling Tools and Accessories: For thin warped wafer, compound wafer, SiC, GaN, GaAs, MEMS wafer",
+              "url": "http://wafer-handling.com/aligner-sc.html"
+            },
+            {
+              "title": "先进封装设备——减薄机工艺分析及厂商盘点 - 艾邦半导体网",
+              "url": "https://www.ab-sm.com/en/a/60149"
+            },
+            {
+              "title": "一文读懂半导体设备: EFEM、Load port、Robot、Aligner_新闻中心_苏州艾斯达克智能科技",
+              "url": "https://www.intelligent-stock.com/newsshow_79.html"
+            },
+            {
+              "title": "High temperature robot end effector",
+              "url": "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/7717481"
+            },
+            {
+              "title": "协作机器人末端执行器市场规模、份额及预测",
+              "url": "https://www.verifiedmarketreports.com/zh/product/collaborative-robot-end-effector-market/"
+            },
+            {
+              "title": "Mass damper for semiconductor wafer handling end effector",
+              "url": "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/8985935"
+            },
+            {
+              "title": "End effector",
+              "url": "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/10343292"
+            },
+            {
+              "title": "End effector for semiconductor wafer transfer device and method of moving a wafer with an end effector",
+              "url": "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/5746460"
+            },
+            {
+              "title": "Method of using a specimen sensing end effector to determine the thickness of a specimen",
+              "url": "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/6438460"
+            },
+            {
+              "title": "Apparatus, system and method for providing an end effector",
+              "url": "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/10576639"
+            },
+            {
+              "title": "[国金证券]：建材新材料行业研究：PEEK碳纤维复合，引领人形机器人轻量化浪潮 - 发现报告",
+              "url": "https://www.fxbaogao.com/detail/4707855"
+            },
+            {
+              "title": "国内外10家聚醚醚酮PEEK知名企业及近况介绍 - CMPE 艾邦第八届精密陶瓷产业链展览会",
+              "url": "https://www.cmpe360.com/p/158077"
+            },
+            {
+              "title": "ESD Plastics - Electro Static Dissipative Materials | MCG",
+              "url": "https://www.mcam.com/en/products/esd"
+            },
+            {
+              "title": "PEEK材料：小而美的市场，需求正在爆发前夜_腾讯新闻",
+              "url": "https://news.qq.com/rain/a/20241203A06CSX00"
+            },
+            {
+              "title": "碳纤维与PEEK：人形机器人轻量化核心材料 - 艾邦高分子 艾邦智造官网",
+              "url": "https://www.aibang.com/a/39953"
+            },
+            {
+              "title": "2023年全球与中国PEEK ESD材料行业现状概览及发展趋势预测报告_数据分析_贝哲斯咨询-贝哲斯咨询社区",
+              "url": "https://report.csdn.net/market/650a4f3e6b896f66024cc9a6.html"
+            },
+            {
+              "title": "一文详解PEEK材料在人形机器人领域的应用及供需情况 - 艾邦高分子 艾邦智造官网",
+              "url": "https://www.aibang.com/a/33726"
+            },
+            {
+              "title": "peek材料价格单价多少|2024年PEEK材料价格分析与市场趋势洞察-上氟新材",
+              "url": "http://www.pvdf-pfa.com/newsdetail?id=97191"
+            },
+            {
+              "title": "氧化铝价格网_氧化铝价格网今日价格、行情走势、最新报价",
+              "url": "https://m.mysteel.com/hot/1568901.html"
+            },
+            {
+              "title": "氧化铝市场价_氧化铝市场价今日价格、行情走势、最新报价",
+              "url": "https://m.mysteel.com/hot/1486831.html"
+            },
+            {
+              "title": "氧化铝陶瓷喷涂_氧化铝陶瓷喷涂今日价格、行情走势、最新报价",
+              "url": "https://m.mysteel.com/hot/134431.html"
+            },
+            {
+              "title": "氧化铝价格指数_中粉资讯_粉材价格指数平台",
+              "url": "https://price.cnpowder.com.cn/catalog1398.html"
+            },
+            {
+              "title": "氢氧化铝今日铝价_氧化铝现货期货价格_行情分析_产业链动态_我的钢铁网(Mysteel)",
+              "url": "https://list1.m.mysteel.com/zhishi/qyhljrlj.html"
+            },
+            {
+              "title": "高纯度氧化铝_高纯度氧化铝今日价格、行情走势、最新报价",
+              "url": "https://m.mysteel.com/hot/556157.html"
+            },
+            {
+              "title": "氧化铝价格下行 供给增量预期致市场承压",
+              "url": "https://www.stcn.com/article/detail/1820495.html"
+            },
+            {
+              "title": "高纯氧化铝价格 厂家：宣城晶瑞新材料有限公司",
+              "url": "https://m.chemicalbook.com/SupplyInfo_470484.htm"
+            },
+            {
+              "title": "2025年中国氧化铝陶瓷基板行业发展现状、市场规模及产业全景研判：被广泛应用于电子领域，行业发展前景良好[图]_智研咨询",
+              "url": "https://www.chyxx.com/industry/1214902.html"
+            },
+            {
+              "title": "半导体设备行业深度：国产替代、市场空间、产业链及相关企业深度梳理【慧博出品】 - 知乎",
+              "url": "https://zhuanlan.zhihu.com/p/711137905"
+            },
+            {
+              "title": "半导体设备行业：国产替代下的2026年前景展望_中金在线财经号",
+              "url": "http://mp.cnfol.com/58822/article/1767931218-142205664.html"
+            },
+            {
+              "title": "半导体材料2025年展望：国产化率进一步提升，并购频发提升行业地位 - 新闻动态 - 半导体芯科技",
+              "url": "https://www.siscmag.com/news/show-9087.html"
+            },
+            {
+              "title": "2025年中国半导体设备产业链梳理及投资布局分析__财经头条",
+              "url": "https://t.cj.sina.com.cn/articles/view/7962326780/1da9776fc001015od0"
+            },
+            {
+              "title": "半导体设备国产替代：8大核心龙头全景解析|半导体_新浪财经_新浪网",
+              "url": "https://finance.sina.com.cn/roll/2025-09-24/doc-infrrepi6425729.shtml"
+            },
+            {
+              "title": "半导体设备全球增长明显，加速国产替代|半导体_新浪财经_新浪网",
+              "url": "https://finance.sina.com.cn/roll/2025-08-15/doc-infkznmc6229984.shtml"
+            },
+            {
+              "title": "半导体设备行业：国产替代下的2026年前景展望_腾讯新闻",
+              "url": "https://view.inews.qq.com/a/20260111A02FIT00"
+            },
+            {
+              "title": "国产替代系列一：半导体零部件行业随风起，国产替代空间广阔【慧博出品】 - 知乎",
+              "url": "https://zhuanlan.zhihu.com/p/690422657"
+            }
+          ],
+          "updated_at": "2026-07-01 17:12:56"
+        }
+      },
+      "error": null
+    },
+    {
+      "task_id": "04eb0095d741",
+      "project_id": "25f202f3ed4d",
+      "kind": "negotiation_recommend",
+      "status": "succeeded",
+      "progress": "完成",
+      "created_at": "2026-07-01 17:16:30",
+      "started_at": "2026-07-01 17:16:31",
+      "finished_at": "2026-07-01 17:18:12",
+      "result": {
+        "negotiation": {
+          "project_id": "25f202f3ed4d",
+          "terms": [],
+          "strategies": [],
+          "summary": "总体商务思路：本产品为半导体晶圆搬运高洁净/防静电/真空关键零部件，技术壁垒高、国产可比竞品少，处于中高议价地位，应以\"价值定价+成本联动\"为核心，坚守单价753.83元的定价逻辑而非在价格上过度让步。谈判优先级：①先锁定价格公式与ESD PEEK/陶瓷进口料的调价联动条款以对冲汇率与关税波动；②以量换价、以账期换价、以长约(年框)换价，用交付/付款/质保等非价格条款做梯度让步，最大限度保护毛利(目标毛利约30%成本加成基础上净上浮15%~20%)；③IP与技术资料严守我方所有，防止关键工艺(陶瓷精密加工、ESD导电配方)外泄。对战略客户以年框和联合开发绑定长期份额，对新客户以试用/小批量+预付款控制风险，对海外客户则用EXW/FOB+外币结算+合规条款转移税费与汇率风险。谈判红线：不接受无价格联动的固定长单、不接受核心工艺IP转移、不接受无上限违约赔偿。</parameter>\n<parameter name=\"terms\">[\n  {\n    \"category\": \"价格条款\",\n    \"clause\": \"标准单件报价 753.83 元(含税、不含运费),报价有效期30天;单笔≥500件享阶梯价,≥2000件另议年度框架价。核心进口料(ESD导电PEEK、高纯氧化铝陶瓷坯料)设置原材料价格联动条款:当基准料价或汇率波动超过±5%时,按公式季度调价。\",\n    \"bottom_line\": \"单价不低于成本加成后综合毛利15%(即约680元/件的底价),且必须保留ESD PEEK与汇率联动条款;放弃联动条款则单价须上浮8%作为风险对冲。\",\n    \"concession\": \"大批量(≥2000件/年框)可给予最高6%数量折扣;可接受锁价周期从季度延长至半年,但需客户承担对应料价上涨部分或提前一次性备料。\",\n    \"note\": \"关键利润与风险来源在陶瓷精密加工与进口ESD PEEK,而非普通金属件;谈判中避免逐项拆解成本,以整机价值定价对外。\"\n  },\n  {\n    \"category\": \"交付条款\",\n    \"clause\": \"标准交期:首批样件4~6周,批量量产件8~10周(自订单确认及预付款到账起算);交付地点默认我方工厂交货(EXW/出厂价),分批交付按排产计划。包装采用防静电真空洁净包装。\",\n    \"bottom_line\": \"量产标准交期不短于6周;因客户变更设计或延迟确认导致的延期不计入我方责任;不可抗力与进口料断供可顺延。\",\n    \"concession\": \"对战略客户可提供安全库存(VMI/寄售)与优先排产;紧急插单可压缩至4周但加收15%~25%加急费;可承诺分批交付缓解客户资金与库存压力。\",\n    \"note\": \"进口ESD PEEK与陶瓷坯料备货周期长,交期承诺须与备料到货挂钩,避免上游断供背黑锅。\"\n  },\n  {\n    \"category\": \"付款条款\",\n    \"clause\": \"标准付款采用 3-3-4:预付款30%(订单确认)、发货前30%(见货或发货通知)、验收合格后40%(货到验收30天内);新客户/首单要求预付40%~50%。支持电汇,金额较大可接受银行承兑汇票(6个月内)。\",\n    \"bottom_line\": \"预付款不低于30%;整体不接受纯账期(0预付)订单;账期最长不超过货到后60天,且需对等提供信用担保或提高价格。\",\n    \"concession\": \"战略/信用良好客户可放宽至 2-3-5 或货到90天账期;可接受L/C(海外)、银行承兑;一次性全款预付可给予1%~2%现金折扣。\",\n    \"note\": \"账期让步需与信用评估、坏账风险和资金成本(按年化6%~8%计入)挂钩,账期越长价格底线越高。\"\n  },\n  {\n    \"category\": \"质量保证条款\",\n    \"clause\": \"质保期:自验收合格起12个月;关键尺寸、平面度、ESD表面电阻、真空气密性、洁净度等按双方确认的技术规格书与首件检验报告(FAI)交付;提供材质证明与COC。质量异常按8D流程处理,批次不良率超约定AQL可退换。\",\n    \"bottom_line\": \"质保仅覆盖制造缺陷与材料缺陷,不覆盖客户误装/超规格使用/自行改装/正常磨损;赔偿以更换合格品或退还货款为限,不承担客户产线停机等间接损失。\",\n    \"concession\": \"战略客户可延长质保至18个月并提供备件优先供应;可配合客户来料检验/驻厂验货;可提供年度质量改善报告与SPC数据。\",\n    \"note\": \"陶瓷叶片属易碎精密件,须在合同中明确运输破损与安装破损的责任界定与验收签收节点。\"\n  },\n  {\n    \"category\": \"知识产权条款\",\n    \"clause\": \"本总成的设计图纸、陶瓷精密加工工艺、ESD导电配方及制造Know-how等全部背景IP归我方所有;客户仅获得产品使用权,不得逆向工程、拆解分析或委托第三方仿制。客户提供的专有接口/规格信息IP归客户。\",\n    \"bottom_line\": \"核心工艺IP绝不转让、不作价入股、不做技术授权;不接受\"技术资料全套交付\"或源代码级工艺文档要求。\",\n    \"concession\": \"可提供必要的安装/使用/维护手册与接口图;联合开发的定制化专用结构,其新增专用IP可约定共有或客户独占使用(但底层通用工艺仍归我方);可签署对等保密协议(NDA)。\",\n    \"note\": \"IP是本产品护城河,任何涉及工艺转移的诉求必须上报公司高层并单独作价评估。\"\n  },\n  {\n    \"category\": \"违约责任\",\n    \"clause\": \"逾期交付:每逾期一周按该批货款0.5%计违约金,累计上限为该批货款的5%;逾期付款:每逾期一天按未付款0.05%计滞纳金;质量批退按合同质保条款处理。任一方根本违约,守约方可解约并索赔。\",\n    \"bottom_line\": \"我方各类违约赔偿责任总额上限不超过对应订单/批次货款金额;绝不接受无上限赔偿、惩罚性赔偿或承担客户停线/召回等间接与后果性损失。\",\n    \"concession\": \"对战略客户可将交期违约金起算宽限期设为1周、上限微调;可协商设立双向违约条款以示对等诚意。\",\n    \"note\": \"务必写入责任上限(Cap)与间接损失免责(Consequential Damages Waiver)条款,海外合同尤其关键。\"\n  }\n]</parameter>\n<parameter name=\"strategies\">[\n  {\n    \"customer_type\": \"战略客户\",\n    \"strategy\": \"以长期绑定与份额锁定为核心:推动年度框架协议(年框锁量锁价+季度价格联动),用VMI/安全库存、优先排产、延长质保(18个月)等增值服务替代直接降价;探索联合开发定制化型号形成技术黏性与切换成本。谈判中先给服务、账期(2-3-5)等非价格让步,价格折扣作为压箱底筹码在锁量前提下释放。\",\n    \"authorization\": \"销售经理可授权折扣≤3%;销售总监≤6%;超6%或涉及价格联动条款删除、IP共有、账期>60天须报公司总经理/管委会审批。付款条件可下放至2-3-5,更宽账期需财务与总监会签。\",\n    \"note\": \"战略客户重在生命周期总价值(LTV)与供应链绑定,避免为单笔订单让利过深损害价格锚点。\"\n  },\n  {\n    \"customer_type\": \"新客户\",\n    \"strategy\": \"以风险控制优先:首单要求预付40%~50%,小批量/样件试用切入验证质量与信用,暂不给年框价与大额账期。用FAI报告、质量数据和技术交流建立信任,以'质量与交付确定性'而非低价争取首单;首单严格按标准价执行,培养后逐步转化为长期客户再谈优惠。\",\n    \"authorization\": \"销售经理可授权折扣≤2%;销售总监≤4%;首单不得低于综合毛利底线(约680元/件)。付款条件不得低于预付40%,账期原则上不开放,如需账期须经信用评估+总监审批并提高报价对冲。\",\n    \"note\": \"重点做信用与背景尽调,防坏账;首单可适度让交期/技术支持,但价格和预付款守紧。\"\n  },\n  {\n    \"customer_type\": \"海外客户\",\n    \"strategy\": \"采用外币计价(USD/EUR)并锁定汇率或加入汇率联动条款(波动>±3%触发调价);交付以EXW/FOB为主,关税、进口增值税、目的港费用由客户承担,尽量不接受DDP;结算优先要求L/C(不可撤销即期信用证)或较高预付款以规避跨境收款风险。合同适用法律与仲裁地争取选中国/新加坡/香港仲裁,明确Incoterms 2020版本;履行出口管制/原产地/RoHS/REACH等合规审查,确认不涉及受限实体与用途。ESD PEEK等进口料的关税上涨通过价格联动条款转嫁。\",\n    \"authorization\": \"销售总监统一归口海外报价,折扣≤5%;涉及DDP条款、外币账期、汇率风险由我方承担、非中国仲裁地等须报总经理+法务+财务三方会签。合规红线(出口管制/实体清单)一票否决,须法务确认后方可签约。\",\n    \"note\": \"重点管理汇率、关税与合规三大风险;跨境物流对陶瓷易碎件需强化包装与保险(投保运输险,CIF时保额≥110%)。\"\n  }\n]</parameter>\n<parameter name=\"assumptions\">[\n  \"假设定价结果753.83元/件为不含运费的含税出厂价,基准为标准配置单件。\",\n  \"假设本产品为我方自主设计制造,核心工艺(陶瓷精密加工、ESD导电PEEK成型)及背景IP归我方所有。\",\n  \"假设ESD导电PEEK与高纯氧化铝陶瓷坯料依赖进口,存在汇率与关税波动风险,需价格联动对冲。\",\n  \"假设目标市场竞争偏卖方(国产可比竞品少),我方具备中高议价能力。\",\n  \"假设公司资金成本年化约6%~8%,用于评估账期让步的价格底线。\",\n  \"假设综合毛利底价约680元/件(对应约15%综合毛利)为价格红线。\",\n  \"假设客户多为半导体设备厂/晶圆厂供应链,对质量、洁净度、防静电、真空气密性要求严格。\"\n]</parameter>\n<parameter name=\"open_questions\">[\n  {\"field\": \"WH-EE-ASM-001.order_volume\", \"reason\": \"未提供典型订单量/年需求量,阶梯价与年框折扣的分档阈值需据实际量级确定。\", \"guess\": \"假设单笔500件为阶梯起点,2000件/年为年框门槛。\"},\n  {\"field\": \"WH-EE-ASM-001.target_market\", \"reason\": \"未明确主要客户地域(国内为主还是含海外),影响海外条款权重与结算币种。\", \"guess\": \"假设国内为主,兼有海外(日韩/欧美)半导体客户。\"},\n  {\"field\": \"WH-EE-ASM-001.cost.esd_peek_share\", \"reason\": \"ESD PEEK在原材料成本中的占比未明确,影响价格联动公式的敏感度与调价幅度。\", \"guess\": \"假设ESD PEEK占进口料成本主要部分,联动阈值设±5%。\"},\n  {\"field\": \"WH-EE-ASM-001.competitor_price\", \"reason\": \"缺少竞品/进口对标价格区间,难以精确设定折扣空间与议价上限。\", \"guess\": \"假设进口对标件价格显著高于我方,存在替代议价空间。\"},\n  {\"field\": \"WH-EE-ASM-001.warranty_field_condition\", \"reason\": \"缺少客户实际使用工况(搬运频次、真空度、洁净等级),影响质保期与失效责任界定。\", \"guess\": \"假设为半导体前道高洁净真空搬运工况。\"},\n  {\"field\": \"WH-EE-ASM-001.customization\", \"reason\": \"是否存在客户定制接口/尺寸需求,影响IP归属与NRE(非经常性工程费)是否单独收取。\", \"guess\": \"假设标准型号为主,定制另计NRE。\"}\n]</parameter>\n<parameter name=\"search_sources\">[]",
+          "confirmed": false,
+          "confirmed_by": null,
+          "confirmed_at": null,
+          "timing": {
+            "status": "not_started",
+            "started_at": null,
+            "finished_at": null,
+            "completed": false
+          },
+          "assumptions": [],
+          "open_questions": [],
+          "search_sources": [],
+          "updated_at": "2026-07-01 17:18:12"
+        }
+      },
+      "error": null
+    },
+    {
+      "task_id": "07f4cbaf8b74",
+      "project_id": "25f202f3ed4d",
+      "kind": "negotiation_recommend",
+      "status": "succeeded",
+      "progress": "完成",
+      "created_at": "2026-07-01 17:19:54",
+      "started_at": "2026-07-01 17:19:54",
+      "finished_at": "2026-07-01 17:21:26",
+      "result": {
+        "negotiation": {
+          "project_id": "25f202f3ed4d",
+          "terms": [
+            {
+              "category": "价格条款",
+              "clause": "单件建议报价753.83元(不含税、EXW工厂交货口径),报价有效期30天;按年度框架量给予阶梯价:年采购≥500件下浮3%、≥1000件下浮5%、≥2000件下浮8%;对进口ESD导电PEEK、高纯氧化铝陶瓷等关键料设原材料价格联动条款,当基准料价波动超过±5%时,双方按约定公式调整未交付批次单价。",
+              "bottom_line": "成交单价不得低于成本加成率下限对应价(约在建议价基础上不低于663元,即毛利不低于覆盖30%成本加成的临界),年框最大综合折扣不超过8%;价格联动条款(尤其ESD PEEK/关税上调触发的上调权)不可取消。",
+              "concession": "小批量试单可维持标价不打折但赠送技术支持;大批量/年框可让利至8%以内;可将联动阈值由±5%放宽至±8%作为对价换取长约与预付款比例提升。",
+              "note": null
+            },
+            {
+              "category": "交付条款",
+              "clause": "标准交期首件样品30天、批量货35~45天(自技术冻结及预付款到账起算);交货方式EXW或FCA工厂,包装采用防静电真空洁净包装;分批交付时按里程碑节点执行,允许±5%数量公差。",
+              "bottom_line": "交期底线不短于35天(受陶瓷精密加工与进口料备货周期约束);紧急插单需加收10%~20%加急费且不承诺压缩关键工序周期;不接受无缓冲期的LD(延迟违约金)即时起算。",
+              "concession": "对战略客户/年框客户可预留安全库存与产能档期,承诺缩短至30天;可提供VMI/寄售或滚动预测备料以换取需求锁定。",
+              "note": null
+            },
+            {
+              "category": "付款条款",
+              "clause": "国内标准付款采用3-3-4:签约预付30%、发货前付30%、验收合格后30天内付40%;账期客户需提供银行承兑或授信支持;逾期按日万分之五计息。",
+              "bottom_line": "预付款比例不低于30%(用于覆盖进口料采购与陶瓷加工投入),累计敞口(应收+在制)不超过授信额度;不接受纯赊销0预付;不接受超过90天账期。",
+              "concession": "战略/信用良好客户可调整为2-3-5或引入银行承兑;首单可将尾款验收账期由30天放宽至45天换取标价不打折;愿以适度价格让利换取更高预付比例。",
+              "note": null
+            },
+            {
+              "category": "质量保证条款",
+              "clause": "质保期自验收合格起12个月或使用满其中先到者;质保范围限于材料与制造缺陷(陶瓷叶片崩缺、ESD性能衰减、真空泄漏、密封失效等);提供COC/材质证明、ESD表面电阻测试、真空气密测试报告;缺陷件按修/换/退梯度处理,AQL按双方约定抽检标准。",
+              "bottom_line": "质保仅限我方制造与材料缺陷,不含客户误装、超规格使用、超真空/温度/机械载荷、外来颗粒污染导致的失效;单件赔偿责任上限不超过该件货款,不承担停机/晶圆报废等间接损失;不接受无限期或终身质保。",
+              "concession": "可对战略客户延长质保至18个月或提供年度免费复检;可提供有偿的失效分析(FA)与快速换货绿色通道。",
+              "note": null
+            },
+            {
+              "category": "知识产权条款",
+              "clause": "本总成的结构设计、陶瓷成型工艺、ESD配方选型及制造Know-how归我方所有;客户仅获得产品使用权,不含设计图纸与工艺文件;客户提供的接口规格/专用设计其IP归客户,我方仅用于本项目生产;双方各自背景IP保持不变。",
+              "bottom_line": "核心陶瓷加工工艺与ESD/真空设计Know-how绝不转让或开源;不接受无补偿的独家/排他条款;不接受客户对我方通用平台技术主张所有权。",
+              "concession": "对战略客户可签订限定领域/限定期限的独家供货或优先议价权(作为付费或绑量对价);可就客户定制部分签署联合开发与IP共有协议。",
+              "note": null
+            },
+            {
+              "category": "违约责任",
+              "clause": "延迟交付违约金按延迟部分货值每周0.5%计,累计上限为该批货值5%;质量批次性不合格我方负责返工/换货并承担相应违约金;付款逾期按日万分之五计息,逾期超30天我方有权暂停发货;不可抗力(含进口断供、关税政策剧变、疫情/管制)可顺延或协商调整。",
+              "bottom_line": "我方累计违约赔偿(不含退还货款)总额上限不超过对应订单金额的10%~15%;拒绝承担间接/衍生/停产损失;不可抗力免责条款与进口料/关税异常触发的调价或免责权不可删除。",
+              "concession": "对战略客户可将交付违约金上限个案提至8%以示诚意;可约定连续达标后阶梯降低履约保证金/质保金比例。",
+              "note": null
+            }
+          ],
+          "strategies": [
+            {
+              "customer_type": "战略客户",
+              "strategy": "以'年度框架协议+绑量+联合技术路线'深度锁定,弱化单件价格博弈,强调供应连续性、优先产能与工艺协同。提供阶梯价、优先交期、延长质保与失效分析支持作为价值包;以VMI/安全库存换取滚动预测与需求锁定;可就定制部分开展联合开发并给予限定领域优先议价权。谈判目标是提升年采购份额与切换成本,而非单笔最大化利润。",
+              "authorization": "销售总监可批年框综合折扣至8%以内、付款可调至2-3-5;超8%折扣或独家条款、质保超18个月须报事业部/总经理审批;价格联动与IP核心条款一律不可授权放弃。",
+              "note": null
+            },
+            {
+              "customer_type": "新客户",
+              "strategy": "以'首单验证+小批量试用'建立信任,首单坚持标价不打折(可用技术支持/加急/免费复检等非价格让利替代),严控信用敞口。要求足额预付(≥30%)与银行承兑,验收标准与AQL书面固化,防止后续质量争议。通过首单表现与产能/资质展示逐步导入年框,再释放阶梯折扣。重点考察客户资信与真实需求量,防止低价套价。",
+              "authorization": "销售经理仅可授权价格折扣≤3%且需预付≥30%;付款账期放宽或折扣3%~5%须销售总监审批;新客户赊销、超授信敞口一律上报;首单原则上不接受纯账期。",
+              "note": null
+            },
+            {
+              "customer_type": "海外客户",
+              "strategy": "采用国际贸易标准条款:优先USD计价并加入汇率波动条款(即期汇率偏离签约汇率超±3%时协商调整或按约定公式结算);贸易术语明确FOB/CIF/DDP并厘清关税、报关、目的港费用归属,关税上调作为价格联动/调价触发项;付款优先L/C(不可撤销即期或远期)或TT预付比例上调(≥40%)对冲信用与地缘风险。合规上做好出口管制/双用途物项、原产地、RoHS/REACH及半导体行业合规审查,ESD/洁净/真空规格附第三方检测报告。争议解决约定国际仲裁(如新加坡SIAC/香港HKIAC)与适用法。",
+              "authorization": "海外报价须含汇率、关税与国际物流缓冲(建议在国内价基础上加价并预留风险准备金),折扣授权上限较国内收紧至5%;计价币种、贸易术语、仲裁地/适用法、DDP承税等重大条款须法务+财务+销售总监联签;涉出口管制敏感应用须合规部门放行后方可报价。",
+              "note": null
+            }
+          ],
+          "summary": "本产品为半导体晶圆搬运高洁净/防静电/真空关键零部件(多材料精密总成),技术壁垒高、可比国产竞品少,处于中高议价地位。总体商务思路:坚持\"价值定价+成本联动\"双轮驱动,以技术附加值(占成本约59%,核心为陶瓷精密加工与进口ESD PEEK)为议价锚点,弱化单纯的成本加成谈判;在价格上守住成本加成率与技术溢价底线,通过交期、付款节奏、批量阶梯等非价格条款换取价格坚挺;对进口ESD PEEK等波动料强制设置价格联动/调价条款以对冲进口与关税风险;质量与IP条款上明确边界,防止无限质保责任与设计资产流失。针对不同客户类型采取差异化授权与让步梯度,战略客户以年框绑量、新客户以首单验证、海外客户以国际条款与合规风控为核心。建议单价753.83元为报价与谈判基准,批量与年框可在授权范围内梯度让利,但不突破成本加成率下限。",
+          "confirmed": false,
+          "confirmed_by": null,
+          "confirmed_at": null,
+          "timing": {
+            "status": "not_started",
+            "started_at": null,
+            "finished_at": null,
+            "completed": false
+          },
+          "assumptions": [
+            "报价753.83元为单件EXW/不含税口径,税费、运费、进口关税等未包含在内,谈判中需另行明确",
+            "定价中30%成本加成率与技术溢价对应的毛利底线为守价关键,折扣让利以不突破成本加成率下限为红线",
+            "客户订单以中小批量为主,存在通过年框放量换取阶梯价的空间",
+            "进口ESD导电PEEK与高纯氧化铝陶瓷存在交期与价格波动风险,已通过价格联动条款对冲",
+            "客户具备半导体行业背景,对洁净/防静电/真空规格及相关检测报告有明确验收标准",
+            "存在国内外潜在竞品但可比国产竞品较少,我方处于中高议价地位"
+          ],
+          "open_questions": [
+            {
+              "field": "order_volume",
+              "reason": "未提供客户预期年采购量/单笔批量,阶梯折扣与年框绑量策略需据此细化",
+              "guess": "假设为中小批量(单笔数十至数百件),存在放量到年框≥500件的谈判空间"
+            },
+            {
+              "field": "customer_identity",
+              "reason": "未明确目标客户具体类型(战略/新/海外)及其资信与地域,授权与付款策略需据此适配",
+              "guess": "同时覆盖三类客户并按类型差异化授权"
+            },
+            {
+              "field": "price_tax_trade_terms",
+              "reason": "报价753.83元的税费/贸易术语口径(含税否、EXW/FOB/DDP)未明确,直接影响海外报价与净利",
+              "guess": "假设为不含税EXW,海外需在此基础上叠加关税/物流/汇率缓冲"
+            },
+            {
+              "field": "esd_peek_price_index",
+              "reason": "缺少ESD PEEK及氧化铝陶瓷的基准价与联动公式参数,价格联动条款需双方确认基准与阈值",
+              "guess": "假设采用±5%阈值触发、按料价占比联动未交付批次"
+            },
+            {
+              "field": "quality_spec_standard",
+              "reason": "未提供客户具体的ESD表面电阻、真空泄漏率、洁净度等验收阈值与AQL,质保与违约边界需据此固化",
+              "guess": "假设采用行业通用半导体洁净件标准并附第三方检测"
+            },
+            {
+              "field": "warranty_liability_cap",
+              "reason": "客户对间接损失/停机赔偿的诉求未知,可能与我方责任上限条款冲突",
+              "guess": "假设可守住单件不超货款、总额不超订单10%~15%的责任上限"
+            }
+          ],
+          "search_sources": [],
+          "updated_at": "2026-07-01 17:21:26"
+        }
+      },
+      "error": null
+    },
+    {
+      "task_id": "596c9b9f399b",
+      "project_id": "25f202f3ed4d",
+      "kind": "pricenego_recommend",
+      "status": "succeeded",
+      "progress": "完成",
+      "created_at": "2026-07-02 09:20:29",
+      "started_at": "2026-07-02 09:20:29",
+      "finished_at": "2026-07-02 09:22:53",
+      "result": {
+        "pricenego": {
+          "project_id": "25f202f3ed4d",
+          "initial_quote": {
+            "price": 753.83,
+            "currency": "CNY",
+            "delivery_period": "首件样品30天;批量货35~45天(自技术冻结及预付款到账起算);允许分批交付,数量公差±5%",
+            "payment_terms": "3-3-4:签约预付30%、发货前付30%、验收合格后30天内付40%;账期需提供银行承兑或授信支持;逾期按日万分之五计息",
+            "valid_until": "报价出具后30天",
+            "note": "单价753.83元/件,不含税、EXW工厂交货口径(或FCA工厂);包装为防静电真空洁净包装。成本基数579.87元/件,当前毛利率约23.1%,为价格协商底线参考。"
+          },
+          "rounds": [],
+          "tiered_prices": [
+            {
+              "min_qty": 1.0,
+              "max_qty": 499.0,
+              "unit_price": 753.83,
+              "discount": "无折扣(基准价)",
+              "note": "年框架量<500件按标准报价执行"
+            },
+            {
+              "min_qty": 500.0,
+              "max_qty": 999.0,
+              "unit_price": 731.22,
+              "discount": "下浮3%(9.7折)",
+              "note": "年度框架采购量≥500件;毛利率约20.7%"
+            },
+            {
+              "min_qty": 1000.0,
+              "max_qty": 1999.0,
+              "unit_price": 716.14,
+              "discount": "下浮5%(9.5折)",
+              "note": "年度框架采购量≥1000件;毛利率约19.0%"
+            },
+            {
+              "min_qty": 2000.0,
+              "max_qty": null,
+              "unit_price": 693.52,
+              "discount": "下浮8%(9.2折)",
+              "note": "年度框架采购量≥2000件;毛利率约16.4%,已接近底线,再让步须走特批"
+            }
+          ],
+          "price_linkage": {
+            "mechanism": "针对进口ESD导电PEEK、高纯氧化铝(高纯氧化铝陶瓷)等关键原材料建立价格联动条款。以签约当日双方书面确认的基准料价(可采用供应商正式报价或双方认可的公开价格指数)为基准,仅对'尚未交付批次'的单价进行调整,已交付/已锁价批次不追溯。进口料另受汇率与关税影响,建议同时约定汇率联动门槛。",
+            "formula": "新单价 = 基准单价 × [1 + Σ(材料i涨跌幅 × 材料i成本权重)];其中建议权重:ESD导电PEEK 0.30、高纯氧化铝陶瓷 0.20(合计关键料权重约0.50,余为加工/结构/管理成本,不参与联动)。材料i涨跌幅 =(复核日料价 − 基准日料价)/ 基准日料价。示例:PEEK涨10%→贡献0.30×10%=+3.0%单价上调。",
+            "trigger": "任一关键主材(PEEK或高纯氧化铝)相对基准日价格波动超过±5%时触发调价评估;进口料汇率(如USD/CNY)波动超过±3%可作为附加触发项(待双方约定)。",
+            "review_cycle": "每季度复核一次;遇主材价格剧烈波动(单次>±10%)或进口断供/关税政策剧变时,任一方可提出临时复核。调整需双方书面确认后对后续订单生效,设置调价通知提前期(建议不少于15天)。"
+          },
+          "special_terms": [
+            {
+              "item": "交付周期",
+              "our_position": "样品30天、批量35~45天,自技术冻结及预付款到账起算;分批按里程碑执行,数量公差±5%",
+              "customer_request": "由销售录入客户实际诉求",
+              "agreed": null,
+              "note": "可让步点:对≥1000件框架订单可承诺滚动备料/安全库存,缩短补货交期至25~30天;但需客户提供不少于季度的滚动预测(rolling forecast)并锁定框架量。禁让步:样品与首批不因赶工牺牲ESD/气密检验流程。"
+            },
+            {
+              "item": "质保条款",
+              "our_position": "质保期自验收合格起12个月或使用满(先到者);范围限材料与制造缺陷(陶瓷叶片崩缺、ESD性能衰减、真空泄漏、密封失效),提供COC/材质证明、ESD表面电阻测试、真空气密测试报告;缺陷按修/换/退梯度处理,AQL双方约定",
+              "customer_request": "由销售录入客户实际诉求",
+              "agreed": null,
+              "note": "可让步点:大额框架客户可延至18个月或按运行小时数约定;可增加年度免费复检1次。禁让步:非正常使用/超规格工况/客户自行拆改/非我方接口件导致的失效不在质保内;不接受无限追溯的批次连坐赔偿(维持累计违约金上限该批货值5%)。"
+            },
+            {
+              "item": "技术支持",
+              "our_position": "提供产品接口对接、安装与使用指导、失效分析配合;不含设计图纸与工艺文件交付",
+              "customer_request": "由销售录入客户实际诉求",
+              "agreed": null,
+              "note": "可让步点:批量客户提供免费上门/远程首件试装支持1~2次、专属技术对接窗口、季度质量回顾会议。禁让步:陶瓷成型工艺、ESD配方选型及制造Know-how属我方核心IP,不转让、不开放工艺文件。"
+            },
+            {
+              "item": "知识产权",
+              "our_position": "总成结构设计、陶瓷成型工艺、ESD配方及制造Know-how归我方;客户仅获使用权;客户提供的接口/专用设计IP归客户,仅用于本项目;双方背景IP不变",
+              "customer_request": "由销售录入客户实际诉求",
+              "agreed": null,
+              "note": "可让步点:可签署更强的保密与排他性(约定期内不向客户直接竞品供货同款专用设计件)以换取框架量与价格。禁让步:不交付设计图纸/工艺文件,不做工艺转移。"
+            },
+            {
+              "item": "付款与账期",
+              "our_position": "3-3-4;账期须银行承兑或授信支持;逾期日万分之五计息,逾期超30天可暂停发货",
+              "customer_request": "由销售录入客户实际诉求",
+              "agreed": null,
+              "note": "可让步点:对信用优良的大客户可议为2-3-5或验收后60天账期,但须银承/授信担保且对应价格上调或减少折扣。禁让步:预付款(用于进口料备料)不可取消,进口关键料占款风险须由预付覆盖。"
+            },
+            {
+              "item": "违约与不可抗力",
+              "our_position": "延迟交付违约金按延迟部分货值每周0.5%、累计上限该批5%;质量批次不合格返工/换货并担违约金;不可抗力(进口断供、关税剧变、疫情/管制)可顺延或协商",
+              "customer_request": "由销售录入客户实际诉求",
+              "agreed": null,
+              "note": "可让步点:可与客户对等设置我方延迟与客户延迟提货/延迟付款的违约对称条款。禁让步:维持违约金累计上限,避免开口式赔偿;进口断供须保留顺延权。"
+            }
+          ],
+          "agreed_price": null,
+          "summary": "协商策略:①锚定基准价753.83元/件(不含税EXW),先报标准价,把阶梯折扣(3%/5%/8%)作为'换取年度框架承诺量'的交换筹码,不无条件让价。②价格底线579.87元/件——8%折扣档693.52元毛利率约16.4%为公开可让边界,任何低于此的价格须走内部特批,原则上不破。③让步顺序优先用非价格条款换价:延长质保、增加技术支持、缩短补货交期、排他保密,均可先于降价抛出。④账期/付款让步须以银承或授信担保为前提,并对应价格上调或减少折扣,进口料预付款不可取消(覆盖占款风险)。⑤务必将原材料联动条款写入合同附件(基准料价、权重、±5%触发、季度复核、15天调价通知),用以对冲进口PEEK/高纯氧化铝涨价与汇率/关税风险。⑥守住核心IP:工艺Know-how、ESD配方、陶瓷成型不转让、不交付工艺文件。谈判留白:客户反馈与目标价由销售录入后再迭代让步方案。",
+          "confirmed": false,
+          "confirmed_by": null,
+          "confirmed_at": null,
+          "timing": {
+            "status": "not_started",
+            "started_at": null,
+            "finished_at": null,
+            "completed": false
+          },
+          "assumptions": [
+            "最终报价753.83元/件为不含税、EXW工厂交货口径;阶梯价基于此口径按已定框架量折扣(3%/5%/8%)线性计算得出:731.22/716.14/693.52元。",
+            "成本基数579.87元/件视为价格协商底线参考,8%折扣档(693.52元)毛利率约16.4%仍高于成本,超此折扣需内部特批。",
+            "调价联动权重(PEEK 0.30、高纯氧化铝 0.20)为行业经验性估算,实际权重应以BOM成本占比核算后写入合同附件。",
+            "因平台联网检索额度已达上限,本次未取得实时主材公开行情;基准料价应以签约当日供应商正式报价或双方共同认可的价格指数为准并写入合同。",
+            "阶梯折扣以'年度框架承诺量'为准,而非单次订单量;需签订年度框架协议并配套滚动预测。"
+          ],
+          "open_questions": [
+            {
+              "field": "tiered_prices.commitment",
+              "reason": "客户年度框架承诺量档位未知(是否达≥500/1000/2000件),直接决定适用哪档阶梯价与备料策略。",
+              "guess": "先按无框架承诺的基准价753.83元报出,阶梯价作为框架谈判筹码。"
+            },
+            {
+              "field": "price_linkage.baseline_index",
+              "reason": "PEEK与高纯氧化铝的基准料价采用'供应商报价'还是'公开价格指数'需双方约定;进口料是否叠加汇率/关税联动门槛未定。",
+              "guess": "以签约日供应商正式报价为基准价,汇率波动±3%作为附加触发项待确认。"
+            },
+            {
+              "field": "initial_quote.tax_terms",
+              "reason": "报价为不含税、EXW口径;客户是否需要含税价、FCA或到厂价、开票类型(专票/普票)会影响最终成交价。",
+              "guess": "维持不含税EXW,如需含税/FCA另行加计。"
+            },
+            {
+              "field": "payment_terms.credit",
+              "reason": "客户征信、银承/授信能力与期望账期未知,影响是否接受账期让步及对应价格。",
+              "guess": "默认3-3-4,账期让步须担保+价格补偿。"
+            },
+            {
+              "field": "special_terms.exclusivity",
+              "reason": "客户是否要求排他供货/独家设计,以及是否愿以此换取更优价格未知。",
+              "guess": "排他性可作为价格让步的交换条件。"
+            },
+            {
+              "field": "special_terms.target_price",
+              "reason": "客户目标价/竞品报价未由销售录入,无法判断议价空间与让步节奏。",
+              "guess": null
+            }
+          ],
+          "search_sources": [
+            {
+              "title": "全球聚醚醚酮（PEEK）市场行情研讨 2005-2025_塑料资讯_塑料行业新闻-搜料|工程塑料超市",
+              "url": "https://www.soliao.com/news/fenxi/34281.html"
+            },
+            {
+              "title": "2025年聚醚醚酮(PEEK)植入物价格行情_聚醚醚酮(PEEK)植入物价格走势_报告大厅",
+              "url": "https://m.chinabgao.com/k/jmmt_PEEK_zrw/price/"
+            },
+            {
+              "title": "无人机改性PEEK材料行业分析：现状、机遇与发展-2026_财富号_东方财富网",
+              "url": "https://caifuhao.eastmoney.com/news/20260306130232930554310"
+            },
+            {
+              "title": "PEEK材料：小而美的市场，需求正在爆发前夜_腾讯新闻",
+              "url": "https://news.qq.com/rain/a/20241203A06CSX00"
+            },
+            {
+              "title": "2025年中国PEEK材料行业市场前景预测研究报告__财经头条__新浪财经",
+              "url": "https://cj.sina.com.cn/articles/view/7962326780/1da9776fc0010154ey?finpagefr=p_103"
+            },
+            {
+              "title": "PEEK价格_聚醚醚酮价格_今日最新PEEK塑料行情走势图|专塑视界PEEK原料报价网",
+              "url": "https://zshq.zuiyouliao.com/price/detail_PEEK.html"
+            },
+            {
+              "title": "聚醚醚酮PEEK材料价格行情_产能产量_装置产线厂家|塑料新材料|专塑视界",
+              "url": "https://www.zhuansushijie.com/label/bfb5314c87914a07a03ebb43f15d10d1.html"
+            },
+            {
+              "title": "为什么PEEK材料的成品零件价格那么昂贵? - 聚四氟乙烯制品_PTFE加工_四氟密封件_铁氟龙厂家-深圳市德诚旺科技有限公司 聚四氟乙烯制品_PTFE加工_聚四氟乙烯厂家-深圳市德诚旺科技有限公司",
+              "url": "https://www.dcwptfe.com/archives/732"
+            },
+            {
+              "title": "2025年聚醚醚酮PEEK价格行情_聚醚醚酮PEEK价格走势_报告大厅",
+              "url": "https://m.chinabgao.com/k/jmmtpeek/price/"
+            },
+            {
+              "title": "[PEEK]：2025年1月2日东莞市场PEEK价格行情-我的钢铁网",
+              "url": "https://m.mysteel.com/oilchem/a/25010210/3A95487D47358FAF_abc.html"
+            },
+            {
+              "title": "High Purity Alumina Market Size Report 2025, Size, Analysis",
+              "url": "https://www.thebusinessresearchcompany.com/report/high-purity-alumina-global-market-report"
+            },
+            {
+              "title": "High Alumina Ceramic Market Size, Report, Growth to 2033",
+              "url": "https://www.globalgrowthinsights.com/market-reports/high-alumina-ceramic-market-104156"
+            },
+            {
+              "title": "High Alumina Ceramic Market Size & Global Analysis [2033]",
+              "url": "https://www.businessresearchinsights.com/market-reports/high-alumina-ceramic-market-109026"
+            },
+            {
+              "title": "High Purity Alumina Ceramic Strategic Insights: Analysis 2025 and Forecasts 2033",
+              "url": "https://www.marketreportanalytics.com/reports/high-purity-alumina-ceramic-29815"
+            },
+            {
+              "title": "Alumina Ceramics Purchasing Price Trend - GGSCERAMIC",
+              "url": "https://ggsceramic.com/news-item/alumina-ceramics-purchasing-price-trend"
+            },
+            {
+              "title": "High Purity Alumina Price Trends & Suppliers",
+              "url": "https://www.accio.com/plp/high-purity-alumina-price"
+            },
+            {
+              "title": "Alumina Ceramic Price, 2025 Alumina Ceramic Price Manufacturers & Suppliers | Made-in-China.com",
+              "url": "https://www.made-in-china.com/products-search/hot-china-products/Alumina_Ceramic_Price.html"
+            },
+            {
+              "title": "Alumina (Aluminium Oxide) Price Trend, Chart, News and Forecast",
+              "url": "https://www.chemanalyst.com/Pricing-data/alumina-aluminium-oxide-2506"
+            },
+            {
+              "title": "Alumina Market Size to Hit USD 70.8 Billion by 2034",
+              "url": "https://www.precedenceresearch.com/alumina-market"
+            },
+            {
+              "title": "High Purity Alumina Ceramic Market Size, Share and Trends Outlook 2034",
+              "url": "https://www.reportsanddata.com/report-detail/high-purity-alumina-ceramic-market"
+            },
+            {
+              "title": "2025年全球静电放电(ESD)PEEK市场规模、趋势与占有率分析",
+              "url": "https://m.gelonghui.com/p/2655573"
+            },
+            {
+              "title": "PEEK材料需求井喷，叩开千亿市场大门！概念股疯狂拉升|机器人|轻量化|概念股_新浪科技_新浪网",
+              "url": "https://finance.sina.com.cn/tech/roll/2025-04-29/doc-ineuvtft5599700.shtml"
+            },
+            {
+              "title": "peek最新报价_价格_材料_用途",
+              "url": "https://m.sohu.com/a/892173889_121950246/?pvid=000115_3w_a"
+            },
+            {
+              "title": "一文详解PEEK材料在人形机器人领域的应用及供需情况 - 艾邦高分子 艾邦智造官网",
+              "url": "https://www.aibang.com/a/33726"
+            },
+            {
+              "title": "2025年导电PEEK市场现状和前景 2025-2031年全球与中国导电PEEK行业现状调研及市场前景预测报告",
+              "url": "https://www.20087.com/1/72/DaoDianPEEKShiChangXianZhuangHeQianJing.html"
+            },
+            {
+              "title": "Electrically active, conductive and ESD plastics | Ensinger",
+              "url": "https://www.ensingerplastics.com/en-us/plastic-material-selection/electrically-conductive-esd"
+            },
+            {
+              "title": "轻量化+性能优异！PEEK材料需求大爆发_九方智投",
+              "url": "https://www.9fzt.com/9fztgw_1_middle_A/e31776b8a3cb651a04381bc416278420.html"
+            },
+            {
+              "title": "中国静电耗散(ESD)塑料行业前景分析及投资可行性研究报告2025",
+              "url": "https://m.gelonghui.com/p/2647814"
+            },
+            {
+              "title": "2025年全球静电放电(ESD)PEEK行业总体规模、主要企业国内外市场占有率及排名_博研咨询-北京博研传媒信息咨询有限公司",
+              "url": "https://www.cninfo360.cn/baogao/quanqiujizeiguodiaoyanbaogao/368498.html"
+            },
+            {
+              "title": "High Purity Alumina Market Size, Share and Forecast to 2033",
+              "url": "https://straitsresearch.com/report/high-purity-alumina-market"
+            },
+            {
+              "title": "High Purity Alumina Market Size, Share & Growth Report, 2035",
+              "url": "https://www.gminsights.com/industry-analysis/high-purity-alumina-hpa-market"
+            },
+            {
+              "title": "High Purity Alumina Market Size & Share | Forecast Report, 2033",
+              "url": "https://www.alliedmarketresearch.com/high-purity-alumina-market"
+            },
+            {
+              "title": "High Purity Alumina Market Updates & Industry Trend | 2034",
+              "url": "https://www.expertmarketresearch.com/reports/high-purity-alumina-market"
+            },
+            {
+              "title": "High Purity Alumina Market Size, Share | Industry Report, 2034",
+              "url": "https://www.polarismarketresearch.com/industry-analysis/high-purity-alumina-market"
+            },
+            {
+              "title": "High Purity Alumina Market Size, Share & Trends Report, 2032",
+              "url": "https://www.persistencemarketresearch.com/market-research/high-purity-alumina-market.asp"
+            },
+            {
+              "title": "High Purity Alumina Market Size, Share & Analysis, 2026-2033",
+              "url": "https://www.coherentmarketinsights.com/market-insight/high-purity-alumina-market-353"
+            },
+            {
+              "title": "High Purity Alumina Market Size | Industry Report, 2030",
+              "url": "https://www.grandviewresearch.com/industry-analysis/high-purity-alumina-market"
+            },
+            {
+              "title": "High Purity Alumina Market Size, Share & Forecast to 2032",
+              "url": "https://www.researchandmarkets.com/report/high-purity-alumina"
+            }
+          ],
+          "updated_at": "2026-07-02 09:22:53"
+        }
+      },
+      "error": null
+    },
+    {
+      "task_id": "20e5f754fe6a",
+      "project_id": "25f202f3ed4d",
+      "kind": "approval_recommend",
+      "status": "succeeded",
+      "progress": "完成",
+      "created_at": "2026-07-02 09:29:49",
+      "started_at": "2026-07-02 09:29:49",
+      "finished_at": "2026-07-02 09:30:17",
+      "result": {
+        "approval": {
+          "project_id": "25f202f3ed4d",
+          "level": 1,
+          "level_reason": "最终报价753.83元/件与加成后基准价753.83元/件完全一致，让利幅度为0，价格严格落在标准定价区间内，无任何折让或超权限定价迹象；付款条件采用3-3-4分期并要求银行承兑/授信支持、逾期计息，属于对卖方相对稳健的常规工业设备结算安排，未构成实质性特殊让步。在无重大订单规模、战略客户或超授权信息的情况下，按\"就高不就低\"原则仍未触发更高级别条件，故建议级别1（销售总监审核）。",
+          "classification": {
+            "order_scale": "单件报价753.83元/件，订单总量未提供，无法判断是否为重大订单；按单价看属常规规模",
+            "pricing_standard": "符合标准定价区间：最终报价=加成后基准价=753.83元/件",
+            "concession": "0%（无让利，报价等于基准价）",
+            "payment_special": "3-3-4分期(30%预付/30%发货前/40%验收后30天)，要求银行承兑或授信支持并对逾期按日万分之五计息；对卖方保护充分，属常规安排而非特殊让步",
+            "customer_type": "未提供客户信息，无法确认是否为战略客户（暂按普通客户处理）",
+            "over_authority": "无超授权迹象：价格未低于基准价，付款条件正常，未见突破销售授权情形",
+            "notes": "定价与基准价一致、无折让是本单定级为1的核心依据；风险点集中在验收后40%尾款的信用敞口，需落实银行承兑/授信担保"
+          },
+          "chain": [
+            {
+              "seq": 1,
+              "role": "销售总监",
+              "status": "waiting",
+              "approver": null,
+              "at": null,
+              "comment": null
+            }
+          ],
+          "status": "draft",
+          "approvers": [],
+          "sent_at": null,
+          "decision_note": null,
+          "summary": "审批要点：1) 价格合规——最终报价753.83元与基准价一致，零让利，符合标准定价区间，无价格风险；2) 付款风险——3-3-4结构下40%尾款在验收后30天，存在回款延迟与信用敞口，务必在合同中锁定银行承兑/授信担保并明确验收标准与时点，逾期万分之五计息条款需保留；3) 待补信息——订单数量/合同总额与客户战略属性未知，若总额达重大订单门槛或客户为战略客户，应按'就高不就低'升级至级别2或3。建议：在补齐数量与客户信息、并确认授信担保落实后，按级别1由销售总监审核放行。",
+          "timing": {
+            "status": "not_started",
+            "started_at": null,
+            "finished_at": null,
+            "completed": false
+          },
+          "assumptions": [
+            "假设本报价为普通(非战略)客户的常规订单，客户信息未特别标注",
+            "假设订单数量属常规量级，未达到公司'重大订单'金额门槛",
+            "假设753.83元/件的加成后基准价即为公司标准定价区间的合规价格",
+            "假设销售授权允许在不低于基准价、采用标准分期付款条件下自主签约"
+          ],
+          "open_questions": [
+            {
+              "field": "order_scale.quantity",
+              "reason": "仅给出单价，未提供订单数量与合同总金额，无法判断是否触及重大订单门槛(可能升级至级别3)",
+              "guess": "常规批量订单"
+            },
+            {
+              "field": "classification.customer_type",
+              "reason": "未说明客户是否为战略客户/关键大客户，若为战略客户需升级审批",
+              "guess": "普通客户"
+            },
+            {
+              "field": "payment_special.credit_support",
+              "reason": "客户能否实际提供银行承兑或授信支持尚未确认，直接影响40%尾款回款风险",
+              "guess": "需在签约前落实担保"
+            }
+          ],
+          "search_sources": [],
+          "updated_at": "2026-07-02 09:30:17"
+        }
+      },
+      "error": null
+    }
+  ]
+}

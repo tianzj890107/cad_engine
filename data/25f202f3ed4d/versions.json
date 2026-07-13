@@ -1,0 +1,916 @@
+{
+  "items": [
+    {
+      "version": 1,
+      "ts": "2026-06-30 10:29:49",
+      "stage": "parsed",
+      "author": "system",
+      "note": "",
+      "status": "draft",
+      "review": [],
+      "ir": {
+        "device_name": "晶圆搬运吸嘴组件总成 (Wafer Handler End Effector Assembly) WH-EE-ASM-001",
+        "design_intent": "晶圆搬运机械手末端真空吸附执行器(End Effector)。通过顶部 L 型真空接头/快换接头接入真空，经主体安装块内部气路分配到 4 个真空吸嘴，配合过滤网与 O 型圈密封，对晶圆(2/4/6/8 寸)进行无划伤真空吸附搬运。导向柱+弹簧销实现吸嘴座的浮动/导向补偿，保证吸嘴垂直度。整机要求洁净(ISO Class 3)、防静电(导电硅胶吸嘴)、并通过 -90kPa 保压泄漏检测。",
+        "overall_dims": "120 x 60 x 79.5 mm (不含真空接头突出部分)",
+        "assemblies": [
+          {
+            "assembly_id": "A-000",
+            "name": "晶圆搬运吸嘴组件总成",
+            "parent_id": null,
+            "role": "整机总成",
+            "quantity": 1
+          },
+          {
+            "assembly_id": "A-001",
+            "name": "进气/顶盖总成",
+            "parent_id": "A-000",
+            "role": "真空接入与气路分配",
+            "quantity": 1
+          },
+          {
+            "assembly_id": "A-002",
+            "name": "主体导向总成",
+            "parent_id": "A-000",
+            "role": "安装基体与吸嘴座浮动导向",
+            "quantity": 1
+          },
+          {
+            "assembly_id": "A-003",
+            "name": "真空吸嘴总成",
+            "parent_id": "A-000",
+            "role": "单个吸嘴单元(座+吸嘴+滤网+O圈)",
+            "quantity": 4
+          }
+        ],
+        "parts": [
+          {
+            "part_id": "P-001",
+            "name": "顶盖板",
+            "role": "顶部盖板，承接真空接头并密封主体内部气路",
+            "features": [
+              {
+                "type": "plate",
+                "length": 60.0,
+                "width": 60.0,
+                "thickness": 10.0,
+                "height": null,
+                "diameter": null,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "□60 方形顶盖基体(厚度按比例估)"
+              },
+              {
+                "type": "hole",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 6.0,
+                "radius": null,
+                "distance": null,
+                "x": 0.0,
+                "y": 0.0,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "中央真空接头连通孔(估)"
+              }
+            ],
+            "material": {
+              "spec": "6061-T6",
+              "density": 2.7
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 1,
+            "parent_id": "A-001",
+            "confidence": 0.68,
+            "provenance": {
+              "bbox": [
+                0.55,
+                0.05,
+                0.12,
+                0.18
+              ],
+              "note": "右上爆炸图序号3及主视图□60标注"
+            },
+            "recommendation": null
+          },
+          {
+            "part_id": "P-002",
+            "name": "主体安装块",
+            "role": "组件主体基座，内部真空气路分配，并提供安装接口",
+            "features": [
+              {
+                "type": "box",
+                "length": 120.0,
+                "width": 60.0,
+                "thickness": null,
+                "height": 20.0,
+                "diameter": null,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "主体基体，120×60×20(高度20见主视图)"
+              },
+              {
+                "type": "hole_pattern",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 6.6,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": 2,
+                "count_y": 2,
+                "spacing_x": 75.0,
+                "spacing_y": 60.0,
+                "purpose": "4×Ø6.6 安装通孔"
+              },
+              {
+                "type": "hole_pattern",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 11.0,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": 2,
+                "count_y": 2,
+                "spacing_x": 75.0,
+                "spacing_y": 60.0,
+                "purpose": "Ø11 沉孔，深6.5(与Ø6.6同位)"
+              }
+            ],
+            "material": {
+              "spec": "6061-T6",
+              "density": 2.7
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 1,
+            "parent_id": "A-002",
+            "confidence": 0.75,
+            "provenance": {
+              "bbox": [
+                0.04,
+                0.42,
+                0.3,
+                0.3
+              ],
+              "note": "左下俯视图 120 / 75±0.02 / 60±0.02 及 4×Ø6.6 通孔 Ø11 沉孔深6.5 标注"
+            },
+            "recommendation": null
+          },
+          {
+            "part_id": "P-006",
+            "name": "导向柱",
+            "role": "引导吸嘴固定座浮动，保证垂直度",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 20.0,
+                "diameter": 6.0,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø6×20 导向柱，镀硬铬"
+              }
+            ],
+            "material": {
+              "spec": "SUJ2",
+              "density": 7.85
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 2,
+            "parent_id": "A-002",
+            "confidence": 0.82,
+            "provenance": {
+              "bbox": [
+                0.62,
+                0.28,
+                0.08,
+                0.1
+              ],
+              "note": "BOM序号6 导向柱 SUJ2 镀硬铬 Ø6×20"
+            },
+            "recommendation": null
+          },
+          {
+            "part_id": "P-007",
+            "name": "吸嘴固定座",
+            "role": "固定真空吸嘴，内置过滤网与O型圈密封座",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 18.0,
+                "diameter": 16.8,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø16.8 座体(直径取吸嘴Ø16.8，高度按18估)"
+              },
+              {
+                "type": "hole",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 4.0,
+                "radius": null,
+                "distance": null,
+                "x": 0.0,
+                "y": 0.0,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø4 中央真空通孔"
+              }
+            ],
+            "material": {
+              "spec": "6061-T6",
+              "density": 2.7
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 4,
+            "parent_id": "A-003",
+            "confidence": 0.6,
+            "provenance": {
+              "bbox": [
+                0.4,
+                0.62,
+                0.12,
+                0.18
+              ],
+              "note": "BOM序号7 吸嘴固定座 6061-T6；A-A剖视及Ø16.8/Ø4标注"
+            },
+            "recommendation": null
+          },
+          {
+            "part_id": "P-008",
+            "name": "真空吸嘴",
+            "role": "波纹吸盘，直接接触晶圆并真空吸附",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 16.0,
+                "diameter": 16.8,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø16 波纹吸嘴 2.5折(简化为圆柱，高度估)"
+              }
+            ],
+            "material": {
+              "spec": "导电硅胶(体积电阻率10^4~10^6 Ω·cm)",
+              "density": 1.2
+            },
+            "tolerance_general": null,
+            "quantity": 4,
+            "parent_id": "A-003",
+            "confidence": 0.65,
+            "provenance": {
+              "bbox": [
+                0.32,
+                0.3,
+                0.18,
+                0.12
+              ],
+              "note": "BOM序号8 真空吸嘴 导电硅胶 Ø16,2.5折；主视图Ø16.8"
+            },
+            "recommendation": null
+          },
+          {
+            "part_id": "P-009",
+            "name": "过滤网",
+            "role": "防止颗粒进入真空气路",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 0.3,
+                "diameter": 6.0,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "100目过滤网片(直径/厚度按气路口径估)"
+              }
+            ],
+            "material": {
+              "spec": "SUS316",
+              "density": 7.98
+            },
+            "tolerance_general": null,
+            "quantity": 4,
+            "parent_id": "A-003",
+            "confidence": 0.55,
+            "provenance": {
+              "bbox": [
+                0.49,
+                0.46,
+                0.05,
+                0.05
+              ],
+              "note": "BOM序号9 过滤网 SUS316 100目"
+            },
+            "recommendation": null
+          }
+        ],
+        "standard_parts": [
+          {
+            "spec": "真空接头 L型 SUS304(钝化) 适配Ø6软管",
+            "category": "fitting",
+            "quantity": 1
+          },
+          {
+            "spec": "快换接头 黄铜(镀镍) 适配Ø6软管",
+            "category": "fitting",
+            "quantity": 1
+          },
+          {
+            "spec": "弹簧销 GB/T 879 Ø3×16 SUS304",
+            "category": "pin",
+            "quantity": 2
+          },
+          {
+            "spec": "O型圈 氟橡胶(FKM) ID6×1.5",
+            "category": "oring",
+            "quantity": 4
+          }
+        ],
+        "assembly_notes": "1. 顶盖板(3)装于主体安装块(4)顶部，真空接头(1)经快换接头(2)接入顶盖板，向下连通主体内部真空气路。2. 导向柱(6, Ø6×20, 2 件)压入主体安装块，引导吸嘴固定座(7)上下浮动；弹簧销(5, Ø3×16, 2 件)提供回弹/定位。3. 每个吸嘴固定座(7)装配 1 个真空吸嘴(8, Ø16.8 波纹 2.5 折)+ 1 片过滤网(9, 100 目)+ 1 个 O 型圈(10, ID6×1.5)，O 型圈压缩量控制 0.15~0.20mm 保证密封。4. 主体安装块底部 4×Ø6.6 通孔 + Ø11 沉孔深 6.5，用于将组件安装到机械手臂。5. 真空回路: 真空接头→单向阀→过滤网→各吸嘴。6. 装配后吸嘴垂直度公差 ≤0.02；组件需通过 -90kPa 保压 10s、压降 ≤1kPa 泄漏检测。7. 铝件本色阳极氧化膜厚 10μm；不锈钢件钝化；装前所有零件超声波清洗，表面无划伤、毛刺、油污。",
+        "open_questions": [
+          {
+            "field": "P-001.thickness",
+            "reason": "主视图仅给出□60外形及总高79.5与分段11.5/30/20/18，顶盖板单独厚度未直接标注，按比例估计为约10mm。",
+            "guess": "10"
+          },
+          {
+            "field": "P-002.width",
+            "reason": "俯视图横向120明确，纵向(宽)方向标注75±0.02/60±0.02为孔间距，主体外形宽度未单独标注；右视图为□60，推断主体宽约60mm。",
+            "guess": "60"
+          },
+          {
+            "field": "P-002.hole_pattern.spacing",
+            "reason": "75±0.02与60±0.02为孔阵列X/Y间距，但需确认两组数值分别对应X、Y方向(可能存在长宽方向互换)。",
+            "guess": "75×60"
+          },
+          {
+            "field": "nozzle.count_and_layout",
+            "reason": "BOM吸嘴数量为4，但主视图仅显示一排3个吸嘴，实际排布(一排4个 / 2×2 / 3+1)需确认。",
+            "guess": "4个，2×2布置"
+          },
+          {
+            "field": "P-007.height",
+            "reason": "吸嘴固定座高度无直接标注，参考主视图底部18mm段估计。",
+            "guess": "18"
+          },
+          {
+            "field": "P-008.height",
+            "reason": "真空吸嘴(2.5折波纹)自由高度未标注，按Ø16.8及常规波纹吸盘比例估计。",
+            "guess": "16"
+          },
+          {
+            "field": "P-009.diameter/thickness",
+            "reason": "过滤网仅注明100目与SUS316，安装直径与厚度未标注，按真空通孔Ø4~Ø6估计。",
+            "guess": "Ø6 / 0.3"
+          },
+          {
+            "field": "P-006.fit",
+            "reason": "导向柱与主体安装块、吸嘴固定座的配合性质(过盈压入/间隙滑动)未明确，影响公差配合。",
+            "guess": null
+          }
+        ]
+      }
+    },
+    {
+      "version": 2,
+      "ts": "2026-06-30 10:32:02",
+      "stage": "decomposed",
+      "author": "system",
+      "note": "",
+      "status": "draft",
+      "review": [],
+      "ir": {
+        "device_name": "晶圆搬运吸嘴组件总成 (Wafer Handler End Effector Assembly) WH-EE-ASM-001",
+        "design_intent": "晶圆搬运机械手末端真空吸附执行器(End Effector)。通过顶部 L 型真空接头/快换接头接入真空，经主体安装块内部气路分配到 4 个真空吸嘴，配合过滤网与 O 型圈密封，对晶圆(2/4/6/8 寸)进行无划伤真空吸附搬运。导向柱+弹簧销实现吸嘴座的浮动/导向补偿，保证吸嘴垂直度。整机要求洁净(ISO Class 3)、防静电(导电硅胶吸嘴)、并通过 -90kPa 保压泄漏检测。",
+        "overall_dims": "120 x 60 x 79.5 mm (不含真空接头突出部分)",
+        "assemblies": [
+          {
+            "assembly_id": "A-000",
+            "name": "晶圆搬运吸嘴组件总成",
+            "parent_id": null,
+            "role": "整机总成",
+            "quantity": 1
+          },
+          {
+            "assembly_id": "A-001",
+            "name": "进气/顶盖总成",
+            "parent_id": "A-000",
+            "role": "真空接入与气路分配",
+            "quantity": 1
+          },
+          {
+            "assembly_id": "A-002",
+            "name": "主体导向总成",
+            "parent_id": "A-000",
+            "role": "安装基体与吸嘴座浮动导向",
+            "quantity": 1
+          },
+          {
+            "assembly_id": "A-003",
+            "name": "真空吸嘴总成",
+            "parent_id": "A-000",
+            "role": "单个吸嘴单元(座+吸嘴+滤网+O圈)",
+            "quantity": 4
+          }
+        ],
+        "parts": [
+          {
+            "part_id": "P-001",
+            "name": "顶盖板",
+            "role": "顶部盖板，承接真空接头并密封主体内部气路",
+            "features": [
+              {
+                "type": "plate",
+                "length": 60.0,
+                "width": 60.0,
+                "thickness": 10.0,
+                "height": null,
+                "diameter": null,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "□60 方形顶盖基体(厚度按比例估)"
+              },
+              {
+                "type": "hole",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 6.0,
+                "radius": null,
+                "distance": null,
+                "x": 0.0,
+                "y": 0.0,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "中央真空接头连通孔(估)"
+              }
+            ],
+            "material": {
+              "spec": "6061-T6",
+              "density": 2.7
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 1,
+            "parent_id": "A-001",
+            "confidence": 0.68,
+            "provenance": {
+              "bbox": [
+                0.55,
+                0.05,
+                0.12,
+                0.18
+              ],
+              "note": "右上爆炸图序号3及主视图□60标注"
+            },
+            "recommendation": "工艺：CNC 铣削加工(6061-T6 板料)，单件单面装夹即可完成，外形规则、批量小，机加最经济，无需铸造/钣金。DFM：1) 中央 Ø6 连通孔与真空接头螺纹孔(建议 G1/8 或 M5 内螺纹)需与主体气路同轴，建议在该孔周围设计 O 型圈密封槽(ID 见配套规格)，槽深/槽宽按 FKM O 圈压缩量 15~25% 设计。2) 盖板与主体的密封接触面平面度建议 ≤0.02、Ra≤0.8，保证 -90kPa 保压。3) 四角增设盖板紧固沉孔(M3/M4)，孔边距 ≥1.5×孔径，避免与主体气路干涉。4) 本色硬质阳极氧化(膜厚~10μm)前应去毛刺、倒钝锐边 C0.3。建议复用：可采用标准方形端盖结构，不建议拆分。"
+          },
+          {
+            "part_id": "P-002",
+            "name": "主体安装块",
+            "role": "组件主体基座，内部真空气路分配，并提供安装接口",
+            "features": [
+              {
+                "type": "box",
+                "length": 120.0,
+                "width": 60.0,
+                "thickness": null,
+                "height": 20.0,
+                "diameter": null,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "主体基体，120×60×20(高度20见主视图)"
+              },
+              {
+                "type": "hole_pattern",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 6.6,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": 2,
+                "count_y": 2,
+                "spacing_x": 75.0,
+                "spacing_y": 60.0,
+                "purpose": "4×Ø6.6 安装通孔"
+              },
+              {
+                "type": "hole_pattern",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 11.0,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": 2,
+                "count_y": 2,
+                "spacing_x": 75.0,
+                "spacing_y": 60.0,
+                "purpose": "Ø11 沉孔，深6.5(与Ø6.6同位)"
+              }
+            ],
+            "material": {
+              "spec": "6061-T6",
+              "density": 2.7
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 1,
+            "parent_id": "A-002",
+            "confidence": 0.75,
+            "provenance": {
+              "bbox": [
+                0.04,
+                0.42,
+                0.3,
+                0.3
+              ],
+              "note": "左下俯视图 120 / 75±0.02 / 60±0.02 及 4×Ø6.6 通孔 Ø11 沉孔深6.5 标注"
+            },
+            "recommendation": "工艺：整体 CNC 铣削(6061-T6 实心块)，内部真空气路采用深孔钻交叉钻孔分配，钻孔交汇后用螺塞(M5/M6 锥螺塞或球封)封堵盲端工艺孔。理由：气路需高洁净度、低死腔且无泄漏，铸造易产生砂眼、内壁粗糙不利保压，故首选机加。DFM 关键点：1) 4×Ø6.6 通孔(配 M6 螺钉)+ Ø11 沉孔深6.5 为标准 M6 内六角圆柱头沉孔，孔边距与壁厚需 ≥3mm，校核 75±0.02/60±0.02 与机械臂安装界面一致。2) 交叉气路孔的交汇处应去毛刺(可达性差，建议预留工艺端面或采用电解去毛刺)，避免颗粒污染晶圆。3) 内部气路与外部连通的所有工艺封堵处必须能通过 -90kPa 保压，封堵螺塞处加 O 圈或厌氧胶。4) 导向柱/弹簧孔位需与吸嘴座阵列严格对位，建议一次装夹完成镗孔保证位置度。5) 最小壁厚建议≥2.5mm。不建议拆分；为降低死腔体积，气路分配可考虑预留歧管腔。"
+          },
+          {
+            "part_id": "P-006",
+            "name": "导向柱",
+            "role": "引导吸嘴固定座浮动，保证垂直度",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 20.0,
+                "diameter": 6.0,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø6×20 导向柱，镀硬铬"
+              }
+            ],
+            "material": {
+              "spec": "SUJ2",
+              "density": 7.85
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 2,
+            "parent_id": "A-002",
+            "confidence": 0.82,
+            "provenance": {
+              "bbox": [
+                0.62,
+                0.28,
+                0.08,
+                0.1
+              ],
+              "note": "BOM序号6 导向柱 SUJ2 镀硬铬 Ø6×20"
+            },
+            "recommendation": "工艺：车削+磨削+镀硬铬(SUJ2 轴承钢，淬火 HRC58~62 后外圆磨削达 Ø6 h6/g6，表面镀硬铬 Ø6 提升耐磨与防锈)。理由：作为滑动导向件需高硬度、高直线度与低摩擦，标准做法即磨削导柱。建议优先复用标准导柱/直线轴(如标准导销 Ø6×20)而非自制。DFM/配合：1) 与主体安装块孔建议 H7/r6 过盈压入(固定端)，与吸嘴固定座导向孔建议 H7/g6 间隙滑动配合(确保浮动顺畅、无卡滞)，需在 open_questions 中确认。2) 压入端倒角 C0.5 引导，滑动端倒圆便于装配。3) 镀铬层厚 5~10μm，注意镀后氢脆去除(去氢处理)。4) 直线度/圆柱度 ≤0.01 以保证吸嘴垂直度 ≤0.02。"
+          },
+          {
+            "part_id": "P-007",
+            "name": "吸嘴固定座",
+            "role": "固定真空吸嘴，内置过滤网与O型圈密封座",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 18.0,
+                "diameter": 16.8,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø16.8 座体(直径取吸嘴Ø16.8，高度按18估)"
+              },
+              {
+                "type": "hole",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": null,
+                "diameter": 4.0,
+                "radius": null,
+                "distance": null,
+                "x": 0.0,
+                "y": 0.0,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø4 中央真空通孔"
+              }
+            ],
+            "material": {
+              "spec": "6061-T6",
+              "density": 2.7
+            },
+            "tolerance_general": "ISO 2768-m",
+            "quantity": 4,
+            "parent_id": "A-003",
+            "confidence": 0.6,
+            "provenance": {
+              "bbox": [
+                0.4,
+                0.62,
+                0.12,
+                0.18
+              ],
+              "note": "BOM序号7 吸嘴固定座 6061-T6；A-A剖视及Ø16.8/Ø4标注"
+            },
+            "recommendation": "工艺：以车削为主(回转体 Ø16.8)+ 铣削加工导向孔与 O 圈密封槽。理由：回转结构、4 件小批量，车铣复合最高效。DFM：1) 中央 Ø4 真空通孔下端设吸嘴安装台阶/倒锥用于装配硅胶吸嘴(过盈套入)，上端设 O 圈密封座(配 ID6×1.5 FKM，压缩量 0.15~0.20mm)与过滤网安装沉台(配 Ø6 滤网片)。2) 与导向柱配合的导向孔建议 H7 间隙滑动，孔深≥1.5×Ø 保证导向稳定、防偏摆。3) 内孔及密封面 Ra≤0.8、去毛刺，避免颗粒残留(洁净要求)。4) 本色阳极氧化前清洗。建议 4 件相同零件统一加工保证一致性；不建议与吸嘴合并(材料/工艺不同)。"
+          },
+          {
+            "part_id": "P-008",
+            "name": "真空吸嘴",
+            "role": "波纹吸盘，直接接触晶圆并真空吸附",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 16.0,
+                "diameter": 16.8,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "Ø16 波纹吸嘴 2.5折(简化为圆柱，高度估)"
+              }
+            ],
+            "material": {
+              "spec": "导电硅胶(体积电阻率10^4~10^6 Ω·cm)",
+              "density": 1.2
+            },
+            "tolerance_general": null,
+            "quantity": 4,
+            "parent_id": "A-003",
+            "confidence": 0.65,
+            "provenance": {
+              "bbox": [
+                0.32,
+                0.3,
+                0.18,
+                0.12
+              ],
+              "note": "BOM序号8 真空吸嘴 导电硅胶 Ø16,2.5折；主视图Ø16.8"
+            },
+            "recommendation": "工艺：橡胶模压/注射成型(导电硅胶，需专用成型模)。理由：波纹吸盘为标准弹性体外购件，2.5 折波纹结构无法机加，应优先选用品牌真空吸盘标准件(如 SMC/PIAB/Schmalz 导电硅胶 Ø16 波纹吸盘)，按标准件采购而非自制。本零件本质属外购功能件，建议在 standard_parts 中登记选型。DFM/选型注意：1) 必须为防静电导电硅胶(体积电阻率 10^4~10^6 Ω·cm)，并保证整机静电泄放通路连续(吸嘴→导电座→机械臂接地)。2) 接触晶圆面需无脱模剂残留、低析出(洁净 ISO Class 3)、无划伤硬度建议 Shore A 40~50。3) 与固定座装配采用过盈套接或卡接，保证 -90kPa 不脱落、不泄漏。"
+          },
+          {
+            "part_id": "P-009",
+            "name": "过滤网",
+            "role": "防止颗粒进入真空气路",
+            "features": [
+              {
+                "type": "cylinder",
+                "length": null,
+                "width": null,
+                "thickness": null,
+                "height": 0.3,
+                "diameter": 6.0,
+                "radius": null,
+                "distance": null,
+                "x": null,
+                "y": null,
+                "count_x": null,
+                "count_y": null,
+                "spacing_x": null,
+                "spacing_y": null,
+                "purpose": "100目过滤网片(直径/厚度按气路口径估)"
+              }
+            ],
+            "material": {
+              "spec": "SUS316",
+              "density": 7.98
+            },
+            "tolerance_general": null,
+            "quantity": 4,
+            "parent_id": "A-003",
+            "confidence": 0.55,
+            "provenance": {
+              "bbox": [
+                0.49,
+                0.46,
+                0.05,
+                0.05
+              ],
+              "note": "BOM序号9 过滤网 SUS316 100目"
+            },
+            "recommendation": "工艺：冲裁(由 SUS316 100 目编织网冲制圆片)，属标准/半标准件，建议按 Ø6×100 目 SUS316 滤网片外购。理由：编织网片无需机加，冲压成型最经济。DFM：1) 冲裁后边缘需去毛刺、压边或包边，防止网丝脱落污染晶圆气路(洁净关键)。2) 与固定座沉台采用过盈/卡压安装，确保不串动。3) SUS316 钝化处理、超声清洗。4) 100 目对应~150μm 孔径，需校核对真空流阻影响以满足保压响应。可设计为可拆更换以便维护。"
+          }
+        ],
+        "standard_parts": [
+          {
+            "spec": "真空接头 L型 SUS304(钝化) 适配Ø6软管",
+            "category": "fitting",
+            "quantity": 1
+          },
+          {
+            "spec": "快换接头 黄铜(镀镍) 适配Ø6软管",
+            "category": "fitting",
+            "quantity": 1
+          },
+          {
+            "spec": "弹簧销 GB/T 879 Ø3×16 SUS304",
+            "category": "pin",
+            "quantity": 2
+          },
+          {
+            "spec": "O型圈 氟橡胶(FKM) ID6×1.5",
+            "category": "oring",
+            "quantity": 4
+          },
+          {
+            "spec": "内六角圆柱头螺钉 GB/T 70.1 M6 (配主体安装块4×Ø6.6通孔+Ø11沉孔深6.5，固定至机械臂；长度按臂端接口选定)",
+            "category": "bolt",
+            "quantity": 4
+          },
+          {
+            "spec": "内六角圆柱头螺钉 GB/T 70.1 M3×L 不锈钢(顶盖板P-001固定至主体安装块P-002，四角各1)",
+            "category": "bolt",
+            "quantity": 4
+          },
+          {
+            "spec": "压缩弹簧 SUS304 (配导向柱Ø6，提供吸嘴座浮动回弹力；自由长度/线径按浮动行程与吸附力选定)",
+            "category": "spring",
+            "quantity": 2
+          },
+          {
+            "spec": "O型圈 氟橡胶(FKM) (顶盖板P-001与主体安装块P-002真空气路界面密封，规格按中央Ø6气路口设计)",
+            "category": "oring",
+            "quantity": 1
+          },
+          {
+            "spec": "单向阀(止回阀) 真空用 适配气路 (assembly_notes真空回路提及，防止失真空时晶圆跌落)",
+            "category": "valve",
+            "quantity": 1
+          },
+          {
+            "spec": "管螺纹密封件/螺塞 M5或M6 不锈钢+O圈 (主体安装块交叉气路工艺孔封堵)",
+            "category": "plug",
+            "quantity": 2
+          }
+        ],
+        "assembly_notes": "1. 顶盖板(P-001/序号3)经四角 M3 螺钉固定于主体安装块(P-002/序号4)顶部，结合面置 FKM O 圈密封；真空接头(序号1)经快换接头(序号2)旋入顶盖板中央 Ø6 连通孔(建议带内螺纹密封)，向下连通主体内部真空气路。\n2. 导向柱(P-006/序号6, Ø6×20, 2 件)以过盈(建议 H7/r6)压入主体安装块固定孔；吸嘴固定座(P-007/序号7)导向孔与导向柱间隙滑动(建议 H7/g6)实现上下浮动；压缩弹簧套于导向柱提供回弹，弹簧销(序号5, Ø3×16, 2 件)限位/定位。装配顺序：先压导向柱→装弹簧→套吸嘴固定座→装弹簧销限位。\n3. 每个吸嘴固定座(7)依次装配 1 片过滤网(P-009/序号9, Ø6/100 目，压入上沉台)+ 1 个 O 型圈(序号10, ID6×1.5, 装入密封座，压缩量 0.15~0.20mm)+ 1 个真空吸嘴(P-008/序号8, Ø16.8 波纹 2.5 折，下端过盈套入)。4 组吸嘴单元(A-003)一致装配。\n4. 主体安装块底部 4×Ø6.6 通孔 + Ø11 沉孔深 6.5，用 4×M6 内六角圆柱头螺钉将组件安装到机械手臂；安装界面间距 75±0.02 / 60±0.02 须与臂端匹配。\n5. 真空回路：真空接头→快换接头→顶盖板→主体内部分配气路(交叉钻孔，盲端用螺塞+O圈封堵)→单向阀(防失真空跌落)→各吸嘴座过滤网→真空吸嘴。所有内部气路交汇处去毛刺、低死腔。\n6. 静电泄放通路：导电硅胶吸嘴→导电(阳极氧化需局部留导电点或经螺钉)固定座→主体→机械臂接地，保证连续导电。\n7. 检验：装配后吸嘴垂直度公差 ≤0.02；组件需通过 -90kPa 保压 10s、压降 ≤1kPa 泄漏检测。建议先做子总成(A-003 单吸嘴)保压预检再做整机检测。\n8. 表面处理与洁净：铝件本色阳极氧化膜厚 10μm；不锈钢件(导向柱镀硬铬、滤网/弹簧销/接头)钝化；装前所有零件超声波清洗，表面无划伤、毛刺、油污，在 ISO Class 3 洁净环境装配。",
+        "open_questions": [
+          {
+            "field": "P-001.thickness",
+            "reason": "主视图仅给出□60外形及总高79.5与分段11.5/30/20/18，顶盖板单独厚度未直接标注，按比例估计为约10mm。",
+            "guess": "10"
+          },
+          {
+            "field": "P-002.width",
+            "reason": "俯视图横向120明确，纵向(宽)方向标注75±0.02/60±0.02为孔间距，主体外形宽度未单独标注；右视图为□60，推断主体宽约60mm。",
+            "guess": "60"
+          },
+          {
+            "field": "P-002.hole_pattern.spacing",
+            "reason": "75±0.02与60±0.02为孔阵列X/Y间距，但需确认两组数值分别对应X、Y方向(可能存在长宽方向互换)。",
+            "guess": "75×60"
+          },
+          {
+            "field": "nozzle.count_and_layout",
+            "reason": "BOM吸嘴数量为4，但主视图仅显示一排3个吸嘴，实际排布(一排4个 / 2×2 / 3+1)需确认。",
+            "guess": "4个，2×2布置"
+          },
+          {
+            "field": "P-007.height",
+            "reason": "吸嘴固定座高度无直接标注，参考主视图底部18mm段估计。",
+            "guess": "18"
+          },
+          {
+            "field": "P-008.height",
+            "reason": "真空吸嘴(2.5折波纹)自由高度未标注，按Ø16.8及常规波纹吸盘比例估计。",
+            "guess": "16"
+          },
+          {
+            "field": "P-009.diameter/thickness",
+            "reason": "过滤网仅注明100目与SUS316，安装直径与厚度未标注，按真空通孔Ø4~Ø6估计。",
+            "guess": "Ø6 / 0.3"
+          },
+          {
+            "field": "P-006.fit",
+            "reason": "导向柱与主体安装块、吸嘴固定座的配合性质(过盈压入/间隙滑动)未明确，影响公差配合。DFM建议：固定端H7/r6过盈、滑动端H7/g6间隙，待确认。",
+            "guess": "固定端过盈H7/r6, 滑动端间隙H7/g6"
+          },
+          {
+            "field": "P-008.classification",
+            "reason": "真空吸嘴为导电硅胶模压外购功能件，建议作为标准件选型(品牌/型号)而非自制，需确认采购规格及与固定座的装配方式(过盈/卡接)。",
+            "guess": "外购标准导电硅胶波纹吸盘 Ø16 2.5折"
+          },
+          {
+            "field": "spring.spec",
+            "reason": "浮动机构需压缩弹簧(套于导向柱)，原BOM未列弹簧规格(线径/自由长/刚度)，需依据浮动行程与所需吸附压紧力确定。",
+            "guess": null
+          },
+          {
+            "field": "P-001.seal_thread",
+            "reason": "顶盖板中央Ø6连通孔与真空接头的连接方式(直插/螺纹G1/8/M5)及密封形式未明确。",
+            "guess": "G1/8或M5内螺纹+O圈密封"
+          },
+          {
+            "field": "check_valve",
+            "reason": "assembly_notes提及真空回路含单向阀，但BOM未列其规格与安装位置(集成于主体或外置)，需确认。",
+            "guess": "真空用止回阀，集成于主体气路"
+          }
+        ]
+      }
+    }
+  ]
+}

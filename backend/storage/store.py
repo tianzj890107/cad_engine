@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import json
 import threading
 import time
 import uuid
@@ -272,6 +273,325 @@ def save_cost(project_id: str, part_id: str, analysis: dict, author: str = "syst
 def load_cost(project_id: str, part_id: str) -> Optional[dict]:
     doc = _meta().get_doc(project_id, "cost") or {}
     return (doc.get("analyses") or {}).get(part_id)
+
+
+# --------------------------------------------------------------------------- #
+# 材料定性与供应链拆解(项目级,单份计划): doc kind "material"
+# --------------------------------------------------------------------------- #
+def save_material(project_id: str, plan: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "material", plan)
+    _touch_stage(project_id, "material")
+    audit(project_id, "save_material", {"by": author})
+
+
+def load_material(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "material")
+
+
+# --------------------------------------------------------------------------- #
+# 制造工艺路径规划和 BOM 编制(项目级,单份计划): doc kind "manufacturing"
+# --------------------------------------------------------------------------- #
+def save_manufacturing(project_id: str, plan: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "manufacturing", plan)
+    _touch_stage(project_id, "manufacturing")
+    audit(project_id, "save_manufacturing", {"by": author})
+
+
+def load_manufacturing(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "manufacturing")
+
+
+# --------------------------------------------------------------------------- #
+# 清洗与洁净度管控方案制定(项目级,单份计划): doc kind "cleaning"
+# --------------------------------------------------------------------------- #
+def save_cleaning(project_id: str, plan: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "cleaning", plan)
+    _touch_stage(project_id, "cleaning")
+    audit(project_id, "save_cleaning", {"by": author})
+
+
+def load_cleaning(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "cleaning")
+
+
+# --------------------------------------------------------------------------- #
+# 组装与检测方案制定(项目级,单份计划): doc kind "assembly"
+# --------------------------------------------------------------------------- #
+def save_assembly(project_id: str, plan: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "assembly", plan)
+    _touch_stage(project_id, "assembly")
+    audit(project_id, "save_assembly", {"by": author})
+
+
+def load_assembly(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "assembly")
+
+
+# --------------------------------------------------------------------------- #
+# 产线匹配与产能评估(项目级,单份计划): doc kind "production"
+# --------------------------------------------------------------------------- #
+def save_production(project_id: str, plan: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "production", plan)
+    _touch_stage(project_id, "production")
+    audit(project_id, "save_production", {"by": author})
+
+
+def load_production(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "production")
+
+
+# --------------------------------------------------------------------------- #
+# 技术工艺总结(项目级,单份执行摘要): doc kind "summary"
+# --------------------------------------------------------------------------- #
+def save_summary(project_id: str, doc: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "summary", doc)
+    _touch_stage(project_id, "summary")
+    audit(project_id, "save_summary", {"by": author})
+
+
+def load_summary(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "summary")
+
+
+# --------------------------------------------------------------------------- #
+# 成本测算(报价流程第 1 步,项目级,单份): doc kind "costest"
+# --------------------------------------------------------------------------- #
+def save_costest(project_id: str, doc: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "costest", doc)
+    _touch_stage(project_id, "costest")
+    audit(project_id, "save_costest", {"by": author})
+
+
+def load_costest(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "costest")
+
+
+# --------------------------------------------------------------------------- #
+# 定价方案(报价流程第 2 步,项目级,单份): doc kind "pricing"
+# --------------------------------------------------------------------------- #
+def save_pricing(project_id: str, doc: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "pricing", doc)
+    _touch_stage(project_id, "pricing")
+    audit(project_id, "save_pricing", {"by": author})
+
+
+def load_pricing(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "pricing")
+
+
+# --------------------------------------------------------------------------- #
+# 商务及谈判策略(报价流程第 3 步,项目级,单份): doc kind "negotiation"
+# --------------------------------------------------------------------------- #
+def save_negotiation(project_id: str, doc: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "negotiation", doc)
+    _touch_stage(project_id, "negotiation")
+    audit(project_id, "save_negotiation", {"by": author})
+
+
+def load_negotiation(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "negotiation")
+
+
+# --------------------------------------------------------------------------- #
+# 价格协商及谈判(报价流程第 4 步,项目级,单份): doc kind "pricenego"
+# --------------------------------------------------------------------------- #
+def save_pricenego(project_id: str, doc: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "pricenego", doc)
+    _touch_stage(project_id, "pricenego")
+    audit(project_id, "save_pricenego", {"by": author})
+
+
+def load_pricenego(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "pricenego")
+
+
+# --------------------------------------------------------------------------- #
+# 报价审批与决策(报价流程第 6 步,项目级,单份): doc kind "approval"
+# --------------------------------------------------------------------------- #
+def save_approval(project_id: str, doc: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "approval", doc)
+    _touch_stage(project_id, "approval")
+    audit(project_id, "save_approval", {"by": author})
+
+
+def load_approval(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "approval")
+
+
+# --------------------------------------------------------------------------- #
+# 技术工艺 / 报价 记录(全局列表,JSON 文件): 「结束」步录入到管理列表
+# --------------------------------------------------------------------------- #
+_record_lock = threading.Lock()
+
+
+def _records_file() -> Path:
+    return DATA_DIR / "techprocess_records.json"
+
+
+def _read_records() -> List[dict]:
+    f = _records_file()
+    if not f.exists():
+        return []
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def list_records() -> List[dict]:
+    with _record_lock:
+        return _read_records()
+
+
+def save_record(rec: dict) -> dict:
+    with _record_lock:
+        items = _read_records()
+        if not rec.get("id"):
+            rec["id"] = "rec_" + uuid.uuid4().hex[:8]
+        for i, it in enumerate(items):
+            if it.get("id") == rec["id"]:
+                items[i] = rec
+                break
+        else:
+            items.append(rec)
+        _records_file().write_text(
+            json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+        return rec
+
+
+def delete_record(rid: str) -> None:
+    with _record_lock:
+        items = [it for it in _read_records() if it.get("id") != rid]
+        _records_file().write_text(
+            json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- #
+# 设备资源台账(全局,JSON 文件,带种子;自有产线 + 外协厂商)
+# --------------------------------------------------------------------------- #
+_equipment_lock = threading.Lock()
+
+_EQUIPMENT_SEED: List[dict] = [
+    {"id": "eq_kiln01", "name": "高温烧结炉 GSL-1800X", "type": "烧结炉", "owner": "自有",
+     "capability": "最高 1800℃,可控气氛(N2/真空)", "capacity": "600 件/月", "note": "适合氧化铝/氮化铝共烧"},
+    {"id": "eq_pol01", "name": "双面研磨抛光机 9B-AC", "type": "环抛机", "owner": "自有",
+     "capability": "面型精度 ≤1µm,Φ300 盘", "capacity": "1000 件/月", "note": "精密研磨/抛光"},
+    {"id": "eq_laser01", "name": "紫外激光打孔机 UV-355", "type": "激光打孔机", "owner": "自有",
+     "capability": "最小孔径 50µm", "capacity": "—", "note": ""},
+    {"id": "eq_out_kiln", "name": "外协-超高温气氛炉", "type": "烧结炉", "owner": "外协",
+     "vendor": "示例-外协陶瓷厂E", "capability": "最高 2000℃,氢气气氛", "cost": "8 元/件",
+     "lead_time": "1-2 周", "note": "自有炉温不足时外协"},
+    {"id": "eq_out_pol", "name": "外协-超精密环抛", "type": "环抛机", "owner": "外协",
+     "vendor": "示例-外协精密加工厂F", "capability": "面型 ≤0.3µm", "cost": "15 元/件",
+     "lead_time": "1 周", "note": "高面型要求外协"},
+]
+
+
+def _equipment_file() -> Path:
+    return DATA_DIR / "equipment.json"
+
+
+def _read_equipment() -> List[dict]:
+    f = _equipment_file()
+    if not f.exists():
+        f.write_text(json.dumps(_EQUIPMENT_SEED, ensure_ascii=False, indent=2), encoding="utf-8")
+        return [dict(x) for x in _EQUIPMENT_SEED]
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def list_equipment() -> List[dict]:
+    with _equipment_lock:
+        return _read_equipment()
+
+
+def save_equipment(rec: dict) -> dict:
+    with _equipment_lock:
+        items = _read_equipment()
+        if not rec.get("id"):
+            rec["id"] = "eq_" + uuid.uuid4().hex[:8]
+        for i, it in enumerate(items):
+            if it.get("id") == rec["id"]:
+                items[i] = rec
+                break
+        else:
+            items.append(rec)
+        _equipment_file().write_text(
+            json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+        return rec
+
+
+def delete_equipment(eid: str) -> None:
+    with _equipment_lock:
+        items = [it for it in _read_equipment() if it.get("id") != eid]
+        _equipment_file().write_text(
+            json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- #
+# 供应商能力目录(全局,JSON 文件,带种子)
+# --------------------------------------------------------------------------- #
+_supplier_lock = threading.Lock()
+
+_SUPPLIER_SEED: List[dict] = [
+    {"id": "sup_al01", "name": "示例-高纯氧化铝粉厂A", "material": "氧化铝粉",
+     "max_purity_pct": 99.99, "d50_min_um": 0.3, "d50_max_um": 1.0,
+     "moq": "100kg", "lead_time": "2-3 周", "contact": "—", "note": "亚微米高纯,适合流延"},
+    {"id": "sup_al02", "name": "示例-氧化铝粉厂B", "material": "氧化铝粉",
+     "max_purity_pct": 99.5, "d50_min_um": 1.0, "d50_max_um": 3.0,
+     "moq": "50kg", "lead_time": "1-2 周", "contact": "—", "note": "性价比型"},
+    {"id": "sup_aln01", "name": "示例-氮化铝粉厂C", "material": "氮化铝粉",
+     "max_purity_pct": 99.9, "d50_min_um": 0.8, "d50_max_um": 2.0,
+     "moq": "20kg", "lead_time": "4-6 周", "contact": "—", "note": "高热导,含氧量低"},
+    {"id": "sup_pst01", "name": "示例-电子浆料厂D", "material": "Ag-Pd 浆料",
+     "max_purity_pct": 99.9, "d50_min_um": 0.5, "d50_max_um": 2.5,
+     "moq": "5kg", "lead_time": "1 周", "contact": "—", "note": "厚膜导体浆料"},
+]
+
+
+def _suppliers_file() -> Path:
+    return DATA_DIR / "suppliers.json"
+
+
+def _read_suppliers() -> List[dict]:
+    f = _suppliers_file()
+    if not f.exists():
+        f.write_text(json.dumps(_SUPPLIER_SEED, ensure_ascii=False, indent=2), encoding="utf-8")
+        return [dict(x) for x in _SUPPLIER_SEED]
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def list_suppliers() -> List[dict]:
+    with _supplier_lock:
+        return _read_suppliers()
+
+
+def save_supplier(rec: dict) -> dict:
+    with _supplier_lock:
+        items = _read_suppliers()
+        if not rec.get("id"):
+            rec["id"] = "sup_" + uuid.uuid4().hex[:8]
+        for i, it in enumerate(items):
+            if it.get("id") == rec["id"]:
+                items[i] = rec
+                break
+        else:
+            items.append(rec)
+        _suppliers_file().write_text(
+            json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+        return rec
+
+
+def delete_supplier(sid: str) -> None:
+    with _supplier_lock:
+        items = [it for it in _read_suppliers() if it.get("id") != sid]
+        _suppliers_file().write_text(
+            json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 # --------------------------------------------------------------------------- #

@@ -1,0 +1,159 @@
+{
+  "device_name": "传动支架总成 (Transmission Bracket Assy)",
+  "design_intent": "承载电机并固定到底板，需可拆卸。底板提供安装基准与4个M8紧固孔，导向衬套提供Φ20配合导向功能。",
+  "overall_dims": "320 x 180 x 95 mm",
+  "assemblies": [
+    {
+      "assembly_id": "A-001",
+      "name": "传动支架总成",
+      "parent_id": null,
+      "role": "承载电机并固定到底板",
+      "quantity": 1
+    }
+  ],
+  "parts": [
+    {
+      "part_id": "P-001",
+      "name": "底板",
+      "role": "安装基准，承载并固定电机到底板",
+      "features": [
+        {
+          "type": "plate",
+          "length": 320.0,
+          "width": 180.0,
+          "thickness": 12.0,
+          "height": null,
+          "diameter": null,
+          "radius": null,
+          "distance": null,
+          "x": null,
+          "y": null,
+          "count_x": null,
+          "count_y": null,
+          "spacing_x": null,
+          "spacing_y": null,
+          "purpose": "底板基体"
+        },
+        {
+          "type": "hole_pattern",
+          "length": null,
+          "width": null,
+          "thickness": null,
+          "height": null,
+          "diameter": 9.0,
+          "radius": null,
+          "distance": null,
+          "x": null,
+          "y": null,
+          "count_x": 2,
+          "count_y": 2,
+          "spacing_x": 280.0,
+          "spacing_y": 140.0,
+          "purpose": "4×Φ9 M8安装孔"
+        }
+      ],
+      "material": {
+        "spec": "Q235",
+        "density": 7.85
+      },
+      "tolerance_general": "ISO 2768-m",
+      "quantity": 1,
+      "parent_id": "A-001",
+      "confidence": 0.95,
+      "provenance": {
+        "bbox": [
+          0.09,
+          0.15,
+          0.45,
+          0.45
+        ],
+        "note": "件1 底板(俯视图) 320×180 厚12，孔阵列280×140，4×Φ9 M8安装孔"
+      },
+      "recommendation": null
+    },
+    {
+      "part_id": "P-002",
+      "name": "导向衬套",
+      "role": "导向/配合衬套，Φ20 内孔配合",
+      "features": [
+        {
+          "type": "cylinder",
+          "length": null,
+          "width": null,
+          "thickness": null,
+          "height": 30.0,
+          "diameter": 40.0,
+          "radius": null,
+          "distance": null,
+          "x": null,
+          "y": null,
+          "count_x": null,
+          "count_y": null,
+          "spacing_x": null,
+          "spacing_y": null,
+          "purpose": "衬套外圆 Φ40 高30"
+        },
+        {
+          "type": "hole",
+          "length": null,
+          "width": null,
+          "thickness": null,
+          "height": null,
+          "diameter": 20.0,
+          "radius": null,
+          "distance": null,
+          "x": 0.0,
+          "y": 0.0,
+          "count_x": null,
+          "count_y": null,
+          "spacing_x": null,
+          "spacing_y": null,
+          "purpose": "Φ20 内孔(配合)"
+        }
+      ],
+      "material": {
+        "spec": "6061-T6",
+        "density": 2.7
+      },
+      "tolerance_general": "ISO 2768-m",
+      "quantity": 2,
+      "parent_id": "A-001",
+      "confidence": 0.92,
+      "provenance": {
+        "bbox": [
+          0.7,
+          0.27,
+          0.13,
+          0.2
+        ],
+        "note": "件2 导向衬套 Φ40/Φ20 高30，材料6061-T6，数量×2"
+      },
+      "recommendation": null
+    }
+  ],
+  "standard_parts": [
+    {
+      "spec": "GB/T 5783 M8x25",
+      "category": "bolt",
+      "quantity": 4
+    }
+  ],
+  "assembly_notes": "底板通过4个Φ9孔使用GB/T 5783 M8×25螺栓固定到安装面(对应M8安装孔)。导向衬套(×2)以Φ20内孔与配合轴/导向件装配，外圆Φ40。整体可拆卸设计。一般公差 ISO 2768-m。",
+  "open_questions": [
+    {
+      "field": "P-002.hole.diameter",
+      "reason": "图上标注Φ20为配合孔，但未明确公差等级，按导向衬套常规取H7配合，待确认。",
+      "guess": "Φ20 H7"
+    },
+    {
+      "field": "P-001.hole_pattern.position",
+      "reason": "图中仅标注孔间距280×140，未明确相对板边缘的定位尺寸，按对称居中推断。",
+      "guess": "孔阵列相对底板中心对称分布(280×140)"
+    },
+    {
+      "field": "overall_dims.height",
+      "reason": "总体外形高度95mm由说明给出，但底板12+衬套30无法直接得到95，可能含电机或其他装配高度，待确认堆叠关系。",
+      "guess": "95 mm"
+    }
+  ]
+}

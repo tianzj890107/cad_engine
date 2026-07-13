@@ -1,0 +1,50 @@
+{
+  "project_id": "b16f9e04a398",
+  "level": 1,
+  "level_reason": null,
+  "classification": {
+    "order_scale": null,
+    "pricing_standard": null,
+    "concession": null,
+    "payment_special": null,
+    "customer_type": null,
+    "over_authority": null,
+    "notes": null
+  },
+  "chain": [
+    {
+      "seq": 1,
+      "role": "销售总监",
+      "status": "pending",
+      "approver": null,
+      "at": null,
+      "comment": null
+    },
+    {
+      "seq": 2,
+      "role": "财务负责人",
+      "status": "waiting",
+      "approver": null,
+      "at": null,
+      "comment": null
+    }
+  ],
+  "status": "in_review",
+  "approvers": [
+    "销售总监",
+    "财务负责人"
+  ],
+  "sent_at": "2026-07-01 21:42:07",
+  "decision_note": "大幅让利，需财务复核",
+  "summary": null,
+  "timing": {
+    "status": "not_started",
+    "started_at": null,
+    "finished_at": null,
+    "completed": false
+  },
+  "assumptions": [],
+  "open_questions": [],
+  "search_sources": [],
+  "updated_at": "2026-07-01 21:42:07"
+}

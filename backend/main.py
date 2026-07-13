@@ -19,12 +19,26 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .config import AUTH_ENABLED, CLAUDE_MODEL, ROOT_DIR
+from .models.assembly import AssemblyPlan
+from .models.approval import QuoteApproval
+from .models.cleaning import CleaningPlan
 from .models.cost import CostAnalysis
+from .models.costest import CostEstimate
+from .models.negotiation import NegotiationPlan
+from .models.pricenego import PriceNegotiation
+from .models.pricing import PricingPlan
 from .models.ir import DesignIR
+from .models.manufacturing import ManufacturingPlan
+from .models.material import MaterialPlan, Supplier
 from .models.process import ProcessPlan
+from .models.production import EquipmentResource, ProductionPlan
+from .models.summary import SummaryDoc
+from .models.techprocess import TechProcessRecord
 from .services import (
-    auth, bom, cost, decompose, drawing2d, geometry, process, step_import, tasks,
-    tree, versioning, vision,
+    approval as approval_svc, assembly, auth, bom, cleaning, cost, costest, decompose,
+    drawing2d, geometry, manufacturing, material, negotiation, pricenego, pricing,
+    process, production, step_import, summary as summary_svc, tasks, tree, versioning,
+    vision,
 )
 from .storage import store
 
@@ -543,6 +557,1515 @@ def update_cost(project_id: str, part_id: str, analysis: CostAnalysis,
 
 
 # --------------------------------------------------------------------------- #
+# 材料定性与供应链拆解(技术工艺第 3 步)
+#   - recommend: Claude 联网产出候选材料/配方/粉末要求(异步)
+#   - PUT:       保存人工编辑后的计划
+#   - confirm:   人工确认主体材料 / 金属化方案
+#   - evaluate:  确定性供应商达标匹配
+#   - timing:    记录起止时间与是否完成
+# --------------------------------------------------------------------------- #
+def _now_str() -> str:
+    import time as _t
+    return _t.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _load_material_plan(project_id: str) -> MaterialPlan:
+    saved = store.load_material(project_id)
+    plan = MaterialPlan(**saved) if saved else MaterialPlan(project_id=project_id)
+    plan.project_id = project_id
+    return plan
+
+
+@app.get("/api/projects/{project_id}/material")
+def get_material(project_id: str):
+    """读取该项目的材料定性与供应链拆解计划。"""
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    return {"material": store.load_material(project_id)}
+
+
+@app.post("/api/projects/{project_id}/material/recommend")
+def recommend_material(project_id: str, note: str = Form(""),
+                       user: dict = Depends(current_user)):
+    """Claude 联网产出候选陶瓷主体材料/电极金属化配方/粉末要求(异步任务)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    ir_dict = store.load_ir(project_id)
+    ir = DesignIR(**ir_dict) if ir_dict else None
+    author = user.get("username", "system")
+
+    def job():
+        rec = material.recommend(ir=ir, note=note, web=True)
+        plan = _load_material_plan(project_id)
+        # 把建议合并进计划(确定性):候选/默认选定/配方/粉末要求/来源
+        plan.body.candidates = rec.body_candidates
+        if rec.body_recommended and not plan.body.selected:
+            plan.body.selected = rec.body_recommended
+        if rec.body_rationale:
+            plan.body.rationale = rec.body_rationale
+        plan.metallization.paste = rec.paste
+        plan.metallization.layers = rec.layers
+        if rec.metallization_rationale:
+            plan.metallization.rationale = rec.metallization_rationale
+        if rec.requirements:
+            plan.supply.requirements = rec.requirements
+        plan.assumptions = rec.assumptions
+        plan.open_questions = rec.open_questions
+        plan.search_sources = rec.search_sources
+        plan.updated_at = _now_str()
+        d = plan.model_dump()
+        store.save_material(project_id, d, author=author)
+        return {"material": d}
+
+    return {"task_id": tasks.submit(project_id, "material_recommend", job)}
+
+
+@app.put("/api/projects/{project_id}/material")
+def update_material(project_id: str, plan: MaterialPlan,
+                    user: dict = Depends(current_user)):
+    """保存人工编辑后的材料计划(选定材料/配方/粉末要求等)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    plan.project_id = project_id
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_material(project_id, d, author=user.get("username", "system"))
+    return {"material": d}
+
+
+@app.post("/api/projects/{project_id}/material/confirm")
+def confirm_material(project_id: str, section: str,
+                     user: dict = Depends(current_user)):
+    """人工确认某一节(section=body|metallization),记录确认人与时间。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if section not in ("body", "metallization"):
+        raise HTTPException(400, "section 必须为 body 或 metallization")
+    plan = _load_material_plan(project_id)
+    who = user.get("username", "system")
+    if section == "body":
+        if not plan.body.selected:
+            raise HTTPException(400, "请先选定主体材料再确认")
+        plan.body.confirmed = True
+        plan.body.confirmed_by = who
+        plan.body.confirmed_at = _now_str()
+    else:
+        plan.metallization.confirmed = True
+        plan.metallization.confirmed_by = who
+        plan.metallization.confirmed_at = _now_str()
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_material(project_id, d, author=who)
+    return {"material": d}
+
+
+@app.post("/api/projects/{project_id}/material/evaluate")
+def evaluate_material(project_id: str, user: dict = Depends(current_user)):
+    """确定性供应商达标匹配:用计划中的粉末要求 vs 供应商能力目录。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    plan = _load_material_plan(project_id)
+    if not plan.supply.requirements:
+        raise HTTPException(400, "尚无粉末纯度/粒径要求,请先做 AI 推荐或手动填写要求")
+    result = material.evaluate(plan.supply.requirements, store.list_suppliers())
+    plan.supply = result
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_material(project_id, d, author=user.get("username", "system"))
+    return {"material": d}
+
+
+@app.post("/api/projects/{project_id}/material/timing")
+def material_timing(project_id: str, action: str, user: dict = Depends(current_user)):
+    """记录该步骤起止时间与是否完成(action=start|finish)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if action not in ("start", "finish"):
+        raise HTTPException(400, "action 必须为 start 或 finish")
+    plan = _load_material_plan(project_id)
+    if action == "start":
+        plan.timing.status = "in_progress"
+        plan.timing.started_at = _now_str()
+        plan.timing.finished_at = None
+        plan.timing.completed = False
+    else:
+        if not plan.timing.started_at:
+            plan.timing.started_at = _now_str()
+        plan.timing.status = "done"
+        plan.timing.finished_at = _now_str()
+        plan.timing.completed = True
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_material(project_id, d, author=user.get("username", "system"))
+    return {"material": d}
+
+
+# --------------------------------------------------------------------------- #
+# 供应商能力目录(全局,种子可维护;供③达标匹配使用)
+# --------------------------------------------------------------------------- #
+@app.get("/api/suppliers")
+def list_suppliers_ep():
+    return {"suppliers": store.list_suppliers()}
+
+
+@app.post("/api/suppliers")
+def save_supplier_ep(supplier: Supplier, user: dict = Depends(current_user)):
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    return {"supplier": store.save_supplier(supplier.model_dump())}
+
+
+@app.delete("/api/suppliers/{supplier_id}")
+def delete_supplier_ep(supplier_id: str, user: dict = Depends(current_user)):
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    store.delete_supplier(supplier_id)
+    return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# 制造工艺路径规划和 BOM 编制(技术工艺第 4 步)
+# --------------------------------------------------------------------------- #
+def _load_manufacturing_plan(project_id: str) -> ManufacturingPlan:
+    saved = store.load_manufacturing(project_id)
+    plan = ManufacturingPlan(**saved) if saved else ManufacturingPlan(project_id=project_id)
+    plan.project_id = project_id
+    return plan
+
+
+@app.get("/api/projects/{project_id}/manufacturing")
+def get_manufacturing(project_id: str):
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    return {"manufacturing": store.load_manufacturing(project_id)}
+
+
+@app.post("/api/projects/{project_id}/manufacturing/recommend")
+def recommend_manufacturing(project_id: str, note: str = Form(""),
+                            user: dict = Depends(current_user)):
+    """Claude 联网产出核心工艺路径/附加工艺评估/工艺 BOM(异步,读 IR + 第3步材料计划)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    ir_dict = store.load_ir(project_id)
+    ir = DesignIR(**ir_dict) if ir_dict else None
+    material_plan = store.load_material(project_id)
+    author = user.get("username", "system")
+
+    def job():
+        rec = manufacturing.recommend(ir=ir, material_plan=material_plan, note=note, web=True)
+        plan = _load_manufacturing_plan(project_id)
+        plan.path.steps = rec.core_path
+        if rec.path_summary:
+            plan.path.summary = rec.path_summary
+        plan.additional = rec.additional
+        plan.bom.items = rec.bom
+        if rec.bom_summary:
+            plan.bom.summary = rec.bom_summary
+        plan.assumptions = rec.assumptions
+        plan.open_questions = rec.open_questions
+        plan.search_sources = rec.search_sources
+        plan.updated_at = _now_str()
+        d = plan.model_dump()
+        store.save_manufacturing(project_id, d, author=author)
+        return {"manufacturing": d}
+
+    return {"task_id": tasks.submit(project_id, "manufacturing_recommend", job)}
+
+
+@app.put("/api/projects/{project_id}/manufacturing")
+def update_manufacturing(project_id: str, plan: ManufacturingPlan,
+                         user: dict = Depends(current_user)):
+    """保存人工编辑后的制造工艺计划。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    plan.project_id = project_id
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_manufacturing(project_id, d, author=user.get("username", "system"))
+    return {"manufacturing": d}
+
+
+@app.post("/api/projects/{project_id}/manufacturing/confirm")
+def confirm_manufacturing(project_id: str, section: str,
+                          user: dict = Depends(current_user)):
+    """人工确认某一节(section=path|bom),记录确认人与时间。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if section not in ("path", "bom"):
+        raise HTTPException(400, "section 必须为 path 或 bom")
+    plan = _load_manufacturing_plan(project_id)
+    who = user.get("username", "system")
+    target = plan.path if section == "path" else plan.bom
+    if section == "path" and not plan.path.steps:
+        raise HTTPException(400, "尚无工艺路径,请先做 AI 推荐")
+    if section == "bom" and not plan.bom.items:
+        raise HTTPException(400, "尚无工艺 BOM,请先做 AI 推荐")
+    target.confirmed = True
+    target.confirmed_by = who
+    target.confirmed_at = _now_str()
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_manufacturing(project_id, d, author=who)
+    return {"manufacturing": d}
+
+
+@app.post("/api/projects/{project_id}/manufacturing/timing")
+def manufacturing_timing(project_id: str, action: str, user: dict = Depends(current_user)):
+    """记录该步骤起止时间与是否完成(action=start|finish)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if action not in ("start", "finish"):
+        raise HTTPException(400, "action 必须为 start 或 finish")
+    plan = _load_manufacturing_plan(project_id)
+    if action == "start":
+        plan.timing.status = "in_progress"
+        plan.timing.started_at = _now_str()
+        plan.timing.finished_at = None
+        plan.timing.completed = False
+    else:
+        if not plan.timing.started_at:
+            plan.timing.started_at = _now_str()
+        plan.timing.status = "done"
+        plan.timing.finished_at = _now_str()
+        plan.timing.completed = True
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_manufacturing(project_id, d, author=user.get("username", "system"))
+    return {"manufacturing": d}
+
+
+@app.get("/api/projects/{project_id}/manufacturing/bom.csv")
+def export_manufacturing_bom(project_id: str):
+    """导出工艺 BOM 为 CSV。"""
+    plan = store.load_manufacturing(project_id) or {}
+    items = ((plan.get("bom") or {}).get("items")) or []
+    csv_text = manufacturing.bom_csv(items)
+    return Response(
+        content=csv_text.encode("utf-8"),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="bom_{project_id}.csv"'},
+    )
+
+
+# --------------------------------------------------------------------------- #
+# 清洗与洁净度管控方案制定(技术工艺第 5 步)
+# --------------------------------------------------------------------------- #
+def _load_cleaning_plan(project_id: str) -> CleaningPlan:
+    saved = store.load_cleaning(project_id)
+    plan = CleaningPlan(**saved) if saved else CleaningPlan(project_id=project_id)
+    plan.project_id = project_id
+    return plan
+
+
+@app.get("/api/projects/{project_id}/cleaning")
+def get_cleaning(project_id: str):
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    return {"cleaning": store.load_cleaning(project_id)}
+
+
+@app.post("/api/projects/{project_id}/cleaning/recommend")
+def recommend_cleaning(project_id: str, note: str = Form(""),
+                       user: dict = Depends(current_user)):
+    """Claude 联网依据图纸洁净度等级定制化学清洗+高纯水终漂洗+管控方案(异步)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    ir_dict = store.load_ir(project_id)
+    ir = DesignIR(**ir_dict) if ir_dict else None
+    material_plan = store.load_material(project_id)
+    # 把项目备注(可能含图纸洁净度标注)并入补充说明
+    project_note = store.get_note(project_id)
+    merged_note = "\n".join(x for x in [project_note, note] if x and x.strip())
+    author = user.get("username", "system")
+
+    def job():
+        rec = cleaning.recommend(ir=ir, material_plan=material_plan, note=merged_note, web=True)
+        plan = _load_cleaning_plan(project_id)
+        plan.cleanliness_grade = rec.cleanliness_grade
+        plan.grade_source = rec.grade_source
+        plan.grade_notes = rec.grade_notes
+        plan.chemical_steps = rec.chemical_steps
+        plan.rinse_steps = rec.rinse_steps
+        plan.controls = rec.controls
+        plan.summary = rec.summary
+        plan.assumptions = rec.assumptions
+        plan.open_questions = rec.open_questions
+        plan.search_sources = rec.search_sources
+        plan.updated_at = _now_str()
+        d = plan.model_dump()
+        store.save_cleaning(project_id, d, author=author)
+        return {"cleaning": d}
+
+    return {"task_id": tasks.submit(project_id, "cleaning_recommend", job)}
+
+
+@app.put("/api/projects/{project_id}/cleaning")
+def update_cleaning(project_id: str, plan: CleaningPlan,
+                    user: dict = Depends(current_user)):
+    """保存人工编辑后的清洗方案。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    plan.project_id = project_id
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_cleaning(project_id, d, author=user.get("username", "system"))
+    return {"cleaning": d}
+
+
+@app.post("/api/projects/{project_id}/cleaning/confirm")
+def confirm_cleaning(project_id: str, user: dict = Depends(current_user)):
+    """人工确认清洗与洁净度管控方案,记录确认人与时间。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    plan = _load_cleaning_plan(project_id)
+    if not plan.chemical_steps and not plan.rinse_steps:
+        raise HTTPException(400, "尚无清洗方案,请先做 AI 推荐")
+    who = user.get("username", "system")
+    plan.confirmed = True
+    plan.confirmed_by = who
+    plan.confirmed_at = _now_str()
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_cleaning(project_id, d, author=who)
+    return {"cleaning": d}
+
+
+@app.post("/api/projects/{project_id}/cleaning/timing")
+def cleaning_timing(project_id: str, action: str, user: dict = Depends(current_user)):
+    """记录该步骤起止时间与是否完成(action=start|finish)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if action not in ("start", "finish"):
+        raise HTTPException(400, "action 必须为 start 或 finish")
+    plan = _load_cleaning_plan(project_id)
+    if action == "start":
+        plan.timing.status = "in_progress"
+        plan.timing.started_at = _now_str()
+        plan.timing.finished_at = None
+        plan.timing.completed = False
+    else:
+        if not plan.timing.started_at:
+            plan.timing.started_at = _now_str()
+        plan.timing.status = "done"
+        plan.timing.finished_at = _now_str()
+        plan.timing.completed = True
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_cleaning(project_id, d, author=user.get("username", "system"))
+    return {"cleaning": d}
+
+
+# --------------------------------------------------------------------------- #
+# 组装与检测方案制定(技术工艺第 6 步)
+# --------------------------------------------------------------------------- #
+def _load_assembly_plan(project_id: str) -> AssemblyPlan:
+    saved = store.load_assembly(project_id)
+    plan = AssemblyPlan(**saved) if saved else AssemblyPlan(project_id=project_id)
+    plan.project_id = project_id
+    return plan
+
+
+@app.get("/api/projects/{project_id}/assembly")
+def get_assembly(project_id: str):
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    return {"assembly": store.load_assembly(project_id)}
+
+
+@app.post("/api/projects/{project_id}/assembly/recommend")
+def recommend_assembly(project_id: str, note: str = Form(""),
+                       user: dict = Depends(current_user)):
+    """Claude 联网规划陶瓷-金属组装工艺并制定电性能/吸附力/气密性检测方案(异步)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    ir_dict = store.load_ir(project_id)
+    ir = DesignIR(**ir_dict) if ir_dict else None
+    material_plan = store.load_material(project_id)
+    manufacturing_plan = store.load_manufacturing(project_id)
+    author = user.get("username", "system")
+
+    def job():
+        rec = assembly.recommend(ir=ir, material_plan=material_plan,
+                                 manufacturing_plan=manufacturing_plan, note=note, web=True)
+        plan = _load_assembly_plan(project_id)
+        plan.assembly.method = rec.bonding_method
+        plan.assembly.rationale = rec.bonding_rationale
+        plan.assembly.steps = rec.assembly_steps
+        plan.inspection.tests = rec.tests
+        plan.summary = rec.summary
+        plan.assumptions = rec.assumptions
+        plan.open_questions = rec.open_questions
+        plan.search_sources = rec.search_sources
+        plan.updated_at = _now_str()
+        d = plan.model_dump()
+        store.save_assembly(project_id, d, author=author)
+        return {"assembly": d}
+
+    return {"task_id": tasks.submit(project_id, "assembly_recommend", job)}
+
+
+@app.put("/api/projects/{project_id}/assembly")
+def update_assembly(project_id: str, plan: AssemblyPlan,
+                    user: dict = Depends(current_user)):
+    """保存人工编辑后的组装与检测方案。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    plan.project_id = project_id
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_assembly(project_id, d, author=user.get("username", "system"))
+    return {"assembly": d}
+
+
+@app.post("/api/projects/{project_id}/assembly/confirm")
+def confirm_assembly(project_id: str, section: str,
+                     user: dict = Depends(current_user)):
+    """人工确认某一节(section=assembly|inspection),记录确认人与时间。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if section not in ("assembly", "inspection"):
+        raise HTTPException(400, "section 必须为 assembly 或 inspection")
+    plan = _load_assembly_plan(project_id)
+    who = user.get("username", "system")
+    if section == "assembly":
+        if not plan.assembly.steps:
+            raise HTTPException(400, "尚无组装工艺,请先做 AI 推荐")
+        target = plan.assembly
+    else:
+        if not plan.inspection.tests:
+            raise HTTPException(400, "尚无检测方案,请先做 AI 推荐")
+        target = plan.inspection
+    target.confirmed = True
+    target.confirmed_by = who
+    target.confirmed_at = _now_str()
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_assembly(project_id, d, author=who)
+    return {"assembly": d}
+
+
+@app.post("/api/projects/{project_id}/assembly/timing")
+def assembly_timing(project_id: str, action: str, user: dict = Depends(current_user)):
+    """记录该步骤起止时间与是否完成(action=start|finish)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if action not in ("start", "finish"):
+        raise HTTPException(400, "action 必须为 start 或 finish")
+    plan = _load_assembly_plan(project_id)
+    if action == "start":
+        plan.timing.status = "in_progress"
+        plan.timing.started_at = _now_str()
+        plan.timing.finished_at = None
+        plan.timing.completed = False
+    else:
+        if not plan.timing.started_at:
+            plan.timing.started_at = _now_str()
+        plan.timing.status = "done"
+        plan.timing.finished_at = _now_str()
+        plan.timing.completed = True
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_assembly(project_id, d, author=user.get("username", "system"))
+    return {"assembly": d}
+
+
+# --------------------------------------------------------------------------- #
+# 产线匹配与产能评估(技术工艺第 7 步)
+# --------------------------------------------------------------------------- #
+def _load_production_plan(project_id: str) -> ProductionPlan:
+    saved = store.load_production(project_id)
+    plan = ProductionPlan(**saved) if saved else ProductionPlan(project_id=project_id)
+    plan.project_id = project_id
+    return plan
+
+
+@app.get("/api/projects/{project_id}/production")
+def get_production(project_id: str):
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    return {"production": store.load_production(project_id)}
+
+
+@app.post("/api/projects/{project_id}/production/recommend")
+def recommend_production(project_id: str, note: str = Form(""),
+                         user: dict = Depends(current_user)):
+    """Claude 联网依据制造工艺与设备台账做产线匹配/外协建议/产能评估(异步)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    ir_dict = store.load_ir(project_id)
+    ir = DesignIR(**ir_dict) if ir_dict else None
+    manufacturing_plan = store.load_manufacturing(project_id)
+    equipment = store.list_equipment()
+    author = user.get("username", "system")
+
+    def job():
+        rec = production.recommend(ir=ir, manufacturing_plan=manufacturing_plan,
+                                   equipment=equipment, note=note, web=True)
+        plan = _load_production_plan(project_id)
+        plan.requirements = rec.requirements
+        plan.inhouse.matches = rec.inhouse_matches
+        plan.outsourcing.plans = rec.outsourcing
+        plan.capacity_summary = rec.capacity_summary
+        plan.conclusion = rec.conclusion
+        plan.assumptions = rec.assumptions
+        plan.open_questions = rec.open_questions
+        plan.search_sources = rec.search_sources
+        plan.updated_at = _now_str()
+        d = plan.model_dump()
+        store.save_production(project_id, d, author=author)
+        return {"production": d}
+
+    return {"task_id": tasks.submit(project_id, "production_recommend", job)}
+
+
+@app.put("/api/projects/{project_id}/production")
+def update_production(project_id: str, plan: ProductionPlan,
+                      user: dict = Depends(current_user)):
+    """保存人工编辑后的产线匹配与产能评估。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    plan.project_id = project_id
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_production(project_id, d, author=user.get("username", "system"))
+    return {"production": d}
+
+
+@app.post("/api/projects/{project_id}/production/confirm")
+def confirm_production(project_id: str, section: str,
+                       user: dict = Depends(current_user)):
+    """人工确认某一节(section=inhouse|outsourcing),记录确认人与时间。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if section not in ("inhouse", "outsourcing"):
+        raise HTTPException(400, "section 必须为 inhouse 或 outsourcing")
+    plan = _load_production_plan(project_id)
+    who = user.get("username", "system")
+    target = plan.inhouse if section == "inhouse" else plan.outsourcing
+    target.confirmed = True
+    target.confirmed_by = who
+    target.confirmed_at = _now_str()
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_production(project_id, d, author=who)
+    return {"production": d}
+
+
+@app.post("/api/projects/{project_id}/production/timing")
+def production_timing(project_id: str, action: str, user: dict = Depends(current_user)):
+    """记录该步骤起止时间与是否完成(action=start|finish)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if action not in ("start", "finish"):
+        raise HTTPException(400, "action 必须为 start 或 finish")
+    plan = _load_production_plan(project_id)
+    if action == "start":
+        plan.timing.status = "in_progress"
+        plan.timing.started_at = _now_str()
+        plan.timing.finished_at = None
+        plan.timing.completed = False
+    else:
+        if not plan.timing.started_at:
+            plan.timing.started_at = _now_str()
+        plan.timing.status = "done"
+        plan.timing.finished_at = _now_str()
+        plan.timing.completed = True
+    plan.updated_at = _now_str()
+    d = plan.model_dump()
+    store.save_production(project_id, d, author=user.get("username", "system"))
+    return {"production": d}
+
+
+# --------------------------------------------------------------------------- #
+# 设备资源台账(全局,种子可维护;供产线匹配/外协评估使用)
+# --------------------------------------------------------------------------- #
+@app.get("/api/equipment")
+def list_equipment_ep():
+    return {"equipment": store.list_equipment()}
+
+
+@app.post("/api/equipment")
+def save_equipment_ep(equipment: EquipmentResource, user: dict = Depends(current_user)):
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    return {"equipment": store.save_equipment(equipment.model_dump())}
+
+
+@app.delete("/api/equipment/{equipment_id}")
+def delete_equipment_ep(equipment_id: str, user: dict = Depends(current_user)):
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    store.delete_equipment(equipment_id)
+    return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# 技术工艺总结(技术工艺第 8 步:汇总各步 + 可编辑执行摘要 + 导出文档)
+# --------------------------------------------------------------------------- #
+def _load_summary_doc(project_id: str) -> SummaryDoc:
+    saved = store.load_summary(project_id)
+    doc = SummaryDoc(**saved) if saved else SummaryDoc(project_id=project_id)
+    doc.project_id = project_id
+    return doc
+
+
+@app.get("/api/projects/{project_id}/summary")
+def get_summary(project_id: str):
+    """汇总各步结果 + 执行摘要(供总结页展示/编辑)。"""
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    return summary_svc.aggregate(project_id)
+
+
+@app.post("/api/projects/{project_id}/summary/recommend")
+def recommend_summary(project_id: str, user: dict = Depends(current_user)):
+    """Claude 依据各步汇总生成执行摘要(异步)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    author = user.get("username", "system")
+
+    def job():
+        agg = summary_svc.aggregate(project_id)
+        rec = summary_svc.recommend(agg, web=False)
+        doc = _load_summary_doc(project_id)
+        doc.overview = rec.overview
+        doc.highlights = rec.highlights
+        doc.risks = rec.risks
+        doc.conclusion = rec.conclusion
+        doc.search_sources = rec.search_sources
+        doc.updated_at = _now_str()
+        d = doc.model_dump()
+        store.save_summary(project_id, d, author=author)
+        return {"summary": d}
+
+    return {"task_id": tasks.submit(project_id, "summary_recommend", job)}
+
+
+@app.put("/api/projects/{project_id}/summary")
+def update_summary(project_id: str, doc: SummaryDoc, user: dict = Depends(current_user)):
+    """保存人工编辑后的执行摘要。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    doc.project_id = project_id
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_summary(project_id, d, author=user.get("username", "system"))
+    return {"summary": d}
+
+
+@app.post("/api/projects/{project_id}/summary/confirm")
+def confirm_summary(project_id: str, user: dict = Depends(current_user)):
+    """确认技术工艺总结(定稿)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    doc = _load_summary_doc(project_id)
+    who = user.get("username", "system")
+    doc.confirmed = True
+    doc.confirmed_by = who
+    doc.confirmed_at = _now_str()
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_summary(project_id, d, author=who)
+    return {"summary": d}
+
+
+@app.post("/api/projects/{project_id}/summary/timing")
+def summary_timing(project_id: str, action: str, user: dict = Depends(current_user)):
+    """记录该步骤起止时间与是否完成(action=start|finish)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if action not in ("start", "finish"):
+        raise HTTPException(400, "action 必须为 start 或 finish")
+    doc = _load_summary_doc(project_id)
+    if action == "start":
+        doc.timing.status = "in_progress"
+        doc.timing.started_at = _now_str()
+        doc.timing.finished_at = None
+        doc.timing.completed = False
+    else:
+        if not doc.timing.started_at:
+            doc.timing.started_at = _now_str()
+        doc.timing.status = "done"
+        doc.timing.finished_at = _now_str()
+        doc.timing.completed = True
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_summary(project_id, d, author=user.get("username", "system"))
+    return {"summary": d}
+
+
+@app.get("/api/projects/{project_id}/summary.html")
+def export_summary_html(project_id: str):
+    """导出技术工艺总结为可打印 HTML 文档(含各步全部结构化内容)。"""
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    agg = summary_svc.aggregate(project_id)
+    return Response(content=summary_svc.render_html(agg), media_type="text/html; charset=utf-8")
+
+
+@app.get("/api/projects/{project_id}/summary.md")
+def export_summary_md(project_id: str):
+    """导出技术工艺总结为 Markdown 文档。"""
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    agg = summary_svc.aggregate(project_id)
+    return Response(
+        content=summary_svc.render_markdown(agg).encode("utf-8"),
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="summary_{project_id}.md"'},
+    )
+
+
+# --------------------------------------------------------------------------- #
+# 技术工艺 / 报价 记录(「结束」步:最终确认并录入到管理列表)
+# --------------------------------------------------------------------------- #
+@app.get("/api/techprocess/records")
+def list_records_ep(biz: str = ""):
+    """管理列表数据源。biz=tech|quote 过滤;留空返回全部。"""
+    items = store.list_records()
+    if biz:
+        items = [r for r in items if r.get("biz") == biz]
+    items.sort(key=lambda r: r.get("created_at", ""), reverse=True)
+    return {"records": items}
+
+
+@app.post("/api/techprocess/records")
+def register_record_ep(body: TechProcessRecord, user: dict = Depends(current_user)):
+    """「结束」步最终确认:把当前技术工艺/报价录入到对应管理列表(按 project_id+biz 幂等)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    biz = body.biz or "tech"
+    records = store.list_records()
+
+    # 名称: 优先入参,否则取项目 IR 的器件名
+    name = body.name
+    if (not name or name == "未命名技术工艺") and body.project_id:
+        ir = store.load_ir(body.project_id) or {}
+        name = ir.get("device_name") or name
+    name = name or "未命名技术工艺"
+
+    # 状态: 优先入参,否则按总结是否定稿
+    status = body.status
+    if not status and body.project_id:
+        summ = store.load_summary(body.project_id) or {}
+        status = "已定稿" if summ.get("confirmed") else "已录入"
+    status = status or "已录入"
+
+    who = user.get("username", "system")
+    # 幂等: 同一 project_id + biz 已录入则更新
+    existing = next(
+        (r for r in records
+         if body.project_id and r.get("project_id") == body.project_id and r.get("biz") == biz),
+        None,
+    )
+    if existing:
+        existing.update({"name": name, "status": status, "note": body.note or existing.get("note"),
+                         "updated_at": _now_str()})
+        return {"record": store.save_record(existing)}
+
+    prefix = "BJ" if biz == "quote" else "GY"
+    seq = sum(1 for r in records if r.get("biz") == biz) + 1
+    rec = {
+        "id": "rec_" + __import__("uuid").uuid4().hex[:8],
+        "code": f"{prefix}{__import__('time').strftime('%Y%m%d')}-{seq:03d}",
+        "name": name, "project_id": body.project_id, "biz": biz, "status": status,
+        "owner": who, "created_at": _now_str(), "note": body.note, "editable": True,
+    }
+    return {"record": store.save_record(rec)}
+
+
+@app.delete("/api/techprocess/records/{record_id}")
+def delete_record_ep(record_id: str, user: dict = Depends(current_user)):
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    store.delete_record(record_id)
+    return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# 成本测算(报价流程第 1 步)
+# --------------------------------------------------------------------------- #
+def _load_costest(project_id: str) -> CostEstimate:
+    saved = store.load_costest(project_id)
+    doc = CostEstimate(**saved) if saved else CostEstimate(project_id=project_id)
+    doc.project_id = project_id
+    return doc
+
+
+def _save_costest_with_totals(doc: CostEstimate, project_id: str, author: str) -> dict:
+    doc.project_id = project_id
+    doc.totals = costest.compute(doc.model_dump())
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_costest(project_id, d, author=author)
+    return d
+
+
+@app.get("/api/projects/{project_id}/costest")
+def get_costest(project_id: str):
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    saved = store.load_costest(project_id)
+    totals = costest.compute(saved).model_dump() if saved else None
+    return {"costest": saved, "totals": totals}
+
+
+@app.post("/api/projects/{project_id}/costest/recommend")
+def recommend_costest(project_id: str, note: str = Form(""),
+                      user: dict = Depends(current_user)):
+    """Claude 联网依据 IR/材料/制造工艺与 BOM 做材料/制造/技术附加成本测算(异步)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    ir_dict = store.load_ir(project_id)
+    ir = DesignIR(**ir_dict) if ir_dict else None
+    material_plan = store.load_material(project_id)
+    manufacturing_plan = store.load_manufacturing(project_id)
+    author = user.get("username", "system")
+
+    def job():
+        rec = costest.recommend(ir=ir, material_plan=material_plan,
+                                manufacturing_plan=manufacturing_plan, note=note, web=True)
+        doc = _load_costest(project_id)
+        doc.material_costs = rec.material_costs
+        doc.manufacturing_costs = rec.manufacturing_costs
+        doc.technical_costs = rec.technical_costs
+        doc.market_notes = rec.market_notes
+        doc.summary = rec.summary
+        doc.assumptions = rec.assumptions
+        doc.open_questions = rec.open_questions
+        doc.search_sources = rec.search_sources
+        d = _save_costest_with_totals(doc, project_id, author)
+        return {"costest": d, "totals": d["totals"]}
+
+    return {"task_id": tasks.submit(project_id, "costest_recommend", job)}
+
+
+@app.put("/api/projects/{project_id}/costest")
+def update_costest(project_id: str, doc: CostEstimate, user: dict = Depends(current_user)):
+    """保存人工编辑后的成本测算(平台重算合计)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    d = _save_costest_with_totals(doc, project_id, user.get("username", "system"))
+    return {"costest": d, "totals": d["totals"]}
+
+
+@app.post("/api/projects/{project_id}/costest/confirm")
+def confirm_costest(project_id: str, user: dict = Depends(current_user)):
+    """确认成本测算(定稿,供后续定价使用)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    doc = _load_costest(project_id)
+    if not (doc.material_costs or doc.manufacturing_costs or doc.technical_costs):
+        raise HTTPException(400, "尚无成本明细,请先做 AI 测算")
+    who = user.get("username", "system")
+    doc.confirmed = True
+    doc.confirmed_by = who
+    doc.confirmed_at = _now_str()
+    d = _save_costest_with_totals(doc, project_id, who)
+    return {"costest": d, "totals": d["totals"]}
+
+
+@app.post("/api/projects/{project_id}/costest/timing")
+def costest_timing(project_id: str, action: str, user: dict = Depends(current_user)):
+    """记录该步骤起止时间与是否完成(action=start|finish)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if action not in ("start", "finish"):
+        raise HTTPException(400, "action 必须为 start 或 finish")
+    doc = _load_costest(project_id)
+    if action == "start":
+        doc.timing.status = "in_progress"
+        doc.timing.started_at = _now_str()
+        doc.timing.finished_at = None
+        doc.timing.completed = False
+    else:
+        if not doc.timing.started_at:
+            doc.timing.started_at = _now_str()
+        doc.timing.status = "done"
+        doc.timing.finished_at = _now_str()
+        doc.timing.completed = True
+    d = _save_costest_with_totals(doc, project_id, user.get("username", "system"))
+    return {"costest": d, "totals": d["totals"]}
+
+
+@app.get("/api/projects/{project_id}/costest.csv")
+def export_costest_csv(project_id: str):
+    """导出成本测算为 CSV。"""
+    saved = store.load_costest(project_id)
+    if not saved:
+        raise HTTPException(404, "尚无成本测算")
+    return Response(
+        content=costest.to_csv(saved).encode("utf-8"),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="costest_{project_id}.csv"'},
+    )
+
+
+# --------------------------------------------------------------------------- #
+# 定价方案制定(报价流程第 2 步:成本加成 + 维度调整 + 销售测算→财务审核)
+# --------------------------------------------------------------------------- #
+class FinanceReview(BaseModel):
+    decision: str = "approve"   # approve | reject
+    comment: str = ""
+
+
+def _load_pricing(project_id: str) -> PricingPlan:
+    saved = store.load_pricing(project_id)
+    doc = PricingPlan(**saved) if saved else PricingPlan(project_id=project_id)
+    doc.project_id = project_id
+    return doc
+
+
+def _save_pricing_calc(doc: PricingPlan, project_id: str, author: str) -> dict:
+    doc.project_id = project_id
+    doc.updated_at = _now_str()
+    d = pricing.compute(doc.model_dump())
+    store.save_pricing(project_id, d, author=author)
+    return d
+
+
+@app.get("/api/projects/{project_id}/pricing")
+def get_pricing(project_id: str):
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    return {"pricing": store.load_pricing(project_id)}
+
+
+@app.post("/api/projects/{project_id}/pricing/recommend")
+def recommend_pricing(project_id: str, note: str = Form(""),
+                      user: dict = Depends(current_user)):
+    """Claude 联网依据成本测算结果给出费率与各维度调整建议(异步);平台确定性算价。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    ir_dict = store.load_ir(project_id)
+    ir = DesignIR(**ir_dict) if ir_dict else None
+    ce = store.load_costest(project_id)
+    if ce and not ce.get("totals"):
+        ce["totals"] = costest.compute(ce).model_dump()
+    author = user.get("username", "system")
+
+    def job():
+        rec = pricing.recommend(ir=ir, costest=ce, note=note, web=True)
+        doc = _load_pricing(project_id)
+        # 成本基数取自成本测算(确定性)
+        totals = (ce or {}).get("totals") or {}
+        doc.costs.material_cost = float(totals.get("material_total", 0) or 0)
+        doc.costs.production_cost = float(totals.get("manufacturing_total", 0) or 0)
+        if rec.management_rate is not None:
+            doc.costs.management_rate = rec.management_rate
+        if rec.markup_rate is not None:
+            doc.markup_rate = rec.markup_rate
+        doc.factors = rec.factors
+        doc.summary = rec.summary
+        doc.assumptions = rec.assumptions
+        doc.open_questions = rec.open_questions
+        doc.search_sources = rec.search_sources
+        d = _save_pricing_calc(doc, project_id, author)
+        return {"pricing": d}
+
+    return {"task_id": tasks.submit(project_id, "pricing_recommend", job)}
+
+
+@app.put("/api/projects/{project_id}/pricing")
+def update_pricing(project_id: str, doc: PricingPlan, user: dict = Depends(current_user)):
+    """保存人工编辑后的定价方案(平台重算价格)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    d = _save_pricing_calc(doc, project_id, user.get("username", "system"))
+    return {"pricing": d}
+
+
+@app.post("/api/projects/{project_id}/pricing/submit")
+def submit_pricing(project_id: str, user: dict = Depends(current_user)):
+    """销售测算后提交财务审核。"""
+    _require(user, auth.WRITE_ROLES, "需要销售/工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    doc = _load_pricing(project_id)
+    if not doc.factors and not doc.costs.material_cost:
+        raise HTTPException(400, "尚无定价内容,请先生成/填写定价方案")
+    who = user.get("username", "system")
+    doc.approval.status = "submitted"
+    doc.approval.sales_by = who
+    doc.approval.sales_at = _now_str()
+    doc.approval.finance_by = None
+    doc.approval.finance_at = None
+    doc.approval.finance_comment = None
+    d = _save_pricing_calc(doc, project_id, who)
+    return {"pricing": d}
+
+
+@app.post("/api/projects/{project_id}/pricing/review")
+def review_pricing(project_id: str, body: FinanceReview, user: dict = Depends(current_user)):
+    """财务负责人审核确认(通过/驳回)。"""
+    _require(user, auth.REVIEW_ROLES, "需要财务/审核或管理员权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if body.decision not in ("approve", "reject"):
+        raise HTTPException(400, "decision 必须为 approve 或 reject")
+    doc = _load_pricing(project_id)
+    if doc.approval.status != "submitted":
+        raise HTTPException(400, "当前状态不可审核(需先由销售提交)")
+    who = user.get("username", "system")
+    doc.approval.status = "approved" if body.decision == "approve" else "rejected"
+    doc.approval.finance_by = who
+    doc.approval.finance_at = _now_str()
+    doc.approval.finance_comment = body.comment
+    d = _save_pricing_calc(doc, project_id, who)
+    return {"pricing": d}
+
+
+@app.post("/api/projects/{project_id}/pricing/timing")
+def pricing_timing(project_id: str, action: str, user: dict = Depends(current_user)):
+    """记录该步骤起止时间与是否完成(action=start|finish)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if action not in ("start", "finish"):
+        raise HTTPException(400, "action 必须为 start 或 finish")
+    doc = _load_pricing(project_id)
+    if action == "start":
+        doc.timing.status = "in_progress"
+        doc.timing.started_at = _now_str()
+        doc.timing.finished_at = None
+        doc.timing.completed = False
+    else:
+        if not doc.timing.started_at:
+            doc.timing.started_at = _now_str()
+        doc.timing.status = "done"
+        doc.timing.finished_at = _now_str()
+        doc.timing.completed = True
+    d = _save_pricing_calc(doc, project_id, user.get("username", "system"))
+    return {"pricing": d}
+
+
+# --------------------------------------------------------------------------- #
+# 商务及谈判策略(报价流程第 3 步)
+# --------------------------------------------------------------------------- #
+def _load_negotiation(project_id: str) -> NegotiationPlan:
+    saved = store.load_negotiation(project_id)
+    doc = NegotiationPlan(**saved) if saved else NegotiationPlan(project_id=project_id)
+    doc.project_id = project_id
+    return doc
+
+
+@app.get("/api/projects/{project_id}/negotiation")
+def get_negotiation(project_id: str):
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    return {"negotiation": store.load_negotiation(project_id)}
+
+
+@app.post("/api/projects/{project_id}/negotiation/recommend")
+def recommend_negotiation(project_id: str, note: str = Form(""),
+                          user: dict = Depends(current_user)):
+    """Claude 依据定价结果产出商务条款与分客户类型谈判策略/授权(异步)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    ir_dict = store.load_ir(project_id)
+    ir = DesignIR(**ir_dict) if ir_dict else None
+    pricing_plan = store.load_pricing(project_id)
+    author = user.get("username", "system")
+
+    def job():
+        rec = negotiation.recommend(ir=ir, pricing=pricing_plan, note=note, web=False)
+        doc = _load_negotiation(project_id)
+        doc.terms = rec.terms
+        doc.strategies = rec.strategies
+        doc.summary = rec.summary
+        doc.assumptions = rec.assumptions
+        doc.open_questions = rec.open_questions
+        doc.search_sources = rec.search_sources
+        doc.updated_at = _now_str()
+        d = doc.model_dump()
+        store.save_negotiation(project_id, d, author=author)
+        return {"negotiation": d}
+
+    return {"task_id": tasks.submit(project_id, "negotiation_recommend", job)}
+
+
+@app.put("/api/projects/{project_id}/negotiation")
+def update_negotiation(project_id: str, doc: NegotiationPlan, user: dict = Depends(current_user)):
+    """保存人工编辑后的商务及谈判策略。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    doc.project_id = project_id
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_negotiation(project_id, d, author=user.get("username", "system"))
+    return {"negotiation": d}
+
+
+@app.post("/api/projects/{project_id}/negotiation/confirm")
+def confirm_negotiation(project_id: str, user: dict = Depends(current_user)):
+    """确认商务及谈判策略。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    doc = _load_negotiation(project_id)
+    if not (doc.terms or doc.strategies):
+        raise HTTPException(400, "尚无内容,请先做 AI 生成")
+    who = user.get("username", "system")
+    doc.confirmed = True
+    doc.confirmed_by = who
+    doc.confirmed_at = _now_str()
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_negotiation(project_id, d, author=who)
+    return {"negotiation": d}
+
+
+@app.post("/api/projects/{project_id}/negotiation/timing")
+def negotiation_timing(project_id: str, action: str, user: dict = Depends(current_user)):
+    """记录该步骤起止时间与是否完成(action=start|finish)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if action not in ("start", "finish"):
+        raise HTTPException(400, "action 必须为 start 或 finish")
+    doc = _load_negotiation(project_id)
+    if action == "start":
+        doc.timing.status = "in_progress"
+        doc.timing.started_at = _now_str()
+        doc.timing.finished_at = None
+        doc.timing.completed = False
+    else:
+        if not doc.timing.started_at:
+            doc.timing.started_at = _now_str()
+        doc.timing.status = "done"
+        doc.timing.finished_at = _now_str()
+        doc.timing.completed = True
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_negotiation(project_id, d, author=user.get("username", "system"))
+    return {"negotiation": d}
+
+
+# --------------------------------------------------------------------------- #
+# 价格协商及谈判(报价流程第 4 步)
+# --------------------------------------------------------------------------- #
+def _load_pricenego(project_id: str) -> PriceNegotiation:
+    saved = store.load_pricenego(project_id)
+    doc = PriceNegotiation(**saved) if saved else PriceNegotiation(project_id=project_id)
+    doc.project_id = project_id
+    return doc
+
+
+@app.get("/api/projects/{project_id}/pricenego")
+def get_pricenego(project_id: str):
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    return {"pricenego": store.load_pricenego(project_id)}
+
+
+@app.post("/api/projects/{project_id}/pricenego/recommend")
+def recommend_pricenego(project_id: str, note: str = Form(""),
+                        user: dict = Depends(current_user)):
+    """Claude 产出初步报价单/阶梯价格/调价联动/特殊条款建议(异步,联网取行情)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    ir_dict = store.load_ir(project_id)
+    ir = DesignIR(**ir_dict) if ir_dict else None
+    pricing_plan = store.load_pricing(project_id)
+    negotiation_plan = store.load_negotiation(project_id)
+    author = user.get("username", "system")
+
+    def job():
+        rec = pricenego.recommend(ir=ir, pricing=pricing_plan,
+                                  negotiation=negotiation_plan, note=note, web=True)
+        doc = _load_pricenego(project_id)
+        doc.initial_quote = rec.initial_quote
+        doc.tiered_prices = rec.tiered_prices
+        doc.price_linkage = rec.price_linkage
+        doc.special_terms = rec.special_terms
+        doc.summary = rec.summary
+        doc.assumptions = rec.assumptions
+        doc.open_questions = rec.open_questions
+        doc.search_sources = rec.search_sources
+        doc.updated_at = _now_str()
+        d = doc.model_dump()
+        store.save_pricenego(project_id, d, author=author)
+        return {"pricenego": d}
+
+    return {"task_id": tasks.submit(project_id, "pricenego_recommend", job)}
+
+
+@app.put("/api/projects/{project_id}/pricenego")
+def update_pricenego(project_id: str, doc: PriceNegotiation, user: dict = Depends(current_user)):
+    """保存人工编辑后的价格协商(含新增的协商轮次)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    doc.project_id = project_id
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_pricenego(project_id, d, author=user.get("username", "system"))
+    return {"pricenego": d}
+
+
+@app.post("/api/projects/{project_id}/pricenego/confirm")
+def confirm_pricenego(project_id: str, user: dict = Depends(current_user)):
+    """确认价格协商结果(达成)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    doc = _load_pricenego(project_id)
+    who = user.get("username", "system")
+    doc.confirmed = True
+    doc.confirmed_by = who
+    doc.confirmed_at = _now_str()
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_pricenego(project_id, d, author=who)
+    return {"pricenego": d}
+
+
+@app.post("/api/projects/{project_id}/pricenego/timing")
+def pricenego_timing(project_id: str, action: str, user: dict = Depends(current_user)):
+    """记录该步骤起止时间与是否完成(action=start|finish)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if action not in ("start", "finish"):
+        raise HTTPException(400, "action 必须为 start 或 finish")
+    doc = _load_pricenego(project_id)
+    if action == "start":
+        doc.timing.status = "in_progress"
+        doc.timing.started_at = _now_str()
+        doc.timing.finished_at = None
+        doc.timing.completed = False
+    else:
+        if not doc.timing.started_at:
+            doc.timing.started_at = _now_str()
+        doc.timing.status = "done"
+        doc.timing.finished_at = _now_str()
+        doc.timing.completed = True
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_pricenego(project_id, d, author=user.get("username", "system"))
+    return {"pricenego": d}
+
+
+# --------------------------------------------------------------------------- #
+# 报价审批与决策(报价流程第 6 步:分级审批)
+# --------------------------------------------------------------------------- #
+class ApprovalAction(BaseModel):
+    decision: str = "approve"   # approve | reject
+    comment: str = ""
+
+
+def _load_approval(project_id: str) -> QuoteApproval:
+    saved = store.load_approval(project_id)
+    doc = QuoteApproval(**saved) if saved else QuoteApproval(project_id=project_id)
+    doc.project_id = project_id
+    return doc
+
+
+@app.get("/api/projects/{project_id}/approval")
+def get_approval(project_id: str):
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    return {"approval": store.load_approval(project_id)}
+
+
+@app.post("/api/projects/{project_id}/approval/recommend")
+def recommend_approval(project_id: str, note: str = Form(""),
+                       user: dict = Depends(current_user)):
+    """Claude 研判应走的审批级别;平台据级别生成审批链(异步)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    ir_dict = store.load_ir(project_id)
+    ir = DesignIR(**ir_dict) if ir_dict else None
+    pricing_plan = store.load_pricing(project_id)
+    pn = store.load_pricenego(project_id)
+    author = user.get("username", "system")
+
+    def job():
+        rec = approval_svc.recommend(ir=ir, pricing=pricing_plan, pricenego=pn, note=note, web=False)
+        doc = _load_approval(project_id)
+        doc.level = rec.level
+        doc.level_reason = rec.level_reason
+        doc.classification = rec.classification
+        doc.summary = rec.summary
+        doc.assumptions = rec.assumptions
+        doc.open_questions = rec.open_questions
+        doc.search_sources = rec.search_sources
+        # 重置审批链为新级别(草稿态)
+        doc.chain = approval_svc.build_chain(rec.level)
+        doc.status = "draft"
+        doc.decision_note = None
+        doc.updated_at = _now_str()
+        d = doc.model_dump()
+        store.save_approval(project_id, d, author=author)
+        return {"approval": d}
+
+    return {"task_id": tasks.submit(project_id, "approval_recommend", job)}
+
+
+@app.post("/api/projects/{project_id}/approval/level")
+def set_approval_level(project_id: str, level: int, user: dict = Depends(current_user)):
+    """人工设定/调整审批级别(重建审批链,回到草稿态)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if level not in (1, 2, 3):
+        raise HTTPException(400, "level 必须为 1/2/3")
+    doc = _load_approval(project_id)
+    doc.level = level
+    doc.chain = approval_svc.build_chain(level)
+    doc.status = "draft"
+    doc.decision_note = None
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_approval(project_id, d, author=user.get("username", "system"))
+    return {"approval": d}
+
+
+@app.post("/api/projects/{project_id}/approval/submit")
+def submit_approval(project_id: str, user: dict = Depends(current_user)):
+    """提交内部审批(进入审批中,首个节点待审)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    doc = _load_approval(project_id)
+    if not doc.chain:
+        doc.chain = approval_svc.build_chain(doc.level)
+    doc.status = "in_review"
+    for i, n in enumerate(doc.chain):
+        n.status = "pending" if i == 0 else "waiting"
+        n.approver = None
+        n.at = None
+        n.comment = None
+    doc.decision_note = None
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_approval(project_id, d, author=user.get("username", "system"))
+    return {"approval": d}
+
+
+class ApprovalSend(BaseModel):
+    approvers: list[str] = []
+    comment: str | None = None
+
+
+@app.post("/api/projects/{project_id}/approval/send")
+def send_approval(project_id: str, body: ApprovalSend, user: dict = Depends(current_user)):
+    """选择审批人并「发送审批流」:标记审批中、记录送审人与时间;审批(通过/驳回)由审批人在别处完成,
+    不在本报价单表单内做决策。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    approvers = [a.strip() for a in (body.approvers or []) if a and a.strip()]
+    if not approvers:
+        raise HTTPException(400, "请至少选择一位审批人")
+    from .models.approval import ApprovalNode
+    doc = _load_approval(project_id)
+    doc.approvers = approvers
+    doc.sent_at = _now_str()
+    doc.status = "in_review"
+    # 用所选审批人直接生成审批链(首个待审,其余待前序)
+    doc.chain = [ApprovalNode(seq=i + 1, role=r, status=("pending" if i == 0 else "waiting"))
+                 for i, r in enumerate(approvers)]
+    if body.comment:
+        doc.decision_note = body.comment
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_approval(project_id, d, author=user.get("username", "system"))
+    return {"approval": d}
+
+
+@app.post("/api/projects/{project_id}/approval/act")
+def act_approval(project_id: str, body: ApprovalAction, user: dict = Depends(current_user)):
+    """逐级审批:对当前待审节点 通过/驳回。需审核/管理权限。"""
+    _require(user, auth.REVIEW_ROLES, "需要审核/管理(总监/财务/总经理)权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if body.decision not in ("approve", "reject"):
+        raise HTTPException(400, "decision 必须为 approve 或 reject")
+    doc = _load_approval(project_id)
+    if doc.status != "in_review":
+        raise HTTPException(400, "当前不在审批中(请先提交审批)")
+    idx = next((i for i, n in enumerate(doc.chain) if n.status == "pending"), None)
+    if idx is None:
+        raise HTTPException(400, "没有待审节点")
+    who = user.get("username", "system")
+    node = doc.chain[idx]
+    node.approver = who
+    node.at = _now_str()
+    node.comment = body.comment
+    if body.decision == "reject":
+        node.status = "rejected"
+        doc.status = "rejected"
+        doc.decision_note = f"{node.role} 驳回:{body.comment or ''}"
+    else:
+        node.status = "approved"
+        if idx + 1 < len(doc.chain):
+            doc.chain[idx + 1].status = "pending"
+        else:
+            doc.status = "approved"
+            doc.decision_note = "全部审批通过,可正式报价/签约"
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_approval(project_id, d, author=who)
+    return {"approval": d}
+
+
+@app.post("/api/projects/{project_id}/approval/timing")
+def approval_timing(project_id: str, action: str, user: dict = Depends(current_user)):
+    """记录该步骤起止时间与是否完成(action=start|finish)。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    if action not in ("start", "finish"):
+        raise HTTPException(400, "action 必须为 start 或 finish")
+    doc = _load_approval(project_id)
+    if action == "start":
+        doc.timing.status = "in_progress"
+        doc.timing.started_at = _now_str()
+        doc.timing.finished_at = None
+        doc.timing.completed = False
+    else:
+        if not doc.timing.started_at:
+            doc.timing.started_at = _now_str()
+        doc.timing.status = "done"
+        doc.timing.finished_at = _now_str()
+        doc.timing.completed = True
+    doc.updated_at = _now_str()
+    d = doc.model_dump()
+    store.save_approval(project_id, d, author=user.get("username", "system"))
+    return {"approval": d}
+
+
+# --------------------------------------------------------------------------- #
 # 版本管理 + 校核审签(PRD 6.5)
 # --------------------------------------------------------------------------- #
 @app.get("/api/projects/{project_id}/versions")
@@ -696,6 +2219,13 @@ def get_geometry_file(project_id: str, filename: str):
 # --------------------------------------------------------------------------- #
 # 静态前端(挂在最后，避免覆盖 /api)
 # --------------------------------------------------------------------------- #
+# 子应用目录:技术工艺管理 / 商机报价管理等前端应用统一放在 apps/<name>/ 下,
+# 由本服务在 /apps/<name>/ 提供;它们与 /api/* 同源,因此共用同一套后端接口。
+# 必须在挂载根目录 "/" 之前注册,否则会被 "/" 这个兜底挂载吞掉。
+APPS_DIR = ROOT_DIR / "apps"
+if APPS_DIR.exists():
+    app.mount("/apps", StaticFiles(directory=str(APPS_DIR), html=True), name="apps")
+
 FRONTEND_DIR = ROOT_DIR / "frontend"
 if FRONTEND_DIR.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")

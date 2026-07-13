@@ -1,0 +1,32 @@
+{
+  "parts": [
+    {
+      "part_id": "P-001",
+      "name": "底板",
+      "ok": true,
+      "views": {
+        "front": "/api/projects/b16f9e04a398/geometry/P-001_front.svg",
+        "top": "/api/projects/b16f9e04a398/geometry/P-001_top.svg",
+        "right": "/api/projects/b16f9e04a398/geometry/P-001_right.svg",
+        "iso": "/api/projects/b16f9e04a398/geometry/P-001_iso.svg"
+      },
+      "dxf_url": "/api/projects/b16f9e04a398/geometry/P-001.dxf",
+      "warnings": [],
+      "error": null
+    },
+    {
+      "part_id": "P-002",
+      "name": "导向衬套",
+      "ok": true,
+      "views": {
+        "front": "/api/projects/b16f9e04a398/geometry/P-002_front.svg",
+        "top": "/api/projects/b16f9e04a398/geometry/P-002_top.svg",
+        "right": "/api/projects/b16f9e04a398/geometry/P-002_right.svg",
+        "iso": "/api/projects/b16f9e04a398/geometry/P-002_iso.svg"
+      },
+      "dxf_url": "/api/projects/b16f9e04a398/geometry/P-002.dxf",
+      "warnings": [],
+      "error": null
+    }
+  ]
+}

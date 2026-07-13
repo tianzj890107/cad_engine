@@ -1,0 +1,14 @@
+[
+  {
+    "id": "rec_f69393c4",
+    "code": "BJ20260701-001",
+    "name": "园区储能一期报价",
+    "project_id": null,
+    "biz": "quote",
+    "status": "已录入",
+    "owner": "system",
+    "created_at": "2026-07-01 20:50:11",
+    "note": "最终报价 ¥123,456",
+    "editable": true
+  }
+]

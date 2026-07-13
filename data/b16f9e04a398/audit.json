@@ -1,0 +1,80 @@
+[
+  {
+    "ts": "2026-06-17 09:37:57",
+    "action": "create_project",
+    "detail": {
+      "source": "sample_bracket.png",
+      "owner": "system"
+    }
+  },
+  {
+    "ts": "2026-06-17 09:38:49",
+    "action": "save_ir:parsed",
+    "detail": {
+      "parts": 2
+    }
+  },
+  {
+    "ts": "2026-06-17 09:40:53",
+    "action": "save_geometry",
+    "detail": {
+      "parts": 2
+    }
+  },
+  {
+    "ts": "2026-06-17 09:40:54",
+    "action": "save_drawings",
+    "detail": {
+      "parts": 2
+    }
+  },
+  {
+    "ts": "2026-06-17 09:47:30",
+    "action": "save_material",
+    "detail": {
+      "by": "system"
+    }
+  },
+  {
+    "ts": "2026-06-17 09:49:24",
+    "action": "save_material",
+    "detail": {
+      "by": "system"
+    }
+  },
+  {
+    "ts": "2026-06-17 10:46:19",
+    "action": "save_geometry",
+    "detail": {
+      "parts": 2
+    }
+  },
+  {
+    "ts": "2026-06-17 10:46:22",
+    "action": "save_drawings",
+    "detail": {
+      "parts": 2
+    }
+  },
+  {
+    "ts": "2026-07-01 19:24:43",
+    "action": "save_costest",
+    "detail": {
+      "by": "system"
+    }
+  },
+  {
+    "ts": "2026-07-01 19:26:02",
+    "action": "save_costest",
+    "detail": {
+      "by": "system"
+    }
+  },
+  {
+    "ts": "2026-07-01 21:42:07",
+    "action": "save_approval",
+    "detail": {
+      "by": "system"
+    }
+  }
+]

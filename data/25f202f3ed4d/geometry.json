@@ -1,0 +1,109 @@
+{
+  "parts": [
+    {
+      "part_id": "P-001",
+      "name": "顶盖板",
+      "ok": true,
+      "volume_mm3": 35717.257,
+      "mass_g": 96.437,
+      "bbox": [
+        60.0,
+        60.0,
+        10.0
+      ],
+      "warnings": [],
+      "error": null,
+      "stl_url": "/api/projects/25f202f3ed4d/geometry/P-001.stl",
+      "step_url": "/api/projects/25f202f3ed4d/geometry/P-001.step"
+    },
+    {
+      "part_id": "P-002",
+      "name": "主体安装块",
+      "ok": true,
+      "volume_mm3": 140198.673,
+      "mass_g": 378.536,
+      "bbox": [
+        120.0,
+        60.0,
+        20.0
+      ],
+      "warnings": [
+        "孔(y=-30.0, ⌀6.6) 超出板面 Y 边界，存在破边风险",
+        "孔(y=30.0, ⌀6.6) 超出板面 Y 边界，存在破边风险",
+        "孔(y=-30.0, ⌀6.6) 超出板面 Y 边界，存在破边风险",
+        "孔(y=30.0, ⌀6.6) 超出板面 Y 边界，存在破边风险",
+        "孔(y=-30.0, ⌀11.0) 超出板面 Y 边界，存在破边风险",
+        "孔(y=30.0, ⌀11.0) 超出板面 Y 边界，存在破边风险",
+        "孔(y=-30.0, ⌀11.0) 超出板面 Y 边界，存在破边风险",
+        "孔(y=30.0, ⌀11.0) 超出板面 Y 边界，存在破边风险"
+      ],
+      "error": null,
+      "stl_url": "/api/projects/25f202f3ed4d/geometry/P-002.stl",
+      "step_url": "/api/projects/25f202f3ed4d/geometry/P-002.step"
+    },
+    {
+      "part_id": "P-006",
+      "name": "导向柱",
+      "ok": true,
+      "volume_mm3": 565.487,
+      "mass_g": 4.439,
+      "bbox": [
+        6.0,
+        6.0,
+        20.0
+      ],
+      "warnings": [],
+      "error": null,
+      "stl_url": "/api/projects/25f202f3ed4d/geometry/P-006.stl",
+      "step_url": "/api/projects/25f202f3ed4d/geometry/P-006.step"
+    },
+    {
+      "part_id": "P-007",
+      "name": "吸嘴固定座",
+      "ok": true,
+      "volume_mm3": 3763.879,
+      "mass_g": 10.162,
+      "bbox": [
+        16.8,
+        16.8,
+        18.0
+      ],
+      "warnings": [],
+      "error": null,
+      "stl_url": "/api/projects/25f202f3ed4d/geometry/P-007.stl",
+      "step_url": "/api/projects/25f202f3ed4d/geometry/P-007.step"
+    },
+    {
+      "part_id": "P-008",
+      "name": "真空吸嘴",
+      "ok": true,
+      "volume_mm3": 3546.732,
+      "mass_g": 4.256,
+      "bbox": [
+        16.8,
+        16.8,
+        16.0
+      ],
+      "warnings": [],
+      "error": null,
+      "stl_url": "/api/projects/25f202f3ed4d/geometry/P-008.stl",
+      "step_url": "/api/projects/25f202f3ed4d/geometry/P-008.step"
+    },
+    {
+      "part_id": "P-009",
+      "name": "过滤网",
+      "ok": true,
+      "volume_mm3": 8.482,
+      "mass_g": 0.068,
+      "bbox": [
+        6.0,
+        6.0,
+        0.3
+      ],
+      "warnings": [],
+      "error": null,
+      "stl_url": "/api/projects/25f202f3ed4d/geometry/P-009.stl",
+      "step_url": "/api/projects/25f202f3ed4d/geometry/P-009.step"
+    }
+  ]
+}

@@ -1,0 +1,345 @@
+{
+  "analyses": {
+    "P-002": {
+      "part_id": "P-002",
+      "part_name": "主体安装块",
+      "material": "6061-T6",
+      "quantity": 1,
+      "currency": "CNY",
+      "summary": "本件为晶圆搬运吸嘴组件(WH-EE-ASM-001)的主体基座，6061-T6 铝合金，外形 120×60×20mm，净质量约 378.5g。成本构成以\"机加工费\"为主导(单件小批量，含编程/装夹 setup 摊销)，其次为表面处理(阳极氧化，受小批最低收费影响显著)、材料费与检验。定价思路：先按坯料质量×铝材均价估材料，再按 CNC 工时×费率估机加工，叠加阳极氧化最低收费、检验，最后加管理费(约15%)与利润(约15%)。由于该件功能含\"内部真空气路分配\"，若实际存在交叉钻孔/深孔的内部气路，会显著增加钻孔与去毛刺工时，需澄清后修正。注意：本次联网检索额度耗尽，未取得可追溯链接，价格均为经验估算，整体置信度偏低。",
+      "items": [
+        {
+          "category": "material",
+          "name": "6061-T6 铝板坯料",
+          "basis": "坯料约125×65×22mm≈0.48kg(含三向加工余量与表层去除),按板材均价估算",
+          "quantity": 0.48,
+          "unit": "kg",
+          "unit_price": 35.0,
+          "amount": 16.8,
+          "source": "经验估算(6061板材约28-40元/kg区间,未取得可追溯链接)",
+          "confidence": 0.5
+        },
+        {
+          "category": "machining",
+          "name": "锯切/下料",
+          "basis": "板材下料1刀,含单件最低收费",
+          "quantity": 1.0,
+          "unit": "件",
+          "unit_price": 25.0,
+          "amount": 25.0,
+          "source": "经验估算",
+          "confidence": 0.5
+        },
+        {
+          "category": "machining",
+          "name": "CNC 铣削+钻孔+沉孔",
+          "basis": "3轴CNC:六面铣到尺寸+4×Ø6.6通孔+4×Ø11沉孔深6.5;编程/装夹≈0.5h+加工≈1.0h,合计≈1.5h×130元/h",
+          "quantity": 1.5,
+          "unit": "h",
+          "unit_price": 130.0,
+          "amount": 195.0,
+          "source": "经验估算(3轴CNC单件含setup约100-150元/h)",
+          "confidence": 0.45
+        },
+        {
+          "category": "surface",
+          "name": "阳极氧化(透明/本色)",
+          "basis": "表面积约2.16dm²;单件按小批最低收费计",
+          "quantity": 1.0,
+          "unit": "件",
+          "unit_price": 50.0,
+          "amount": 50.0,
+          "source": "经验估算(普通阳极氧化最低收费约30-80元/件)",
+          "confidence": 0.4
+        },
+        {
+          "category": "inspection",
+          "name": "尺寸/孔位检验",
+          "basis": "ISO 2768-m,孔位与沉孔深度抽检约0.5h×60元/h",
+          "quantity": 0.5,
+          "unit": "h",
+          "unit_price": 60.0,
+          "amount": 30.0,
+          "source": "经验估算",
+          "confidence": 0.5
+        },
+        {
+          "category": "overhead",
+          "name": "管理费",
+          "basis": "≈15%×(材料+加工+表面+检验)=15%×316.8",
+          "quantity": 1.0,
+          "unit": "项",
+          "unit_price": 47.5,
+          "amount": 47.5,
+          "source": "经验估算",
+          "confidence": 0.5
+        },
+        {
+          "category": "profit",
+          "name": "利润",
+          "basis": "≈15%×(直接成本+管理费)=15%×364.3",
+          "quantity": 1.0,
+          "unit": "项",
+          "unit_price": 54.6,
+          "amount": 54.6,
+          "source": "经验估算",
+          "confidence": 0.5
+        }
+      ],
+      "unit_cost": 420.0,
+      "price_references": [
+        {
+          "item": "6061 铝合金板材",
+          "price": "约 28-40 元/kg(经验区间,估算)",
+          "source": "行业常见区间(本次未取得可追溯链接)",
+          "url": null,
+          "date": "2025"
+        },
+        {
+          "item": "3轴 CNC 铣削加工费(单件含setup)",
+          "price": "约 100-150 元/h(估算)",
+          "source": "经验估算",
+          "url": null,
+          "date": "2025"
+        },
+        {
+          "item": "铝件普通阳极氧化",
+          "price": "小批最低收费约 30-80 元/件(估算)",
+          "source": "经验估算",
+          "url": null,
+          "date": "2025"
+        }
+      ],
+      "search_sources": [
+        {
+          "title": "6061铝价格_6061铝价格今日价格、行情走势、最新报价",
+          "url": "https://m.mysteel.com/hot/1331758.html"
+        },
+        {
+          "title": "佛山国标6061铝棒多少钱一公斤 6061铝棒批发价格-万钧金属",
+          "url": "http://www.cula5.com/jiage/221.html"
+        },
+        {
+          "title": "宁波6061铝板价格是多少(多少钱一公斤6061铝板国标铝板) - 鼎尖",
+          "url": "http://m.nbdjwz.net/lb/283.html"
+        },
+        {
+          "title": "6061铝合金板价格多少钱一吨_百度知道",
+          "url": "https://zhidao.baidu.com/question/986933296859453579.html"
+        },
+        {
+          "title": "6061_优质供应/批发-铝道网",
+          "url": "https://m.alu.cn/aluTrade/tags_0036003000360031.html"
+        },
+        {
+          "title": "6061铝板价格每公斤价格 - 山东信泰铝业有限公司",
+          "url": "https://a15864395203.cnal.com/product/detail-26694069.shtml"
+        },
+        {
+          "title": "6061铝板价格多少钱一吨？2025年行情与影响因素解析",
+          "url": "https://www.yongxc.com/6061-lvban-jiage"
+        },
+        {
+          "title": "明泰铝业大型6061铝板生产厂家,6061t6铝板,6061合金铝板,6061t651铝板厂家,提供6061铝板价格多少钱一吨-{}-明泰铝业",
+          "url": "https://www.mingtailvye.com/lvban/103.html"
+        },
+        {
+          "title": "2024年第3周6061白料周均价16450元/吨 - 第3周6061白料报价（保太废铝市场） 【大沥铝材网今日铝价】",
+          "url": "https://www.lvdingjia.com/price/bt_6061bailiao/2024_03.htm"
+        },
+        {
+          "title": "6061t651铝板厂家_河南明泰6061铝板价格是一公斤多少钱？-明泰铝业",
+          "url": "https://www.mingtailvye.com/knowledge/827.html"
+        },
+        {
+          "title": "6061铝合金带价格百科_6061铝合金带价格知识大全-上海有色金属网",
+          "url": "https://www.smm.cn/mkds/39155_baike"
+        },
+        {
+          "title": "6061-T6铝板_百度百科",
+          "url": "https://baike.baidu.com/item/6061-T6%E9%93%9D%E6%9D%BF/5044658"
+        },
+        {
+          "title": "大型6061铝板厂家-上市公司-提供6061-t6铝合金板-6061铝合金板价格-铝合金6061-6061-t651预拉伸铝板厂家-河南明泰铝业股份有限公司",
+          "url": "https://www.henanmingtai.com/lvban6/634.html"
+        },
+        {
+          "title": "6061铝板_6061铝板价格_6061铝板厂家-世铝网",
+          "url": "https://www.cnal.com/product/class-263.shtml"
+        },
+        {
+          "title": "6061合金板_6061合金板今日价格、行情走势、最新报价",
+          "url": "https://m.mysteel.com/hot/555256.html"
+        },
+        {
+          "title": "6061-T6价格现货_上海国沃铝业有限公司",
+          "url": "https://shguowo.cnal.com/product/detail-27757249.shtml"
+        },
+        {
+          "title": "铝6061价格市场价_铝实时价格_铝历史价格_我的钢铁网(Mysteel)",
+          "url": "https://list1.m.mysteel.com/zhishi/l6061jgscj.html"
+        },
+        {
+          "title": "国内专业6061t6铝板生产厂家,铝板供应商,提供最新产品价格信息-河南明泰铝业股份有限公司-河南明泰铝业股份有限公司",
+          "url": "https://www.mtcylb.com/6xilvban/1290.html"
+        },
+        {
+          "title": "铝合金产品cnc加工怎么报价 - 速加",
+          "url": "https://www.sogaworks.cn/news/450975440007493"
+        },
+        {
+          "title": "数控车床cnc加工报价计算公式-深圳伟迈特",
+          "url": "https://www.szvmt.com/articles/skcccn.html"
+        },
+        {
+          "title": "精密机械零件加工多少钱（机械加工详细和粗略报价计算方法）-东莞长原科技",
+          "url": "https://cnc.ecyco.com/news/1117.html"
+        },
+        {
+          "title": "铝合金CNC加工厂家是如何计算加工价格的",
+          "url": "https://www.jbairui.com/knowledge/1856.html"
+        },
+        {
+          "title": "CNC 加工 | Xometry择幂科技",
+          "url": "https://xometry.asia/zh-hans/cnc-machining/"
+        },
+        {
+          "title": "cnc铝合金加工（cnc铝合金加工价格） - cnc加工",
+          "url": "https://www.jbairui.com/knowledge/23133.html"
+        },
+        {
+          "title": "铝合金精密零件cnc加工价格怎么估算-深圳伟迈特",
+          "url": "https://www.szvmt.com/articles/lhjjml8384.html"
+        },
+        {
+          "title": "CNC加工如何计算加工费",
+          "url": "https://b2bwiki.baidu.com/article/d0r20ppftjsv1cjndul0"
+        },
+        {
+          "title": "铝合金CNC加工厂家-加工价格如何计算-伟迈特 - 知乎",
+          "url": "https://zhuanlan.zhihu.com/p/448507781"
+        },
+        {
+          "title": "CNC铝合金加工中的成本核算与管理实践(铝合金cnc加工费)",
+          "url": "https://www.jbairui.com/knowledge/53701.html"
+        },
+        {
+          "title": "阳极氧化铝板价格多少钱一个平方-泰诚铝业公司",
+          "url": "https://www.tclvban.com/yhlbnews/98.html"
+        },
+        {
+          "title": "阳极氧化加工（阳极氧化加工价格是多少）！ - 知乎",
+          "url": "https://zhuanlan.zhihu.com/p/363123472"
+        },
+        {
+          "title": "氧化铝板价格-拉丝阳极处理多种合金牌号铝板氧-河南泰诚铝业",
+          "url": "https://www.zzlvban.com/yanghualvban/236.html"
+        },
+        {
+          "title": "氧化铝板厂家-拉丝阳极氧化铝板-本色彩色氧化铝板价格低-泰诚铝业公司",
+          "url": "https://www.tclvban.com/yhlvban/"
+        },
+        {
+          "title": "铝合金阳极氧化价格_价格_厂家_专区_资讯-上海有色金属网",
+          "url": "https://www.smm.cn/mkds/36822"
+        },
+        {
+          "title": "阳极氧化铝板价格-厂家生产价格低品质稳定-泰诚铝业公司",
+          "url": "https://www.tclvban.com/yhlvban/60.html"
+        },
+        {
+          "title": "铝阳极氧化的费用是多少？ – 建材咨询网",
+          "url": "https://www.jczx5.com/45246.html"
+        },
+        {
+          "title": "阳极氧化多少钱一公斤-泰诚铝业公司",
+          "url": "https://www.tclvban.com/yhlbnews/119.html"
+        },
+        {
+          "title": "阳极氧化铝合金_阳极氧化铝合金今日价格、行情走势、最新报价",
+          "url": "https://m.mysteel.com/hot/134304.html"
+        },
+        {
+          "title": "阳极氧化铝板怎么计算价格？广东阳极氧化表面处理加工工厂-新型墙体材料_新型建材_基础建材_-建材通网",
+          "url": "https://www.jct188.com/sell/show.php?itemid=3485"
+        },
+        {
+          "title": "Aluminum 6061 Cost per kg: 2025 Price Trends",
+          "url": "https://www.accio.com/plp/aluminum-6061-cost-per-kg"
+        },
+        {
+          "title": "Aluminium 6061 T6 Price Per Kg",
+          "url": "https://www.aluminumsheet.net/aluminium-6061-t6-price-per-kg"
+        },
+        {
+          "title": "Aluminium Cost Guide 2025: Comparing 3003, 5052, 6061, 6063, and 7075",
+          "url": "https://www.tbkmetal.com/aluminium-cost-guide/"
+        },
+        {
+          "title": "Al 6061 Price Per Kg - Search - IndexBox",
+          "url": "https://www.indexbox.io/search/al-6061-price-per-kg/"
+        },
+        {
+          "title": "Aluminum Alloy 6061 Price Per Pound 2026 - MWalloys",
+          "url": "https://www.mwalloys.com/aluminum-alloy-6061-price-per-pound-2026/"
+        },
+        {
+          "title": "Aluminium 6061 billet US premium prices | Aluminium Prices, charts, and News – Argus Metals",
+          "url": "https://www.argusmedia.com/metals-platform/price/assessment/aluminium-6061-billet-us-premium-prices-PA00187640000"
+        },
+        {
+          "title": "Price of Aluminum 6061 Per Pound",
+          "url": "https://www.linkedin.com/pulse/price-aluminum-6061-per-pound-august-jie-aluminum-ds2sc"
+        },
+        {
+          "title": "Aluminum 6061 Price Per Kg",
+          "url": "https://www.aviationaluminum.com/aluminum-6061-price-per-kg/"
+        },
+        {
+          "title": "Aluminium 6061 Price Per Kg - Sachiya Steel International Pvt. Ltd.",
+          "url": "https://sachiyasteel.com/blog/aluminium-6061-price-per-kg/index.html"
+        },
+        {
+          "title": "Price of Aluminum 6061 Per Pound",
+          "url": "https://www.aluminum-coil.net/price-of-aluminum-6061-per-pound.html"
+        }
+      ],
+      "assumptions": [
+        "核算批量为1件(原型/小批),工装/编程/装夹按单件全额摊销,单件成本偏高;批量上量后单件可显著下降",
+        "材料按6061板材均价约35元/kg估算,坯料含加工余量约0.48kg,损耗率已含在坯料余量中",
+        "CNC按3轴加工,综合费率约130元/h(含setup);加工工时按几何复杂度经验估算",
+        "表面处理假设为普通阳极氧化(透明/本色),按小批最低收费计;若需硬质阳极氧化或免氧化(裸铝真空件)需修正",
+        "特征清单仅含外形与孔阵,未含'内部真空气路'交叉钻孔;若实际存在内部气路,钻孔/去毛刺/清洗工时需另加",
+        "管理费与利润各按约15%估算",
+        "本次联网检索额度耗尽,价格为经验估算,未含可追溯链接"
+      ],
+      "open_questions": [
+        {
+          "field": "P-002.internal_passage",
+          "reason": "功能描述含'内部真空气路分配',但特征清单未给出气路孔径/路径/交叉深孔,直接影响钻孔与去毛刺/清洗工时及成本",
+          "guess": "可能存在2-4处交叉钻孔,若有则机加工费再增加50-150元"
+        },
+        {
+          "field": "P-002.surface_finish",
+          "reason": "表面处理要求未明确(透明阳极氧化/硬质阳极氧化/裸铝清洗),真空/半导体场景对清洁度与镀层敏感",
+          "guess": "透明阳极氧化或裸铝精密清洗"
+        },
+        {
+          "field": "P-002.flatness_sealing",
+          "reason": "真空密封面常有平面度/粗糙度(Ra)要求,会增加精铣/研磨与检验工时",
+          "guess": "密封面Ra1.6,平面度0.02级"
+        },
+        {
+          "field": "P-002.quantity",
+          "reason": "批量仅1件,工装与setup无法摊薄,单件成本敏感;批量信息影响定价策略",
+          "guess": "原型阶段单件"
+        },
+        {
+          "field": "P-002.cleanliness",
+          "reason": "半导体晶圆搬运件可能要求洁净度/无颗粒清洗/真空烘烤,会增加清洗与包装成本",
+          "guess": "需洁净清洗与真空包装,另加30-80元/件"
+        }
+      ]
+    }
+  }
+}
