@@ -1,0 +1,12 @@
+/* 1.1 技术资料 AI 解析与字段带入状态。 */
+.ai-hint.ai-hint-with-action{align-items:center}
+.ai-hint-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:2px}
+.ai-hint-message{font-weight:500}
+.ai-extract-status{color:#4b6b99;font-size:11px;line-height:1.45}
+.ai-extract-status[data-state="loading"]{color:#2563eb}
+.ai-extract-status[data-state="success"]{color:#059669}
+.ai-extract-status[data-state="error"]{color:#b45309}
+.ai-extract-btn{flex:0 0 auto;padding:8px 12px;border:0;border-radius:7px;background:var(--color-primary);color:#fff;font:600 12px inherit;cursor:pointer;box-shadow:0 2px 6px rgba(59,130,246,.22)}
+.ai-extract-btn:hover:not(:disabled){background:#2563eb}
+.ai-extract-btn:disabled{cursor:wait;opacity:.68}
+@media(max-width:700px){.ai-hint.ai-hint-with-action{align-items:flex-start;flex-wrap:wrap}.ai-extract-btn{width:100%;margin-top:4px}}

@@ -7,7 +7,6 @@
 """
 from __future__ import annotations
 
-import time
 from typing import List, Optional, Tuple
 
 from ..models.cost import WebSource
@@ -15,7 +14,8 @@ from ..models.ir import DesignIR
 from ..models.material import (
     MaterialRecommendation, PowderRequirement, SupplierMatch, SupplyEvaluation,
 )
-from . import claude_client
+from ..time_utils import now_cst_str
+from . import llm_client as claude_client
 
 SYSTEM_PROMPT = """你是资深电子陶瓷 / 封装基板材料工程师。给定一个器件的结构化设计意图
 (零件、材料、特征、尺寸)与可选补充说明,请完成「材料定性与供应链拆解」,输出结构化建议:
@@ -34,7 +34,7 @@ SYSTEM_PROMPT = """你是资深电子陶瓷 / 封装基板材料工程师。给�
 全程用中文填写各字段,调用工具输出结构化 MaterialRecommendation。"""
 
 
-def _context(ir: Optional[DesignIR], note: str) -> str:
+def _context(ir: Optional[DesignIR], note: str, use_web: bool) -> str:
     lines: List[str] = []
     if ir:
         if ir.device_name:
@@ -52,15 +52,22 @@ def _context(ir: Optional[DesignIR], note: str) -> str:
         lines.append("(暂无结构化 IR,请基于补充说明与通用工程经验给出建议,并在 open_questions 标注缺失输入)")
     if note and note.strip():
         lines.append(f"\n【用户补充说明(请优先采用)】\n{note.strip()}")
-    lines.append("\n请先联网检索相关材料特性/行情/供应商公开信息,再输出结构化 MaterialRecommendation。")
+    lines.append(
+        "\n请先联网检索相关材料特性/行情/供应商公开信息,再输出结构化 MaterialRecommendation。"
+        if use_web else "\n请基于上述项目资料与通用工程知识输出结构化 MaterialRecommendation。"
+    )
     return "\n".join(lines)
 
 
 def recommend(
     ir: Optional[DesignIR] = None, note: str = "", web: bool = True,
 ) -> MaterialRecommendation:
-    content = [claude_client.text_block(_context(ir, note))]
-    extra_tools = [claude_client.WEB_SEARCH_TOOL] if web else None
+    use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    content = [
+        claude_client.text_block(_context(ir, note, use_web)),
+        claude_client.text_block(claude_client.web_search_notice(use_web)),
+    ]
+    extra_tools = claude_client.web_search_tools(use_web)
     sources: list = []
     rec = claude_client.run(
         SYSTEM_PROMPT, content, MaterialRecommendation,
@@ -142,5 +149,5 @@ def evaluate(requirements: List[PowderRequirement], suppliers: List[dict]) -> Su
     )
     return SupplyEvaluation(
         requirements=requirements, matches=matches, conclusion=conclusion,
-        evaluated_at=time.strftime("%Y-%m-%d %H:%M:%S"),
+        evaluated_at=now_cst_str(),
     )

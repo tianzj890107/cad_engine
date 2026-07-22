@@ -5,17 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>成本分析 · 硕磐智能图纸解析与生成</title>
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="detail-pages.css?v=20260716-unified3" />
+  <link rel="stylesheet" href="workflow-navigation.css?v=workflow-nav4" />
 </head>
-<body>
-  <header>
+<body class="detail-page">
+  <header class="detail-header">
     <h1>成本分析</h1>
     <span class="subtitle">零件 → 结构化成本拆解(材料/加工/外购/表面/管理/利润)· 联网检索行情 · 可校验/可编辑/可追溯</span>
     <span id="health" class="health"></span>
   </header>
 
-  <main class="proc-main">
-    <a class="proc-back" id="backLink" href="index.html">← 返回工作台</a>
+  <div class="detail-page-container">
+    <section class="detail-workflow-section" aria-label="工艺评估流程">
+      <div class="detail-main-workflow">
+        <div class="detail-step completed"><span class="detail-step-number">1</span><span>接受工艺评估需求</span></div>
+        <i class="detail-connector active"></i>
+        <div class="detail-step completed"><span class="detail-step-number">2</span><span>解析技术工艺过程</span></div>
+        <i class="detail-connector active"></i>
+        <div class="detail-step active"><span class="detail-step-number">3</span><span>输出工艺评估结果</span></div>
+      </div>
+    </section>
 
+    <main class="proc-main">
     <div class="proc-head">
       <span class="pid" id="partId"></span>
       <h2 id="partName">加载中…</h2>
@@ -26,24 +37,26 @@
       <div class="card-h">附加信息(可选,用于生成 / 重新生成)</div>
       <textarea id="extraNote" rows="2"
         placeholder="补充成本相关说明,如:材料改6061铝、批量500、含运费、需阳极氧化、某外购件已知单价…"></textarea>
-      <input type="file" id="extraFiles" multiple
+      <input class="detail-file-input" type="file" id="extraFiles" multiple
         accept="image/*,.txt,.md,.csv,.json,.pdf,.yaml,.yml" />
+      <label class="detail-file-picker" for="extraFiles"><span class="detail-file-button">选择补充文件</span><span class="detail-file-name" id="extraFilesName">未选择文件</span></label>
     </div>
 
     <div id="status" class="status"></div>
     <div id="costArea"></div>
-  </main>
+    </main>
+  </div>
 
   <!-- 底部固定操作条 -->
   <div class="proc-actions">
-    <label class="lbl" style="align-self:center;color:#9fb3c8;font-size:12px">批量</label>
-    <input id="qtyInput" type="number" min="1" value="1"
-      style="width:80px;background:#0b0f14;color:#d7dde3;border:1px solid #2a333d;border-radius:5px;padding:5px" />
-    <button id="btnGen" class="act-sm" style="background:#2f6f4f">💰 生成成本分析</button>
+    <a class="proc-back" id="backLink" href="index.html">← 回到上一步</a>
+    <label class="lbl qty-label" for="qtyInput">批量</label>
+    <input id="qtyInput" class="qty-input" type="number" min="1" value="1" />
+    <button id="btnGen" class="act-sm">💰 生成成本分析</button>
     <button id="btnEdit" class="act-sm" disabled>✏️ 编辑</button>
     <button id="btnSave" class="act-sm save" style="display:none">💾 保存</button>
   </div>
 
-  <script type="module" src="cost.js"></script>
+  <script src="session-guard.js?v=session1"></script><script src="workflow-navigation.js?v=workflow-nav4"></script><script type="module" src="cost.js?v=20260716-ui3"></script><script src="home-link.js?v=home2"></script>
 </body>
 </html>

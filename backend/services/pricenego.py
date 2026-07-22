@@ -11,7 +11,7 @@ from typing import List, Optional
 from ..models.cost import WebSource
 from ..models.ir import DesignIR
 from ..models.pricenego import PriceNegoRecommendation
-from . import claude_client
+from . import llm_client as claude_client
 
 SYSTEM_PROMPT = """你是资深销售/商务经理(高端电子陶瓷报价谈判)。给定定价结果与商务条款,
 请产出**结构化**的价格协商材料:

@@ -1,12 +1,13 @@
 # 一键私有化部署: 应用 + Postgres(元数据) + MinIO(对象存储)。
 #
-#   1) 在本文件同级建 .env, 至少填:  ANTHROPIC_API_KEY=sk-ant-...
+#   1) 在本文件同级建 .env, 填入所选模型提供商的 API Key
 #                                    AUTH_SECRET=<随机长串>
 #   2) docker compose up -d --build
 #   3) 浏览器开 http://localhost:8000  (默认管理员 admin / 见 DEFAULT_ADMIN_PASSWORD)
-#      MinIO 控制台 http://localhost:9001 (minioadmin/minioadmin)
+#      MinIO 控制台 http://localhost:9001 (使用 .env 中的 S3_ACCESS_KEY / S3_SECRET_KEY)
 #
-# 元数据进 Postgres, 二进制进 MinIO —— 应用本身无状态, 可水平扩容(多副本共享同库同桶)。
+# 元数据进 Postgres、二进制进 MinIO；当前 AI/CAD 任务队列在 app 进程内，
+# 因此此 Compose 文件按单 app 实例运行。接入共享任务队列后才能水平扩容。
 
 services:
   db:
@@ -14,7 +15,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: drawings
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-drawings_pwd}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: drawings
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -29,8 +30,8 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
     ports:
       - "9001:9001"          # 控制台(可选, 仅运维查看)
     volumes:
@@ -43,7 +44,7 @@ services:
       - minio
     entrypoint: >
       /bin/sh -c "
-      until /usr/bin/mc alias set local http://minio:9000 ${S3_ACCESS_KEY:-minioadmin} ${S3_SECRET_KEY:-minioadmin}; do
+      until /usr/bin/mc alias set local http://minio:9000 ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env} ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}; do
         echo 'waiting for minio...'; sleep 2;
       done;
       /usr/bin/mc mb -p local/${S3_BUCKET:-drawings} || true;
@@ -61,25 +62,41 @@ services:
     environment:
       # 元数据 -> Postgres
       STORAGE_BACKEND: sql
-      DATABASE_URL: postgresql+psycopg://drawings:${POSTGRES_PASSWORD:-drawings_pwd}@db:5432/drawings
+      DATABASE_URL: postgresql+psycopg://drawings:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/drawings
       # 二进制 -> MinIO
       BLOB_BACKEND: s3
       S3_ENDPOINT_URL: http://minio:9000
       S3_BUCKET: ${S3_BUCKET:-drawings}
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
       S3_REGION: us-east-1
       # 鉴权
       AUTH_ENABLED: "true"
-      AUTH_SECRET: ${AUTH_SECRET:-please-change-me}
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
       DEFAULT_ADMIN_USER: ${DEFAULT_ADMIN_USER:-admin}
-      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-admin123}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:?set DEFAULT_ADMIN_PASSWORD in .env}
       # 模型
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-opus-4-8}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6}
+      OPENAI_PROXY_URL: ${OPENAI_PROXY_URL:-}
+      # Qwen / 百炼（当 LLM_PROVIDER=qwen 时必须传入）
+      QWEN_API_KEY: ${QWEN_API_KEY:-}
+      QWEN_BASE_URL: ${QWEN_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      QWEN_MODEL: ${QWEN_MODEL:-qwen3-vl-flash}
+      QWEN_TEXT_MODEL: ${QWEN_TEXT_MODEL:-qwen-plus}
+      QWEN_VISION_MODELS: ${QWEN_VISION_MODELS:-}
+      QWEN_TEXT_MODELS: ${QWEN_TEXT_MODELS:-}
+      QWEN_PROXY_URL: ${QWEN_PROXY_URL:-}
+      QWEN_ENABLE_THINKING: ${QWEN_ENABLE_THINKING:-false}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-}
       # 本地缓存目录(S3 materialize 落地, 持久化以免重启回源)
       DATA_DIR: /app/data
       TASK_WORKERS: ${TASK_WORKERS:-4}
+      # 当前队列为进程内执行器；compose 按单 app 实例运行。
+      TASK_RECOVER_ON_START: ${TASK_RECOVER_ON_START:-true}
     volumes:
       - appcache:/app/data
     ports:

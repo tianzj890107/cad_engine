@@ -2,7 +2,8 @@
 鉴权与 RBAC(私有化部署底座)。零外部依赖:
   - 口令: pbkdf2_hmac(sha256) 加盐散列,绝不存明文;
   - 令牌: HMAC-SHA256 签名的自包含 token(sub/role/exp),无需服务端会话表;
-  - 角色: viewer(只读) / engineer(建模改参) / reviewer(校核审签) / admin(全权+用户管理)。
+  - 角色: viewer(只读) / engineer(工艺工程师) / process_manager(工艺技术经理)
+    / process_director(工艺技术总监) / admin(全权+用户管理)。
 
 鉴权默认关闭(config.AUTH_ENABLED=false),此时上层注入隐式 system/admin —— 现有
 本地流程零改动。开启后由 main.py 的依赖在 /api 层校验令牌并按角色放行。
@@ -13,6 +14,7 @@ import base64
 import hashlib
 import hmac
 import json
+import secrets
 import time
 from typing import Optional
 
@@ -22,12 +24,22 @@ from ..config import (
     DEFAULT_ADMIN_USER,
     TOKEN_TTL_HOURS,
 )
+from ..time_utils import now_cst_str
 
-ROLES = ("viewer", "engineer", "reviewer", "admin")
-ROLE_LABEL = {"viewer": "只读", "engineer": "工程师", "reviewer": "校核/审签", "admin": "管理员"}
+ROLES = ("viewer", "engineer", "process_manager", "reviewer", "process_director", "admin")
+ROLE_LABEL = {
+    "viewer": "只读用户",
+    "engineer": "工艺工程师",
+    "process_manager": "工艺技术经理",
+    "reviewer": "校核人员（历史角色）",
+    "process_director": "工艺技术总监",
+    "admin": "系统管理员",
+}
 
-WRITE_ROLES = {"engineer", "admin"}      # 建模/改参/生成
-REVIEW_ROLES = {"reviewer", "admin"}     # 审签通过/驳回
+WRITE_ROLES = {"engineer", "process_manager", "admin"}  # 建模/改参/生成
+MANAGER_ROLES = {"process_manager", "admin"}               # 需求与评估报告主责
+REVIEW_ROLES = {"reviewer", "process_director", "admin"}  # 通用校核
+DIRECTOR_ROLES = {"process_director", "admin"}              # 需求/评估报告终审
 ADMIN_ROLES = {"admin"}
 
 # 鉴权关闭时使用的隐式用户(保持旧行为)
@@ -104,7 +116,7 @@ def make_user(username: str, password: str, role: str, display_name: str = "") -
         "role": role,
         "display_name": display_name or username,
         "password_hash": hash_password(password),
-        "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "created_at": now_cst_str(),
     }
 
 
@@ -114,6 +126,9 @@ def public_user(u: dict) -> dict:
         "username": u.get("username"),
         "role": u.get("role"),
         "display_name": u.get("display_name") or u.get("username"),
+        "requested_role": u.get("requested_role") or u.get("role"),
+        "created_at": u.get("created_at"),
+        "is_system": bool(u.get("is_system")),
     }
 
 
@@ -123,6 +138,25 @@ def ensure_default_admin(store) -> None:
         return
     u = make_user(DEFAULT_ADMIN_USER, DEFAULT_ADMIN_PASSWORD, "admin", "默认管理员")
     store.save_user(u["username"], u)
+
+
+def ensure_system_user(store) -> None:
+    """为历史导入项目保留一个不可登录的归档归属账号。"""
+    if store.get_user("system"):
+        return
+    u = make_user("system", secrets.token_urlsafe(32), "viewer", "system")
+    u["is_system"] = True
+    store.save_user("system", u)
+
+
+def can_edit_project(user: dict, project_meta: dict) -> bool:
+    """项目写入权：经理/管理员可管理全部；工程师只能管理本人创建的项目。"""
+    role = (user or {}).get("role")
+    if role in {"admin", "process_manager"}:
+        return True
+    if role != "engineer":
+        return False
+    return bool(user.get("username")) and user.get("username") == (project_meta or {}).get("owner", "system")
 
 
 # --------------------------------------------------------------------------- #

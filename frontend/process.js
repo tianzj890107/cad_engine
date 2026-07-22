@@ -38,6 +38,11 @@ let plan = null;       // 当前工艺路线
 let validation = null;
 let editing = false;
 
+$("extraFiles").addEventListener("change", () => {
+  const names = [...$("extraFiles").files].map(file => file.name);
+  $("extraFilesName").textContent = names.length ? names.join("、") : "未选择文件";
+});
+
 async function init() {
   try {
     await fetch(`${API}/api/health`).then(r => r.json());
@@ -79,7 +84,7 @@ async function loadPlan() {
     status("已加载工艺路线。可「编辑」改参后保存,或「重新生成」。");
   } else {
     $("planArea").innerHTML = `<div class="proc-summary"><div class="row">` +
-      `尚未生成工艺拆解。点击「⚙️ 生成工艺拆解」,由 Claude 依据该零件的特征/材料/尺寸` +
+      `尚未生成工艺拆解。点击「⚙️ 生成工艺拆解」,由 AI 依据该零件的特征/材料/尺寸` +
       `编制结构化加工工艺路线。</div></div>`;
     status("尚未生成工艺路线。");
   }
@@ -94,7 +99,7 @@ function extraForm() {
 
 $("btnGen").onclick = async () => {
   $("btnGen").disabled = true;
-  status("已提交工艺拆解任务,Claude 正在编制工艺路线…", true);
+  status("已提交工艺拆解任务，AI 正在编制工艺路线…", true);
   try {
     const sub = await fetch(`${API}/api/projects/${PID}/parts/${PART}/process`,
       { method: "POST", body: extraForm() });

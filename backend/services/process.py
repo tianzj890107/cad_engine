@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple
 
 from ..models.ir import DesignIR, Part
 from ..models.process import ProcessPlan
-from . import claude_client
+from . import llm_client as claude_client
 
 SYSTEM_PROMPT = """你是资深机械加工工艺工程师(工艺规程编制 / CAPP)。给定一个零件的结构化设计意图
 (特征、材料、尺寸、公差、装配角色),请编制其**机械加工工艺路线**,拆解为有序工序步骤。

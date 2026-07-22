@@ -12,16 +12,19 @@ DATA_DIR/<id>/ 下,两后端通用 —— 即"结构化元数据进 DB,二进制
 from __future__ import annotations
 
 import json
+import os
 import threading
-import time
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from ..time_utils import now_cst_str
 
 _DOC_KINDS = ("ir", "geometry", "drawings", "versions")
 
 
 def _now() -> str:
-    return time.strftime("%Y-%m-%d %H:%M:%S")
+    return now_cst_str()
 
 
 # --------------------------------------------------------------------------- #
@@ -46,6 +49,9 @@ class MetaBackend:
 class JsonMetaBackend(MetaBackend):
     def __init__(self, data_dir: Path):
         self.data_dir = data_dir
+        # 文件后端常用于单机部署；请求线程与异步任务会同时读写项目文档。
+        # RLock 既避免审计追加丢失，也允许同一高层操作内部复用 _read/_write。
+        self._lock = threading.RLock()
 
     def _dir(self, pid: str) -> Path:
         d = self.data_dir / pid
@@ -55,58 +61,84 @@ class JsonMetaBackend(MetaBackend):
     def _read(self, path: Path) -> Optional[dict]:
         if not path.exists():
             return None
-        return json.loads(path.read_text(encoding="utf-8"))
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"本地数据文件损坏，无法读取：{path.name}") from exc
 
     def _write(self, path: Path, data) -> None:
-        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        """原子替换 JSON，防止进程中断留下半个文件。"""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(data, ensure_ascii=False, indent=2)
+        fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(payload)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temporary_name, path)
+        finally:
+            # os.replace 成功后临时文件已不存在；异常时才需要清理。
+            if os.path.exists(temporary_name):
+                os.unlink(temporary_name)
 
     def get_meta(self, pid: str) -> Optional[dict]:
-        return self._read(self.data_dir / pid / "meta.json")
+        with self._lock:
+            return self._read(self.data_dir / pid / "meta.json")
 
     def put_meta(self, pid: str, meta: dict) -> None:
-        self._write(self._dir(pid) / "meta.json", meta)
+        with self._lock:
+            self._write(self._dir(pid) / "meta.json", meta)
 
     def get_doc(self, pid: str, kind: str) -> Optional[dict]:
-        return self._read(self.data_dir / pid / f"{kind}.json")
+        with self._lock:
+            return self._read(self.data_dir / pid / f"{kind}.json")
 
     def put_doc(self, pid: str, kind: str, data: dict) -> None:
-        self._write(self._dir(pid) / f"{kind}.json", data)
+        with self._lock:
+            self._write(self._dir(pid) / f"{kind}.json", data)
 
     def list_metas(self) -> List[dict]:
-        out: List[dict] = []
-        if not self.data_dir.exists():
+        with self._lock:
+            out: List[dict] = []
+            if not self.data_dir.exists():
+                return out
+            for d in sorted(self.data_dir.iterdir(), reverse=True):
+                if d.is_dir():
+                    meta = self._read(d / "meta.json")
+                    if meta:
+                        out.append(meta)
             return out
-        for d in sorted(self.data_dir.iterdir(), reverse=True):
-            if d.is_dir():
-                meta = self._read(d / "meta.json")
-                if meta:
-                    out.append(meta)
-        return out
 
     def append_audit(self, pid: str, entry: dict) -> None:
-        path = self._dir(pid) / "audit.json"
-        log = self._read(path) or []
-        log.append(entry)
-        self._write(path, log)
+        with self._lock:
+            path = self._dir(pid) / "audit.json"
+            log = self._read(path) or []
+            log.append(entry)
+            self._write(path, log)
 
     def list_audit(self, pid: str) -> List[dict]:
-        return self._read(self.data_dir / pid / "audit.json") or []
+        with self._lock:
+            return self._read(self.data_dir / pid / "audit.json") or []
 
     # 用户(集中存于 data_dir/_auth_users.json: {username: record})
     def _users_path(self) -> Path:
         return self.data_dir / "_auth_users.json"
 
     def get_user(self, username: str) -> Optional[dict]:
-        return (self._read(self._users_path()) or {}).get(username)
+        with self._lock:
+            return (self._read(self._users_path()) or {}).get(username)
 
     def put_user(self, username: str, data: dict) -> None:
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        users = self._read(self._users_path()) or {}
-        users[username] = data
-        self._write(self._users_path(), users)
+        with self._lock:
+            self.data_dir.mkdir(parents=True, exist_ok=True)
+            users = self._read(self._users_path()) or {}
+            users[username] = data
+            self._write(self._users_path(), users)
 
     def list_users(self) -> List[dict]:
-        return list((self._read(self._users_path()) or {}).values())
+        with self._lock:
+            return list((self._read(self._users_path()) or {}).values())
 
 
 # --------------------------------------------------------------------------- #

@@ -1,0 +1,31 @@
+# 公司内网单机部署：保留现有 data/ 中的项目、用户、图纸和完整留痕。
+# 启动：docker compose -f docker-compose.intranet.yml up -d --build
+services:
+  app:
+    image: cad-engine:20260722
+    build:
+      context: .
+      args:
+        INSTALL_SYSTEM_DEPS: ${INSTALL_SYSTEM_DEPS:-true}
+    container_name: cad-engine
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # 使用迁移来的原始文件库，避免将现有 JSON 项目/审计记录转换为空数据库。
+      STORAGE_BACKEND: file
+      BLOB_BACKEND: local
+      DATA_DIR: /app/data
+      AUTH_ENABLED: "true"
+      TASK_RECOVER_ON_START: "true"
+      # 源码挂载时避免 Python 在宿主机目录写入 __pycache__。
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./data:/app/data
+      # 增量演示模式：前端修改刷新页面即可生效；后端 Python 修改后仅重启 app 容器。
+      - ./backend:/app/backend:ro
+      - ./frontend:/app/frontend:ro
+      - ./apps:/app/apps:ro
+    ports:
+      # 公司服务器对外使用 8002：8000 预留，8001 已被服务器既有服务占用。
+      - "8002:8000"

@@ -14,9 +14,9 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # --------------------------------------------------------------------------- #
@@ -51,6 +51,26 @@ class Feature(BaseModel):
     spacing_y: Optional[float] = Field(None, description="孔阵列 Y 方向间距 mm")
     purpose: Optional[str] = Field(None, description="该特征的用途说明，如 'M8 安装孔'")
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_base_feature_dimensions(cls, value):
+        """兼容视觉模型常用的轴向尺寸命名，且只使用它已给出的数值。
+
+        圆柱的轴向尺寸经常被写成 length，而 CAD 内核的 cylinder 原语使用
+        height；长方体的 thickness 也常表示竖向厚度。这两种映射不改变尺寸含义。
+        """
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+        feature_type = str(data.get("type") or "").strip().lower()
+        if feature_type == FeatureType.cylinder.value:
+            if data.get("height") is None and data.get("length") is not None:
+                data["height"] = data["length"]
+        elif feature_type == FeatureType.box.value:
+            if data.get("height") is None and data.get("thickness") is not None:
+                data["height"] = data["thickness"]
+        return data
+
 
 # --------------------------------------------------------------------------- #
 # 材料 / 公差
@@ -58,6 +78,23 @@ class Feature(BaseModel):
 class Material(BaseModel):
     spec: str = Field(..., description="材料牌号，如 Q235 / 6061-T6 / 304")
     density: Optional[float] = Field(None, description="密度 g/cm^3，用于估算质量")
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_common_model_keys(cls, value):
+        """兼容模型常见的 name/grade/material_spec 写法，不臆造材料信息。"""
+        if isinstance(value, str):
+            return {"spec": value}
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+        if not str(data.get("spec") or "").strip():
+            for key in ("grade", "material_spec", "name"):
+                candidate = data.get(key)
+                if isinstance(candidate, str) and candidate.strip():
+                    data["spec"] = candidate.strip()
+                    break
+        return data
 
 
 class Provenance(BaseModel):
@@ -67,6 +104,14 @@ class Provenance(BaseModel):
     )
     note: Optional[str] = Field(None, description="依据的标注/视图说明")
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_plain_note(cls, value):
+        """模型有时直接给出处说明文本；它等价于 note，不应使整份 IR 失效。"""
+        if isinstance(value, str):
+            return {"note": value.strip()} if value.strip() else None
+        return value
+
 
 # --------------------------------------------------------------------------- #
 # 零件
@@ -74,6 +119,18 @@ class Provenance(BaseModel):
 class Part(BaseModel):
     part_id: str = Field(..., description="零件唯一编号，如 P-001")
     name: str = Field(..., description="零件名称")
+    model_no: Optional[str] = Field(
+        None, description="图纸/BOM/技术资料中明确出现的制造商型号或料号；不确定时留空"
+    )
+    manufacturer: Optional[str] = Field(
+        None, description="经型号核验确认的制造商；无可靠公开证据时留空"
+    )
+    model_specification: Optional[str] = Field(
+        None, description="经型号核验得到的公开规格摘要；用于 BOM 与工艺评估留痕"
+    )
+    model_lookup_evidence: Optional[str] = Field(
+        None, description="型号联网核验的简要证据；完整来源保存在型号核验记录中"
+    )
     role: Optional[str] = Field(None, description="在装配中的角色/功能")
     features: List[Feature] = Field(
         default_factory=list, description="构成该零件的特征列表(按建模顺序)"
@@ -95,6 +152,20 @@ class Part(BaseModel):
         None, description="对该零件的生成/复用建议(平台拆解推荐结果)"
     )
 
+    @field_validator("material", mode="before")
+    @classmethod
+    def empty_material_means_unknown(cls, value):
+        """空材料对象没有可用工程信息，按未知处理而不是让整份 IR 失败。"""
+        if isinstance(value, str):
+            return value.strip() or None
+        if isinstance(value, dict):
+            if not any(
+                isinstance(value.get(key), str) and value.get(key).strip()
+                for key in ("spec", "grade", "material_spec", "name")
+            ):
+                return None
+        return value
+
 
 # --------------------------------------------------------------------------- #
 # 总成 / 部件(层级结构树的中间节点)
@@ -113,18 +184,76 @@ class Assembly(BaseModel):
 # 标准件
 # --------------------------------------------------------------------------- #
 class StandardPart(BaseModel):
-    spec: str = Field(..., description="标准件规格，如 'GB/T 5783 M8x25'")
+    spec: str = Field("待确认规格", description="标准件规格，如 'GB/T 5783 M8x25'")
     category: Optional[str] = Field(None, description="类别: bolt/nut/washer/bearing...")
     quantity: int = Field(1, description="数量")
+    model_no: Optional[str] = Field(None, description="外购件型号或料号")
+    manufacturer: Optional[str] = Field(None, description="经型号核验确认的制造商")
+    model_specification: Optional[str] = Field(None, description="经型号核验得到的公开规格摘要")
+    model_lookup_evidence: Optional[str] = Field(None, description="型号联网核验证据摘要")
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_common_model_keys(cls, value):
+        """兼容 name/model/type 等常见写法；规格未知时保留为待确认而不中断整份 IR。"""
+        if isinstance(value, str):
+            return {"spec": value}
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+        if not str(data.get("spec") or "").strip():
+            for key in ("name", "model", "part_number", "standard", "designation", "type"):
+                candidate = data.get(key)
+                if isinstance(candidate, str) and candidate.strip():
+                    data["spec"] = candidate.strip()
+                    break
+        if not str(data.get("spec") or "").strip():
+            kind = data.get("category") or data.get("kind")
+            size = data.get("size") or data.get("dimension")
+            if isinstance(kind, str) and kind.strip() and isinstance(size, str) and size.strip():
+                data["spec"] = f"{kind.strip()} {size.strip()}"
+            elif isinstance(kind, str) and kind.strip():
+                data["spec"] = kind.strip()
+            else:
+                # 删除空值，让默认“待确认规格”生效，而不是以空字符串污染 BOM。
+                data.pop("spec", None)
+        return data
 
 
 # --------------------------------------------------------------------------- #
 # 待澄清问题(置信度不足、标注模糊时由大模型提出，交人工)
 # --------------------------------------------------------------------------- #
 class OpenQuestion(BaseModel):
-    field: str = Field(..., description="涉及的字段，如 'P-001.thickness'")
-    reason: str = Field(..., description="为何不确定")
+    field: str = Field("待确认项", description="涉及的字段，如 'P-001.thickness'")
+    reason: str = Field("需人工确认", description="为何不确定")
     guess: Optional[str] = Field(None, description="模型的最佳猜测")
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_common_model_keys(cls, value):
+        """把模型偶尔给出的纯文本问题转换为可展示、可追踪的结构。"""
+        if isinstance(value, str):
+            return {"field": "待确认项", "reason": value.strip() or "需人工确认"}
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+        if not str(data.get("field") or "").strip():
+            for key in ("item", "target", "name", "parameter"):
+                candidate = data.get(key)
+                if isinstance(candidate, str) and candidate.strip():
+                    data["field"] = candidate.strip()
+                    break
+        if not str(data.get("reason") or "").strip():
+            for key in ("question", "description", "text", "message", "content"):
+                candidate = data.get(key)
+                if isinstance(candidate, str) and candidate.strip():
+                    data["reason"] = candidate.strip()
+                    break
+        if not str(data.get("field") or "").strip():
+            data.pop("field", None)
+        if not str(data.get("reason") or "").strip():
+            data.pop("reason", None)
+        return data
 
 
 # --------------------------------------------------------------------------- #
@@ -150,3 +279,26 @@ class DesignIR(BaseModel):
     open_questions: List[OpenQuestion] = Field(
         default_factory=list, description="需人工澄清的问题"
     )
+
+    @field_validator("overall_dims", mode="before")
+    @classmethod
+    def normalize_overall_dims(cls, value: Any):
+        """兼容模型输出的 length/width/height 对象，统一成界面使用的尺寸字符串。"""
+        if value is None or isinstance(value, str):
+            return value
+        if isinstance(value, dict):
+            data = dict(value)
+            unit = data.get("unit") if isinstance(data.get("unit"), str) else "mm"
+            ordered = (("length", "长"), ("width", "宽"), ("height", "高"), ("depth", "深"))
+            dimensions = [data[key] for key, _label in ordered if data.get(key) is not None]
+            if dimensions:
+                return " × ".join(str(item) for item in dimensions) + f" {unit}"
+            pairs = [
+                f"{key}={item}"
+                for key, item in data.items()
+                if key != "unit" and item not in (None, "")
+            ]
+            return "；".join(pairs) if pairs else None
+        if isinstance(value, (list, tuple)):
+            return " × ".join(str(item) for item in value) + " mm"
+        return str(value)

@@ -12,7 +12,7 @@ from typing import List, Optional
 from ..models.assembly import AssemblyRecommendation
 from ..models.cost import WebSource
 from ..models.ir import DesignIR
-from . import claude_client
+from . import llm_client as claude_client
 
 SYSTEM_PROMPT = """你是资深电子陶瓷封装的组装与可靠性检测工程师。给定器件设计意图、已确定的
 材料方案(陶瓷主体/金属化)与制造工艺,请制定结构化的「组装与检测方案」:
@@ -33,7 +33,7 @@ SYSTEM_PROMPT = """你是资深电子陶瓷封装的组装与可靠性检测工�
 
 
 def _context(ir: Optional[DesignIR], material_plan: Optional[dict],
-             manufacturing_plan: Optional[dict], note: str) -> str:
+             manufacturing_plan: Optional[dict], note: str, use_web: bool) -> str:
     lines: List[str] = []
     if ir and ir.device_name:
         lines.append(f"器件/设备名称: {ir.device_name}")
@@ -57,7 +57,10 @@ def _context(ir: Optional[DesignIR], material_plan: Optional[dict],
         lines.append("(暂无结构化输入,请基于补充说明与通用工程经验给出方案,并在 open_questions 标注缺失输入)")
     if note and note.strip():
         lines.append(f"\n【用户补充说明(请优先采用)】\n{note.strip()}")
-    lines.append("\n请先联网检索相关焊料/胶粘剂/测试标准,再输出结构化 AssemblyRecommendation。")
+    lines.append(
+        "\n请先联网检索相关焊料/胶粘剂/测试标准,再输出结构化 AssemblyRecommendation。"
+        if use_web else "\n请基于上述项目资料与通用工程知识输出结构化 AssemblyRecommendation。"
+    )
     return "\n".join(lines)
 
 
@@ -65,8 +68,12 @@ def recommend(
     ir: Optional[DesignIR] = None, material_plan: Optional[dict] = None,
     manufacturing_plan: Optional[dict] = None, note: str = "", web: bool = True,
 ) -> AssemblyRecommendation:
-    content = [claude_client.text_block(_context(ir, material_plan, manufacturing_plan, note))]
-    extra_tools = [claude_client.WEB_SEARCH_TOOL] if web else None
+    use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    content = [
+        claude_client.text_block(_context(ir, material_plan, manufacturing_plan, note, use_web)),
+        claude_client.text_block(claude_client.web_search_notice(use_web)),
+    ]
+    extra_tools = claude_client.web_search_tools(use_web)
     sources: list = []
     rec = claude_client.run(
         SYSTEM_PROMPT, content, AssemblyRecommendation,

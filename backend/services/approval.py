@@ -11,7 +11,7 @@ from typing import List, Optional
 from ..models.approval import ApprovalNode, ApprovalRecommendation, LEVEL_ROLES
 from ..models.cost import WebSource
 from ..models.ir import DesignIR
-from . import claude_client
+from . import llm_client as claude_client
 
 SYSTEM_PROMPT = """你是高端电子陶瓷企业的报价管控负责人。给定该报价的定价方案与价格协商结果,
 请**研判应走的内部审批级别**(分级审批):

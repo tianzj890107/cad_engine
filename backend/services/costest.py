@@ -14,7 +14,7 @@ from typing import List, Optional
 from ..models.cost import WebSource
 from ..models.costest import CostEstimateRecommendation, CostTotals
 from ..models.ir import DesignIR
-from . import claude_client
+from . import llm_client as claude_client
 
 SYSTEM_PROMPT = """你是资深应成本/报价工程师(电子陶瓷/先进封装)。给定器件设计意图、材料方案、
 制造工艺路径与 BOM,请做**专业的成本测算**,输出结构化明细:

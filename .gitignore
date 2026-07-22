@@ -9,6 +9,11 @@ Thumbs.db
 # 日志和临时文件
 *.log
 *.tmp
+__pycache__/
+*.py[cod]
+.pytest_cache/
+# 运行时图纸、模型、审计与本地账户数据不进入源码仓库。
+data/
 
 # 环境变量 / 密钥(重要!)
 .env

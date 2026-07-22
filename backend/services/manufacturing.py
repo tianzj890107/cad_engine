@@ -14,7 +14,7 @@ from typing import List, Optional
 from ..models.cost import WebSource
 from ..models.ir import DesignIR
 from ..models.manufacturing import ManufacturingRecommendation
-from . import claude_client
+from . import llm_client as claude_client
 
 SYSTEM_PROMPT = """你是资深电子陶瓷 / 先进封装制造工艺工程师。给定器件的结构化设计意图与
 已确定的材料方案,请完成「制造工艺路径规划和 BOM 编制」,输出结构化建议:
@@ -34,7 +34,7 @@ SYSTEM_PROMPT = """你是资深电子陶瓷 / 先进封装制造工艺工程师�
 全程用中文,调用工具输出结构化 ManufacturingRecommendation。"""
 
 
-def _context(ir: Optional[DesignIR], material_plan: Optional[dict], note: str) -> str:
+def _context(ir: Optional[DesignIR], material_plan: Optional[dict], note: str, use_web: bool) -> str:
     lines: List[str] = []
     if ir:
         if ir.device_name:
@@ -72,7 +72,10 @@ def _context(ir: Optional[DesignIR], material_plan: Optional[dict], note: str) -
         lines.append("(暂无结构化输入,请基于补充说明与通用工程经验给出建议,并在 open_questions 标注缺失输入)")
     if note and note.strip():
         lines.append(f"\n【用户补充说明(请优先采用)】\n{note.strip()}")
-    lines.append("\n请先联网检索相关工艺/设备/参数,再输出结构化 ManufacturingRecommendation。")
+    lines.append(
+        "\n请先联网检索相关工艺/设备/参数,再输出结构化 ManufacturingRecommendation。"
+        if use_web else "\n请基于上述项目资料与通用工程知识输出结构化 ManufacturingRecommendation。"
+    )
     return "\n".join(lines)
 
 
@@ -80,8 +83,12 @@ def recommend(
     ir: Optional[DesignIR] = None, material_plan: Optional[dict] = None,
     note: str = "", web: bool = True,
 ) -> ManufacturingRecommendation:
-    content = [claude_client.text_block(_context(ir, material_plan, note))]
-    extra_tools = [claude_client.WEB_SEARCH_TOOL] if web else None
+    use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    content = [
+        claude_client.text_block(_context(ir, material_plan, note, use_web)),
+        claude_client.text_block(claude_client.web_search_notice(use_web)),
+    ]
+    extra_tools = claude_client.web_search_tools(use_web)
     sources: list = []
     rec = claude_client.run(
         SYSTEM_PROMPT, content, ManufacturingRecommendation,

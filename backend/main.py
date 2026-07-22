@@ -8,17 +8,27 @@ FastAPI 应用: 图纸解析与生成平台后端。
 """
 from __future__ import annotations
 
-from typing import List
+import json
+import re
+import threading
+import time
+from typing import List, Optional
 
 from fastapi import (
     Body, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
-from .config import AUTH_ENABLED, CLAUDE_MODEL, ROOT_DIR
+from .config import (
+    AUTH_ENABLED, CORS_ALLOW_ORIGINS, LLM_PROVIDER, LOGIN_MAX_ATTEMPTS,
+    LOGIN_WINDOW_SECONDS, MAX_UPLOAD_BYTES, ROOT_DIR,
+    QWEN_MODEL, QWEN_TEXT_MODEL, DEFAULT_ADMIN_USER, DEFAULT_ADMIN_PASSWORD,
+    AUTH_SECRET, TASK_RECOVER_ON_START,
+    active_model, active_text_model,
+)
 from .models.assembly import AssemblyPlan
 from .models.approval import QuoteApproval
 from .models.cleaning import CleaningPlan
@@ -27,20 +37,26 @@ from .models.costest import CostEstimate
 from .models.negotiation import NegotiationPlan
 from .models.pricenego import PriceNegotiation
 from .models.pricing import PricingPlan
-from .models.ir import DesignIR
+from .models.ir import DesignIR, Material
 from .models.manufacturing import ManufacturingPlan
 from .models.material import MaterialPlan, Supplier
+from .models.model_lookup import ModelLookupResult
 from .models.process import ProcessPlan
 from .models.production import EquipmentResource, ProductionPlan
 from .models.summary import SummaryDoc
 from .models.techprocess import TechProcessRecord
+from .models.workflow import (
+    ProcessReport, PublishAction, RequirementDoc, RequirementDocumentExtraction,
+    WorkflowAction, WorkflowReview,
+)
 from .services import (
     approval as approval_svc, assembly, auth, bom, cleaning, cost, costest, decompose,
     drawing2d, geometry, manufacturing, material, negotiation, pricenego, pricing,
-    process, production, step_import, summary as summary_svc, tasks, tree, versioning,
-    vision,
+    process, production, requirement_extract, step_import, summary as summary_svc, tasks, tree,
+    versioning, vision, qwen_client, llm_client, model_lookup,
 )
 from .storage import store
+from .time_utils import now_cst_str
 
 
 class ReviewAction(BaseModel):
@@ -59,11 +75,121 @@ class NewUser(BaseModel):
     display_name: str = ""
 
 
+class RegisterBody(BaseModel):
+    username: str = Field(min_length=3, max_length=40)
+    password: str = Field(min_length=8, max_length=128)
+    display_name: str = Field(default="", max_length=60)
+    requested_role: str = "viewer"
+
+
+class UpdateMyProfile(BaseModel):
+    display_name: str = Field(default="", max_length=60)
+    current_password: str = Field(default="", max_length=128)
+    new_password: str = Field(default="", max_length=128)
+
+
+class UpdateUserRole(BaseModel):
+    role: str
+
+
+class RuntimeLlmSettingsBody(BaseModel):
+    """管理员在首页调整 Qwen 模型池；API Key 仅允许写入，绝不回显。"""
+    api_key: str = Field(default="", max_length=512)
+    base_url: str = Field(default="", max_length=500)
+    vision_models: List[str] = Field(default_factory=list, max_length=20)
+    text_models: List[str] = Field(default_factory=list, max_length=20)
+    web_search_models: List[str] = Field(default_factory=list, max_length=20)
+
+
+class ProjectManageBody(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class RequirementAiCheckItem(BaseModel):
+    """Qwen 对确认表单中单项的结论；服务端会再规整为固定检查清单。"""
+    item: str = ""
+    status: str = "need_info"
+    detail: str = ""
+
+
+class RequirementAiCheckResult(BaseModel):
+    """手动 AI 检查的最小输出契约，刻意保持简短以控制 token 成本。"""
+    summary: str = ""
+    items: List[RequirementAiCheckItem] = Field(default_factory=list)
+
+
+class WorkbenchChatTurn(BaseModel):
+    role: str = "user"
+    content: str = Field(default="", max_length=1600)
+
+
+class WorkbenchChatRequest(BaseModel):
+    """2.1 工作台的文字对话请求；项目图纸本身不会被重新发送给视觉模型。"""
+    message: str = Field(min_length=1, max_length=1600)
+    part_id: str = Field(default="", max_length=120)
+    history: List[WorkbenchChatTurn] = Field(default_factory=list, max_length=6)
+
+
+class WorkbenchFeatureEdit(BaseModel):
+    feature_index: int = Field(ge=0, le=100)
+    field: str = Field(min_length=1, max_length=40)
+    value: float
+
+
+class WorkbenchPartEdit(BaseModel):
+    """AI 对话可提出的受控零件修改；服务端仍按特征类型二次校验。"""
+    should_apply: bool = False
+    name: Optional[str] = Field(default=None, max_length=160)
+    quantity: Optional[int] = Field(default=None, ge=1, le=100000)
+    material_spec: Optional[str] = Field(default=None, max_length=160)
+    feature_updates: List[WorkbenchFeatureEdit] = Field(default_factory=list, max_length=30)
+    explanation: str = Field(default="", max_length=1000)
+
+    @field_validator("feature_updates", mode="before")
+    @classmethod
+    def normalize_text_feature_updates(cls, value):
+        # 模型偶尔用一句话概括修改，不允许把它猜测成数值更新；保留说明而不执行。
+        return value if isinstance(value, list) else []
+
+
+class WorkbenchChatAnswer(BaseModel):
+    answer: str = Field(min_length=1, max_length=4000)
+    edit: Optional[WorkbenchPartEdit] = None
+
+    @field_validator("edit", mode="before")
+    @classmethod
+    def normalize_text_edit(cls, value):
+        if isinstance(value, str):
+            return {"should_apply": False, "explanation": value[:1000]}
+        return value
+
+
+class ModelLookupConfirmation(BaseModel):
+    candidate_model: str = Field(min_length=1, max_length=80)
+    decision: str = Field(pattern="^(confirmed|rejected)$")
+    note: str = Field(default="", max_length=600)
+
+
 # --------------------------------------------------------------------------- #
 # 鉴权: app 级依赖在 /api 层校验令牌(放行 health/login 与静态前端);
 # 关闭鉴权时注入隐式 system/admin,保持旧行为。
 # --------------------------------------------------------------------------- #
-_PUBLIC_PATHS = {"/api/health", "/api/login"}
+_PUBLIC_PATHS = {"/api/health", "/api/login", "/api/register"}
+_PROJECT_ID_PATTERN = re.compile(r"^[0-9a-f]{12}$")
+_login_lock = threading.Lock()
+_login_attempts: dict[str, list[float]] = {}
+
+
+def _valid_project_path(path: str) -> bool:
+    """只允许系统生成的 12 位十六进制项目 ID，阻断本地文件后端路径穿越。"""
+    prefix = "/api/projects/"
+    if not path.startswith(prefix):
+        return True
+    first_segment = path[len(prefix):].split("/", 1)[0]
+    if not first_segment:  # 保留 FastAPI 对 /api/projects/ 的标准重定向行为
+        return True
+    # /api/projects/3d 是创建 3D 项目的固定路由，不是项目 ID。
+    return first_segment == "3d" or bool(_PROJECT_ID_PATTERN.fullmatch(first_segment))
 
 
 async def auth_guard(request: Request):
@@ -90,38 +216,164 @@ def current_user(request: Request) -> dict:
     return getattr(request.state, "user", auth.SYSTEM_USER)
 
 
+async def project_write_guard(request: Request):
+    """工程师的项目写操作必须属于本人；经理和管理员可跨项目管理。"""
+    if request.method not in {"POST", "PUT", "PATCH", "DELETE"}:
+        return
+    match = re.match(r"^/api/projects/([0-9a-f]{12})(?:/|$)", request.url.path)
+    if not match:
+        return
+    user = current_user(request)
+    # 只在工程师角色做“本人项目”限制；总监等角色仍交由具体业务接口授权。
+    if user.get("role") != "engineer":
+        return
+    project_id = match.group(1)
+    meta = store.load_meta(project_id)
+    if not meta or meta.get("deleted_at"):
+        raise HTTPException(404, "项目不存在")
+    if not auth.can_edit_project(user, meta):
+        raise HTTPException(403, "工艺工程师只能修改本人创建的项目")
+
+
 def _require(user: dict, allowed: set, msg: str) -> None:
     if (user or {}).get("role") not in allowed:
         raise HTTPException(403, msg)
 
 
-app = FastAPI(title="图纸解析与生成平台", version="0.1.0", dependencies=[Depends(auth_guard)])
+def _login_client_key(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+def _check_login_rate(request: Request) -> None:
+    key, now = _login_client_key(request), time.monotonic()
+    with _login_lock:
+        recent = [at for at in _login_attempts.get(key, []) if now - at < LOGIN_WINDOW_SECONDS]
+        _login_attempts[key] = recent
+        if len(recent) >= LOGIN_MAX_ATTEMPTS:
+            raise HTTPException(429, "登录尝试过于频繁，请稍后再试")
+
+
+def _record_login_attempt(request: Request, success: bool) -> None:
+    key = _login_client_key(request)
+    with _login_lock:
+        if success:
+            _login_attempts.pop(key, None)
+        else:
+            _login_attempts.setdefault(key, []).append(time.monotonic())
+
+
+app = FastAPI(
+    title="图纸解析与生成平台",
+    version="0.1.0",
+    dependencies=[Depends(auth_guard), Depends(project_write_guard)],
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=list(CORS_ALLOW_ORIGINS),
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
+@app.middleware("http")
+async def project_id_guard(request: Request, call_next):
+    if not _valid_project_path(request.url.path):
+        return JSONResponse(status_code=404, content={"detail": "项目不存在"})
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def response_hardening(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    # 认证响应与动态页面不得被浏览器/代理复用；静态资源也使用 no-cache，
+    # 避免多页面手写版本号遗漏时发生“代码已更新但页面仍是旧版”。
+    path = request.url.path
+    if path.startswith("/api/") or path.endswith((".html", ".js", ".css")):
+        response.headers.setdefault("Cache-Control", "no-cache, no-store, must-revalidate")
+    return response
+
+
 @app.on_event("startup")
-def _seed_admin():
+def _startup_housekeeping():
     if AUTH_ENABLED:
+        # Do not silently expose an authenticated deployment with the source-code
+        # fallback secret. Existing installations with a custom secret keep their
+        # original behaviour; new deployments get a clear, actionable failure.
+        if AUTH_SECRET == "dev-insecure-secret-change-me":
+            raise RuntimeError("开启 AUTH_ENABLED 时必须在 .env 设置随机 AUTH_SECRET")
+        if not store.list_users() and DEFAULT_ADMIN_PASSWORD == "admin123":
+            raise RuntimeError("首次开启 AUTH_ENABLED 时必须在 .env 设置非默认 DEFAULT_ADMIN_PASSWORD")
         auth.ensure_default_admin(store)
+        auth.ensure_system_user(store)
+        store.backfill_legacy_mine_owner(DEFAULT_ADMIN_USER)
+    # ThreadPoolExecutor 任务只在当前进程中存在。服务重启后明确结束旧任务，
+    # 使轮询端能恢复操作，而不是永久停留在“处理中”。
+    if TASK_RECOVER_ON_START:
+        tasks.recover_interrupted_tasks()
 
 
 @app.post("/api/login")
-def login(body: LoginBody):
+def login(body: LoginBody, request: Request):
+    _check_login_rate(request)
     u = store.get_user(body.username)
     if not u or not auth.verify_password(body.password, u.get("password_hash", "")):
+        _record_login_attempt(request, False)
         raise HTTPException(401, "用户名或密码错误")
+    if u.get("is_system"):
+        _record_login_attempt(request, False)
+        raise HTTPException(403, "system 为历史项目归档账号，不能登录")
+    _record_login_attempt(request, True)
     return {"token": auth.make_token(u["username"], u["role"]), "user": auth.public_user(u)}
+
+
+def _valid_username(value: str) -> str:
+    username = value.strip()
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{3,40}", username):
+        raise HTTPException(400, "用户名需为 3–40 位字母、数字、点、下划线或连字符")
+    return username
+
+
+@app.post("/api/register")
+def register(body: RegisterBody):
+    """企业账号注册：账号先以只读身份启用，角色由管理员在用户管理中授予。"""
+    username = _valid_username(body.username)
+    if store.get_user(username):
+        raise HTTPException(409, "用户名已存在")
+    if body.requested_role not in auth.ROLES or body.requested_role == "admin":
+        raise HTTPException(400, "申请角色不合法")
+    rec = auth.make_user(username, body.password, "viewer", body.display_name.strip())
+    rec["requested_role"] = body.requested_role
+    store.save_user(username, rec)
+    return {"user": auth.public_user(rec), "message": "注册成功，当前为只读权限；请由系统管理员授予业务角色。"}
 
 
 @app.get("/api/me")
 def whoami(user: dict = Depends(current_user)):
     return {"user": user, "auth_enabled": AUTH_ENABLED}
+
+
+@app.put("/api/me")
+def update_my_profile(body: UpdateMyProfile, user: dict = Depends(current_user)):
+    username = user.get("username", "")
+    saved = store.get_user(username)
+    if not saved:
+        raise HTTPException(404, "用户不存在")
+    display_name = body.display_name.strip()
+    if display_name:
+        saved["display_name"] = display_name
+    if body.new_password:
+        if not body.current_password or not auth.verify_password(body.current_password, saved.get("password_hash", "")):
+            raise HTTPException(400, "当前密码不正确")
+        if len(body.new_password) < 8:
+            raise HTTPException(400, "新密码至少需要 8 位")
+        saved["password_hash"] = auth.hash_password(body.new_password)
+    store.save_user(username, saved)
+    public = auth.public_user(saved)
+    return {"user": public, "token": auth.make_token(public["username"], public["role"])}
 
 
 @app.get("/api/users")
@@ -133,13 +385,30 @@ def list_users_ep(user: dict = Depends(current_user)):
 @app.post("/api/users")
 def create_user_ep(body: NewUser, user: dict = Depends(current_user)):
     _require(user, auth.ADMIN_ROLES, "需要管理员权限")
+    username = _valid_username(body.username)
     if body.role not in auth.ROLES:
         raise HTTPException(400, f"非法角色,可选: {', '.join(auth.ROLES)}")
-    if store.get_user(body.username):
+    if store.get_user(username):
         raise HTTPException(409, "用户名已存在")
-    rec = auth.make_user(body.username, body.password, body.role, body.display_name)
+    rec = auth.make_user(username, body.password, body.role, body.display_name)
     store.save_user(rec["username"], rec)
     return auth.public_user(rec)
+
+
+@app.put("/api/users/{username}/role")
+def update_user_role_ep(username: str, body: UpdateUserRole, user: dict = Depends(current_user)):
+    _require(user, auth.ADMIN_ROLES, "需要管理员权限")
+    if body.role not in auth.ROLES or body.role == "admin":
+        raise HTTPException(400, "仅可授予业务角色；管理员角色不可通过此接口授予")
+    target = store.get_user(username)
+    if not target:
+        raise HTTPException(404, "用户不存在")
+    if target.get("is_system"):
+        raise HTTPException(400, "system 为历史项目归档账号，不能修改角色")
+    target["role"] = body.role
+    target["requested_role"] = body.role
+    store.save_user(username, target)
+    return {"user": auth.public_user(target)}
 
 
 # --------------------------------------------------------------------------- #
@@ -147,17 +416,104 @@ def create_user_ep(body: NewUser, user: dict = Depends(current_user)):
 # --------------------------------------------------------------------------- #
 @app.get("/api/health")
 def health():
-    return {
+    result = {
         "status": "ok",
-        "model": CLAUDE_MODEL,
+        "model": active_model(),
+        "text_model": active_text_model(),
+        "llm_provider": LLM_PROVIDER,
         "cadquery_available": geometry.CADQUERY_AVAILABLE,
         "auth_enabled": AUTH_ENABLED,
     }
+    if LLM_PROVIDER == "qwen":
+        runtime = qwen_client.runtime_settings()
+        result["model"] = runtime["vision_models"][0] if runtime["vision_models"] else QWEN_MODEL
+        result["text_model"] = runtime["text_models"][0] if runtime["text_models"] else QWEN_TEXT_MODEL
+        result["qwen_model_pools"] = qwen_client.model_pool_status()
+    return result
+
+
+@app.get("/api/llm/settings")
+def get_runtime_llm_settings(user: dict = Depends(current_user)):
+    """模型设置页读取接口：所有已登录用户可见状态，密钥不会被返回。"""
+    if LLM_PROVIDER != "qwen":
+        return {
+            "provider": LLM_PROVIDER, "editable": False, "model": active_model(),
+            "text_model": active_text_model(), "reason": "当前部署的模型提供商由服务器环境变量固定",
+        }
+    result = qwen_client.runtime_settings()
+    result.update({"editable": user.get("role") == "admin", "model": result["vision_models"][0] if result["vision_models"] else QWEN_MODEL})
+    return result
+
+
+@app.put("/api/llm/settings")
+def update_runtime_llm_settings(body: RuntimeLlmSettingsBody, user: dict = Depends(current_user)):
+    """仅管理员可修改全局 Qwen 模型/API 配置，并保存到 data 供重启后恢复。"""
+    _require(user, auth.ADMIN_ROLES, "需要系统管理员权限才能修改全局模型与 API 配置")
+    if LLM_PROVIDER != "qwen":
+        raise HTTPException(409, "当前部署不是 Qwen；切换提供商需修改服务器 .env 的 LLM_PROVIDER 后重启容器")
+    try:
+        result = qwen_client.configure_runtime_settings(
+            api_key=body.api_key or None,
+            base_url=body.base_url or None,
+            vision_models=body.vision_models or None,
+            text_models=body.text_models or None,
+            web_search_models=body.web_search_models or None,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    result.update({"editable": True, "message": "模型与 API 设置已保存并立即生效"})
+    return result
 
 
 @app.get("/api/projects")
 def projects():
     return store.list_projects()
+
+
+@app.patch("/api/projects/{project_id}/management")
+def rename_project(project_id: str, body: ProjectManageBody, user: dict = Depends(current_user)):
+    """首页项目编辑：仅改业务名称，保留图纸、工艺结果和完整审计链。"""
+    _require(user, auth.WRITE_ROLES, "需要工艺工程师、技术经理或管理员权限")
+    meta = _workflow_project(project_id)
+    if not auth.can_edit_project(user, meta):
+        raise HTTPException(403, "仅项目创建人、工艺技术经理或管理员可以编辑项目")
+    name = body.name.strip()
+    updated = store.rename_project(project_id, name, author=user.get("username", "system"))
+    requirement = store.load_requirement(project_id)
+    if requirement:
+        requirement["title"] = name
+        requirement["updated_at"] = _now_str()
+        store.save_requirement(project_id, requirement, author=user.get("username", "system"))
+    return {"project": updated, "requirement": requirement}
+
+
+@app.delete("/api/projects/{project_id}/management")
+def delete_project(project_id: str, user: dict = Depends(current_user)):
+    """首页删除：采用软删除，避免破坏已发布报告和审计留痕。"""
+    _require(user, auth.WRITE_ROLES, "需要工艺工程师、技术经理或管理员权限")
+    meta = _workflow_project(project_id)
+    if not auth.can_edit_project(user, meta):
+        raise HTTPException(403, "仅项目创建人、工艺技术经理或管理员可以删除项目")
+    store.archive_project(project_id, author=user.get("username", "system"))
+    return {"ok": True}
+
+
+async def _read_upload_limited(file: UploadFile, *, label: str = "文件") -> bytes:
+    """分块读取 multipart 文件，并在超过服务端限额时立即终止。"""
+    declared_size = getattr(file, "size", None)
+    if isinstance(declared_size, int) and declared_size > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"{label}超过大小上限（{MAX_UPLOAD_BYTES // 1024 // 1024} MiB）")
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_UPLOAD_BYTES:
+            raise HTTPException(413, f"{label}超过大小上限（{MAX_UPLOAD_BYTES // 1024 // 1024} MiB）")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 @app.post("/api/projects")
@@ -169,17 +525,71 @@ async def upload_project(
 ):
     """上传设备需求原图(可附文字说明与佐证文件)，创建项目。"""
     _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
-    content = await file.read()
+    content = await _read_upload_limited(file, label="需求图纸")
     if not content:
         raise HTTPException(400, "空文件")
     project_id = store.create_project(
-        file.filename or "source.png", content, note=note, owner=user.get("username", "system")
+        file.filename or "source.png", content, note=note,
+        owner=user.get("username", "system"),
+        owner_display_name=user.get("display_name") or user.get("username", "system"),
     )
     for att in attachments or []:
-        data = await att.read()
+        data = await _read_upload_limited(att, label="补充文件")
         if data:
             store.add_attachment(project_id, att.filename or "attachment", data)
     return {"project_id": project_id}
+
+
+@app.post("/api/projects/{project_id}/attachments")
+async def upload_project_attachments(
+    project_id: str, files: List[UploadFile] = File(...), user: dict = Depends(current_user),
+):
+    """为已创建的需求追加图纸、模型、BOM 或技术资料，并写入审计。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    saved = []
+    for item in files or []:
+        data = await _read_upload_limited(item, label="补充文件")
+        if data:
+            name = item.filename or "attachment"
+            store.add_attachment(project_id, name, data)
+            saved.append(name)
+    if not saved:
+        raise HTTPException(400, "未收到有效附件")
+    store.audit(project_id, "upload_workflow_attachments", {"by": user.get("username", "system"), "files": saved})
+    return {"attachments": (store.load_meta(project_id) or {}).get("attachments", [])}
+
+
+@app.post("/api/projects/{project_id}/source")
+async def replace_project_source(
+    project_id: str, file: UploadFile = File(...), user: dict = Depends(current_user),
+):
+    """替换需求的原始 2D 图纸；后续解析始终使用新图纸。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    content = await _read_upload_limited(file, label="需求图纸")
+    if not content:
+        raise HTTPException(400, "空文件")
+    store.replace_source(project_id, file.filename or "source.png", content, user.get("username", "system"))
+    return {"source_filename": (store.load_meta(project_id) or {}).get("source_filename")}
+
+
+@app.get("/api/projects/{project_id}/attachments")
+def list_project_attachments(project_id: str):
+    meta = store.load_meta(project_id)
+    if not meta:
+        raise HTTPException(404, "项目不存在")
+    return {"attachments": meta.get("attachments", [])}
+
+
+@app.get("/api/projects/{project_id}/attachments/{filename}")
+def get_project_attachment(project_id: str, filename: str):
+    path = store.attachment_file(project_id, filename)
+    if not path or not path.exists():
+        raise HTTPException(404, "附件不存在")
+    return FileResponse(str(path), filename=path.name)
 
 
 def _geometry_payload(project_id: str, results) -> dict:
@@ -232,12 +642,14 @@ async def upload_3d(
     _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
     if not step_import.AVAILABLE:
         raise HTTPException(503, "CadQuery 未安装，STEP 导入不可用。")
-    content = await file.read()
+    content = await _read_upload_limited(file, label="3D 模型")
     if not content:
         raise HTTPException(400, "空文件")
     fname = file.filename or "model.step"
     project_id = store.create_project(
-        fname, content, note=note, owner=user.get("username", "system")
+        fname, content, note=note,
+        owner=user.get("username", "system"),
+        owner_display_name=user.get("display_name") or user.get("username", "system"),
     )
 
     def job():
@@ -278,6 +690,11 @@ def parse(project_id: str, user: dict = Depends(current_user)):
     def job():
         ir = vision.parse_drawing(data, name, note=note, attachments=atts)
         store.save_ir(project_id, ir.model_dump(), stage="parsed", author=author)
+        store.audit(project_id, "parse_input_context", {
+            "source_file": name,
+            "note_included": bool(note.strip()),
+            "attachments_included": [attachment_name for attachment_name, _ in atts],
+        })
         return ir.model_dump()
 
     return {"task_id": tasks.submit(project_id, "parse", job)}
@@ -298,11 +715,116 @@ def verify(project_id: str, user: dict = Depends(current_user)):
     author = user.get("username", "system")
 
     def job():
-        verified = vision.verify_drawing(DesignIR(**ir_dict), data, name, note=note, attachments=atts)
+        original = DesignIR(**ir_dict)
+        try:
+            verified = vision.verify_drawing(original, data, name, note=note, attachments=atts)
+        except RuntimeError as exc:
+            # 自校验是一次额外的付费模型调用。若模型已返回、却违反 CAD IR 契约，
+            # 绝不可让它覆盖原始解析，更不自动重发图纸做重试。
+            message = str(exc)
+            if "已返回结果，但字段未通过本地数据校验" not in message:
+                raise
+            return {
+                "ir": original.model_dump(),
+                "verification": {
+                    "status": "rejected",
+                    "message": (
+                        "自校验模型返回了不符合 CAD 几何契约的内容，原始解析结果已完整保留，"
+                        "未自动重试或再次上传图纸，因此不会产生第二笔调用费用。"
+                    ),
+                    "detail": message,
+                },
+            }
         store.save_ir(project_id, verified.model_dump(), stage="verified", author=author)
         return verified.model_dump()
 
     return {"task_id": tasks.submit(project_id, "verify", job)}
+
+
+@app.post("/api/projects/{project_id}/model-lookup")
+def model_lookup_search(project_id: str, user: dict = Depends(current_user)):
+    """对 IR/技术资料中的型号候选联网核验，并将可靠匹配同步为可回溯的新版本。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if LLM_PROVIDER != "qwen":
+        raise HTTPException(409, "型号联网核验当前仅在 LLM_PROVIDER=qwen 时可用")
+    if not _workflow_project(project_id):
+        raise HTTPException(404, "项目不存在")
+    ir_dict = store.load_ir(project_id)
+    if not ir_dict:
+        raise HTTPException(409, "请先完成图纸解析，再进行型号联网核验")
+    attachments = store.load_attachments(project_id)
+    author = user.get("username", "system")
+
+    def job():
+        result = model_lookup.identify_models(DesignIR(**ir_dict), attachments)
+        payload = result.model_dump()
+        return _apply_model_lookup_result(project_id, payload, author)
+
+    return {"task_id": tasks.submit(project_id, "model_lookup", job)}
+
+
+def _apply_model_lookup_result(project_id: str, report: dict, author: str) -> dict:
+    """把已存在的可靠核验结论写入一个新的 IR 版本；可安全重复调用。"""
+    ir_dict = store.load_ir(project_id)
+    if not ir_dict:
+        return report
+    updated_ir, changes = model_lookup.apply_lookup_results(DesignIR(**ir_dict), report)
+    report["applied_changes"] = changes
+    report["auto_sync_attempted_at"] = _now_str()
+    if changes:
+        note = f"联网型号核验自动同步 {len(changes)} 项"
+        store.save_ir(project_id, updated_ir.model_dump(), stage="model_lookup_applied", author=author, note=note)
+        store.audit(project_id, "apply_model_lookup", {"by": author, "changes": changes})
+    store.save_model_lookup(project_id, report, author=author)
+    return report
+
+
+@app.get("/api/projects/{project_id}/model-lookup")
+def get_model_lookup(project_id: str):
+    if not _workflow_project(project_id):
+        raise HTTPException(404, "项目不存在")
+    return store.load_model_lookup(project_id) or {"identifications": [], "confirmations": {}}
+
+
+@app.post("/api/projects/{project_id}/model-lookup/apply")
+def apply_existing_model_lookup(project_id: str, user: dict = Depends(current_user)):
+    """补偿旧版核验结果：仅写入已保存结论，不调用模型或联网搜索。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    if not _workflow_project(project_id):
+        raise HTTPException(404, "项目不存在")
+    report = store.load_model_lookup(project_id)
+    if not report:
+        raise HTTPException(404, "尚无型号联网核验结果")
+    return _apply_model_lookup_result(project_id, report, user.get("username", "system"))
+
+
+@app.post("/api/projects/{project_id}/model-lookup/confirm")
+def confirm_model_lookup(
+    project_id: str, body: ModelLookupConfirmation, user: dict = Depends(current_user),
+):
+    """记录人工是否接受联网结论；已自动同步的可靠匹配仍可在此留下复核意见。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    report = store.load_model_lookup(project_id)
+    if not report:
+        raise HTTPException(404, "尚无型号联网核验结果")
+    available = {
+        str(item.get("candidate_model") or "").strip().upper()
+        for item in report.get("identifications", [])
+    }
+    candidate = body.candidate_model.strip()
+    if candidate.upper() not in available:
+        raise HTTPException(404, "型号不在当前核验结果中")
+    report.setdefault("confirmations", {})[candidate] = {
+        "decision": body.decision,
+        "note": body.note.strip(),
+        "by": user.get("username", "system"),
+        "at": _now_str(),
+    }
+    store.save_model_lookup(project_id, report, author=user.get("username", "system"))
+    store.audit(project_id, "confirm_model_lookup", {
+        "candidate_model": candidate, "decision": body.decision, "by": user.get("username", "system"),
+    })
+    return report
 
 
 @app.post("/api/projects/{project_id}/decompose")
@@ -336,6 +858,12 @@ def generate(project_id: str, user: dict = Depends(current_user)):
 
     def job():
         ir = DesignIR(**ir_dict)
+        issues = geometry.preflight_parts(ir.parts)
+        if issues:
+            raise RuntimeError(
+                "CAD 几何预检未通过（未调用模型，也不会产生 API 费用）：\n- "
+                + "\n- ".join(issues)
+            )
         results = geometry.generate_all(ir.parts, store.geometry_dir(project_id))
         payload = _geometry_payload(project_id, results)
         store.save_geometry_result(project_id, payload)
@@ -400,6 +928,166 @@ def update_ir(project_id: str, ir: DesignIR, user: dict = Depends(current_user))
     return ir.model_dump()
 
 
+_WORKBENCH_CHAT_SYSTEM = """你是企业 CAD 图纸解析工作台中的工艺助手。
+仅依据项目提供的结构化解析结果、当前零件和用户问题回答，不得声称重新查看了原始图纸、联网检索或访问外部资料。
+回答使用简洁的中文，优先给出可执行的工艺判断、风险、需要人工确认的尺寸或材料信息；不确定时明确说明不确定。
+不要编造标准号、供应商、价格或未识别的尺寸。
+
+当且仅当用户明确要求“修改/改为/设为/调整”当前已选零件，并且给出了具体目标值时，才输出 edit：
+- edit.should_apply=true；只可修改 name、quantity、material_spec，以及当前零件已有 feature 的数值字段；
+- feature_updates 每项使用 feature_index、field、value；不得增加/删除特征、不得修改 type、不得修改其它零件；
+- 用户只是咨询“怎么改”、没有给出明确目标值、没有选零件、或信息不足时，edit 必须为 null 或 should_apply=false，并在 answer 中说明需要什么信息；
+- 不能根据常识擅自补全尺寸。
+只输出合法 JSON：{\"answer\":\"...\",\"edit\":null 或 {\"should_apply\":true,...}}。"""
+
+_CHAT_FEATURE_FIELDS = {
+    "plate": {"length", "width", "thickness"},
+    "box": {"length", "width", "height"},
+    "cylinder": {"diameter", "height"},
+    "hole": {"diameter", "x", "y"},
+    "hole_pattern": {"diameter", "count_x", "count_y", "spacing_x", "spacing_y"},
+    "fillet": {"radius"},
+    "chamfer": {"distance"},
+}
+
+
+def _apply_workbench_chat_edit(part, edit: WorkbenchPartEdit) -> tuple[list[dict], bool]:
+    """对模型建议执行白名单修改，返回变更与是否需要重生几何。"""
+    changes: list[dict] = []
+    geometry_changed = False
+    if edit.name is not None and edit.name.strip() and edit.name.strip() != part.name:
+        before = part.name
+        part.name = edit.name.strip()
+        changes.append({"field": "name", "old": before, "new": part.name})
+    if edit.quantity is not None and edit.quantity != part.quantity:
+        before = part.quantity
+        part.quantity = edit.quantity
+        changes.append({"field": "quantity", "old": before, "new": part.quantity})
+    if edit.material_spec is not None and edit.material_spec.strip():
+        spec = edit.material_spec.strip()
+        before = part.material.spec if part.material else ""
+        if spec != before:
+            if part.material:
+                part.material.spec = spec
+            else:
+                part.material = Material(spec=spec)
+            changes.append({"field": "material.spec", "old": before, "new": spec})
+    for update in edit.feature_updates:
+        if update.feature_index >= len(part.features):
+            raise HTTPException(422, f"特征序号 {update.feature_index + 1} 不存在")
+        feature = part.features[update.feature_index]
+        feature_type = feature.type.value if hasattr(feature.type, "value") else str(feature.type)
+        if update.field not in _CHAT_FEATURE_FIELDS.get(feature_type, set()):
+            raise HTTPException(422, f"特征 #{update.feature_index + 1}（{feature_type}）不允许修改字段 {update.field}")
+        value = int(update.value) if update.field.startswith("count_") else float(update.value)
+        if value <= 0 and update.field not in {"x", "y"}:
+            raise HTTPException(422, f"{update.field} 必须大于 0")
+        before = getattr(feature, update.field)
+        if before != value:
+            setattr(feature, update.field, value)
+            changes.append({"field": f"features[{update.feature_index}].{update.field}", "old": before, "new": value})
+            geometry_changed = True
+    return changes, geometry_changed
+
+
+@app.post("/api/projects/{project_id}/workbench-chat")
+def workbench_chat(
+    project_id: str, body: WorkbenchChatRequest, user: dict = Depends(current_user),
+):
+    """基于已解析 IR 的 2.1 文字问答，不重传图纸，故始终优先走文本模型池。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    meta = store.load_meta(project_id)
+    if not meta:
+        raise HTTPException(404, "项目不存在")
+    saved_ir = store.load_ir(project_id)
+    if not saved_ir:
+        raise HTTPException(409, "请先完成图纸解析，再向 AI 提问")
+    ir = DesignIR(**saved_ir)
+    selected = next((part for part in ir.parts if part.part_id == body.part_id), None)
+    if body.part_id and not selected:
+        raise HTTPException(404, f"零件 {body.part_id} 不存在")
+
+    # 只传可追溯的结构化摘要；避免把原始图片再次发给模型，也控制每次对话的 token。
+    context = {
+        "project": {
+            "project_id": project_id,
+            "device_name": ir.device_name,
+            "design_intent": ir.design_intent,
+            "overall_dims": ir.overall_dims,
+            "assembly_notes": ir.assembly_notes,
+        },
+        "current_part": selected.model_dump() if selected else None,
+        "parts": [
+            {
+                "part_id": part.part_id,
+                "name": part.name,
+                "material": part.material.spec if part.material else "",
+                "quantity": part.quantity,
+                "features": [feature.type for feature in part.features],
+                "confidence": part.confidence,
+            }
+            for part in ir.parts[:80]
+        ],
+        "open_questions": [question.model_dump() for question in ir.open_questions[:20]],
+    }
+    history = [
+        {"role": turn.role if turn.role in {"user", "assistant"} else "user", "content": turn.content}
+        for turn in body.history
+        if turn.content.strip()
+    ]
+    prompt = json.dumps(
+        {"project_context": context, "recent_conversation": history, "user_question": body.message},
+        ensure_ascii=False,
+        default=str,
+    )
+    if len(prompt) > 32000:
+        prompt = prompt[:32000] + "\n【上下文按预算截断】"
+    try:
+        result = llm_client.complete_to_model(
+            _WORKBENCH_CHAT_SYSTEM, prompt, WorkbenchChatAnswer, max_tokens=1200,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    answer = result.answer.strip()
+    if not answer:
+        raise HTTPException(502, "AI 未返回有效对话内容")
+    model = qwen_client.last_used_model() if LLM_PROVIDER == "qwen" else active_text_model()
+    edit_applied = None
+    # 已导入的精确 STEP/STP 实体不允许通过文本修改 IR 特征，以免与真实实体脱节。
+    source_name = str(meta.get("source_filename") or "").lower()
+    is_imported_3d = source_name.endswith((".step", ".stp"))
+    if result.edit and result.edit.should_apply:
+        if not selected:
+            answer += "\n\n未选择零件，未应用参数修改。"
+        elif is_imported_3d:
+            answer += "\n\n当前为导入的精确 3D 模型，未自动改写其参数；请在原 CAD 中修改后重新导入。"
+        else:
+            changes, geometry_changed = _apply_workbench_chat_edit(selected, result.edit)
+            if changes:
+                note = f"AI 对话修改 {selected.part_id}：" + "、".join(change["field"] for change in changes)
+                store.save_ir(project_id, ir.model_dump(), stage="ai_chat_edited", author=user.get("username", "system"), note=note)
+                edit_applied = {
+                    "part_id": selected.part_id,
+                    "changes": changes,
+                    "requires_regeneration": geometry_changed,
+                    "explanation": result.edit.explanation,
+                }
+                store.audit(project_id, "workbench_chat_edit", {
+                    "by": user.get("username", "system"), "part_id": selected.part_id,
+                    "changes": changes, "model": model,
+                })
+                answer += "\n\n已应用到当前零件，并已创建可回溯版本。"
+            else:
+                answer += "\n\n未发现需要变更的值，当前参数保持不变。"
+    store.audit(project_id, "workbench_chat", {
+        "by": user.get("username", "system"),
+        "part_id": body.part_id,
+        "model": model,
+        "question_length": len(body.message),
+    })
+    return {"answer": answer, "model": model, "edit_applied": edit_applied}
+
+
 @app.post("/api/projects/{project_id}/parts/{part_id}/regenerate")
 def regenerate_part(project_id: str, part_id: str, user: dict = Depends(current_user)):
     """改参后单零件重生几何 + 2D 工程图(行内编辑闭环)。"""
@@ -446,7 +1134,7 @@ def _geom_for_part(project_id: str, part_id: str):
 async def _read_attachments(attachments: List[UploadFile]):
     out = []
     for att in attachments or []:
-        data = await att.read()
+        data = await _read_upload_limited(att, label="补充文件")
         if data:
             out.append((att.filename or "attachment", data))
     return out
@@ -565,8 +1253,7 @@ def update_cost(project_id: str, part_id: str, analysis: CostAnalysis,
 #   - timing:    记录起止时间与是否完成
 # --------------------------------------------------------------------------- #
 def _now_str() -> str:
-    import time as _t
-    return _t.strftime("%Y-%m-%d %H:%M:%S")
+    return now_cst_str()
 
 
 def _load_material_plan(project_id: str) -> MaterialPlan:
@@ -1237,7 +1924,7 @@ def get_summary(project_id: str):
 @app.post("/api/projects/{project_id}/summary/recommend")
 def recommend_summary(project_id: str, user: dict = Depends(current_user)):
     """Claude 依据各步汇总生成执行摘要(异步)。"""
-    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
     if not store.load_meta(project_id):
         raise HTTPException(404, "项目不存在")
     author = user.get("username", "system")
@@ -1262,7 +1949,7 @@ def recommend_summary(project_id: str, user: dict = Depends(current_user)):
 @app.put("/api/projects/{project_id}/summary")
 def update_summary(project_id: str, doc: SummaryDoc, user: dict = Depends(current_user)):
     """保存人工编辑后的执行摘要。"""
-    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
     if not store.load_meta(project_id):
         raise HTTPException(404, "项目不存在")
     doc.project_id = project_id
@@ -1275,7 +1962,7 @@ def update_summary(project_id: str, doc: SummaryDoc, user: dict = Depends(curren
 @app.post("/api/projects/{project_id}/summary/confirm")
 def confirm_summary(project_id: str, user: dict = Depends(current_user)):
     """确认技术工艺总结(定稿)。"""
-    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
     if not store.load_meta(project_id):
         raise HTTPException(404, "项目不存在")
     doc = _load_summary_doc(project_id)
@@ -1292,7 +1979,7 @@ def confirm_summary(project_id: str, user: dict = Depends(current_user)):
 @app.post("/api/projects/{project_id}/summary/timing")
 def summary_timing(project_id: str, action: str, user: dict = Depends(current_user)):
     """记录该步骤起止时间与是否完成(action=start|finish)。"""
-    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
     if not store.load_meta(project_id):
         raise HTTPException(404, "项目不存在")
     if action not in ("start", "finish"):
@@ -1350,12 +2037,29 @@ def list_records_ep(biz: str = ""):
     return {"records": items}
 
 
+def _require_record_edit(user: dict, record: dict | None = None, project_id: str = "") -> None:
+    """技术工艺/报价管理记录也遵循项目归属，不能绕过项目级写入守卫。"""
+    role = user.get("role")
+    if role in {"admin", "process_manager"}:
+        return
+    if role != "engineer":
+        raise HTTPException(403, "需要工艺工程师、技术经理或管理员权限")
+    if record and record.get("owner") != user.get("username"):
+        raise HTTPException(403, "工艺工程师只能修改本人创建的管理记录")
+    target_project = project_id or (record or {}).get("project_id", "")
+    if target_project:
+        meta = _workflow_project(target_project)
+        if not auth.can_edit_project(user, meta):
+            raise HTTPException(403, "工艺工程师只能操作本人创建项目的管理记录")
+
+
 @app.post("/api/techprocess/records")
 def register_record_ep(body: TechProcessRecord, user: dict = Depends(current_user)):
     """「结束」步最终确认:把当前技术工艺/报价录入到对应管理列表(按 project_id+biz 幂等)。"""
     _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
     biz = body.biz or "tech"
     records = store.list_records()
+    _require_record_edit(user, project_id=body.project_id)
 
     # 名称: 优先入参,否则取项目 IR 的器件名
     name = body.name
@@ -1379,6 +2083,7 @@ def register_record_ep(body: TechProcessRecord, user: dict = Depends(current_use
         None,
     )
     if existing:
+        _require_record_edit(user, existing, body.project_id)
         existing.update({"name": name, "status": status, "note": body.note or existing.get("note"),
                          "updated_at": _now_str()})
         return {"record": store.save_record(existing)}
@@ -1387,7 +2092,7 @@ def register_record_ep(body: TechProcessRecord, user: dict = Depends(current_use
     seq = sum(1 for r in records if r.get("biz") == biz) + 1
     rec = {
         "id": "rec_" + __import__("uuid").uuid4().hex[:8],
-        "code": f"{prefix}{__import__('time').strftime('%Y%m%d')}-{seq:03d}",
+        "code": f"{prefix}{now_cst_str('%Y%m%d')}-{seq:03d}",
         "name": name, "project_id": body.project_id, "biz": biz, "status": status,
         "owner": who, "created_at": _now_str(), "note": body.note, "editable": True,
     }
@@ -1397,6 +2102,10 @@ def register_record_ep(body: TechProcessRecord, user: dict = Depends(current_use
 @app.delete("/api/techprocess/records/{record_id}")
 def delete_record_ep(record_id: str, user: dict = Depends(current_user)):
     _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    record = store.get_record(record_id)
+    if not record:
+        raise HTTPException(404, "管理记录不存在")
+    _require_record_edit(user, record)
     store.delete_record(record_id)
     return {"ok": True}
 
@@ -2199,6 +2908,695 @@ def get_audit(project_id: str):
     return {"audit": store.list_audit(project_id)}
 
 
+# --------------------------------------------------------------------------- #
+# 工艺评估业务流程: 接受需求 -> 图纸解析 -> 工艺评估报告汇总/审核/发布。
+# 这些端点只编排和留痕既有数据，不会触发任何模型调用。
+# --------------------------------------------------------------------------- #
+def _workflow_project(project_id: str) -> dict:
+    meta = store.load_meta(project_id)
+    if not meta or meta.get("deleted_at"):
+        raise HTTPException(404, "项目不存在")
+    return meta
+
+
+def _requirement_no(project_id: str) -> str:
+    return f"REQ-{project_id.upper()}"
+
+
+def _report_no(project_id: str) -> str:
+    return f"RPT-{project_id.upper()}"
+
+
+def _workflow_event(action: str, user: dict, comment: str = "") -> WorkflowReview:
+    return WorkflowReview(
+        action=action,
+        actor=user.get("username", "system"),
+        role=user.get("role", ""),
+        comment=comment or "",
+        at=_now_str(),
+    )
+
+
+def _is_filled(value) -> bool:
+    """确认页的规则检查：空值与明确标为待确认的数据都需要人工补充。"""
+    if value is None:
+        return False
+    text = str(value).strip()
+    return bool(text) and "待确认" not in text and "系统自动" not in text
+
+
+def _requirement_precheck(project_id: str, doc: RequirementDoc) -> dict:
+    """基于已保存需求字段的确定性完整性检查；不调用任何 AI/模型。"""
+    data = doc.data or {}
+    meta = store.load_meta(project_id) or {}
+    checks = [
+        ("一、需求基本信息（Section A）", ["title", "requirement_type", "priority", "bu", "disclosure", "description"], "基础信息完整"),
+        ("二、客户与项目信息（Section B）", ["customer_type", "customer_industry", "final_customer_name", "project_name", "project_code", "product_iteration"], "客户与项目字段完整"),
+        ("三、产品技术规格（Section C）", ["product_name", "product_model", "overall_dimensions", "base_material"], "产品基础规格已录入"),
+        ("3.1 基础参数", ["product_name", "wafer_size", "base_material", "overall_dimensions"], "基础参数已录入"),
+        ("3.2 精度与性能参数", ["roughness", "adsorption_uniformity", "temperature_range", "cleanliness"], "性能要求已录入"),
+        ("3.3 应用场景", ["target_equipment", "process_stage", "vacuum_environment"], "应用场景已录入"),
+        ("3.4 图纸与技术资料", [], "原始图纸已关联"),
+        ("四、市场与商务信息（Section D）", ["annual_forecast", "first_sample_due", "mass_production_due"], "商务信息已录入"),
+        ("五、项目时间计划（Section E）", ["evaluation_due", "milestones"], "时间节点已录入"),
+        ("六、分类与标签（Section F）", ["category_a", "product_type", "complexity"], "分类清晰"),
+        ("七、备注与附件（Section G）", [], "原始图纸已上传"),
+    ]
+    items = []
+    for label, fields, ok_message in checks:
+        missing = [field for field in fields if not _is_filled(data.get(field))]
+        if label == "3.4 图纸与技术资料" or label.startswith("七、"):
+            if not meta.get("source_filename"):
+                missing.append("source")
+        if missing:
+            items.append({"item": label, "status": "need_info", "detail": f"待补充：{', '.join(missing)}"})
+        else:
+            items.append({"item": label, "status": "ok", "detail": ok_message})
+    needs = [row for row in items if row["status"] == "need_info"]
+    generated_note = (
+        "系统完整性检查完成：全部关键字段已具备，可提交审核。"
+        if not needs else
+        "系统完整性检查发现待补充项：" + "；".join(row["item"] + "（" + row["detail"] + "）" for row in needs) + "。"
+    )
+    return {"items": items, "ok": not needs, "generated_note": generated_note, "engine": "deterministic_rules"}
+
+
+_REQUIREMENT_AI_CHECK_SYSTEM = """你是半导体零部件工艺评估需求单的审核工程师。
+请核对“需求表单字段”和（如有）“原始工程图”，判断信息是否足以进入需求审核。
+只根据输入资料判断；图上或字段里没有明确的信息，必须标为 need_info，不能臆测。
+
+你必须检查下列 11 项，items 中每一项的 item 必须逐字使用下列名称，顺序也必须相同：
+1. 一、需求基本信息（Section A）
+2. 二、客户与项目信息（Section B）
+3. 三、产品技术规格（Section C）
+4. 3.1 基础参数
+5. 3.2 精度与性能参数
+6. 3.3 应用场景
+7. 3.4 图纸与技术资料
+8. 四、市场与商务信息（Section D）
+9. 五、项目时间计划（Section E）
+10. 六、分类与标签（Section F）
+11. 七、备注与附件（Section G）
+
+输出 JSON 对象：
+{
+  "summary": "不超过 120 字的总体结论",
+  "items": [
+    {"item": "上述固定名称", "status": "ok 或 need_info", "detail": "不超过 60 字的依据或待补充项"}
+  ]
+}
+status 只能是 ok 或 need_info。不要输出 Markdown、不要追加解释。"""
+
+
+def _normalize_requirement_ai_check(rule_check: dict, result: RequirementAiCheckResult) -> dict:
+    """模型输出即使少项/标签轻微偏差，也固定映射回确认页的 11 项检查表。"""
+    reference = rule_check.get("items") or []
+    raw = result.items or []
+
+    def match(label: str, index: int):
+        for row in raw:
+            candidate = (row.item or "").strip()
+            if candidate == label or (candidate and (candidate in label or label in candidate)):
+                return row
+        # Qwen 已被要求固定顺序；仅在数量完全一致时按顺序兜底，避免错位覆盖。
+        return raw[index] if len(raw) == len(reference) else None
+
+    rows = []
+    for index, fallback in enumerate(reference):
+        row = match(fallback["item"], index)
+        raw_status = (row.status if row else fallback["status"]).strip().lower()
+        status = "ok" if raw_status in ("ok", "确认ok", "通过", "完整") else "need_info"
+        detail = (row.detail if row and row.detail else fallback["detail"]).strip()
+        rows.append({"item": fallback["item"], "status": status, "detail": detail[:240]})
+    summary = (result.summary or "").strip()[:500]
+    if not summary:
+        summary = "Qwen 已完成需求单检查，请根据各项结论补充或确认。"
+    return {
+        "items": rows,
+        "ok": all(row["status"] == "ok" for row in rows),
+        "generated_note": summary,
+        "engine": "qwen",
+        "model": qwen_client.last_used_model() or QWEN_MODEL,
+        "checked_at": _now_str(),
+    }
+
+
+def _history_key(value: object) -> str:
+    """用于历史比对的保守标准化：忽略空白和常见标点，但不做模糊猜测。"""
+    return re.sub(r"[^\w\u4e00-\u9fff]+", "", str(value or "")).casefold()
+
+
+def _history_requirement_autofill(project_id: str, current: dict, extracted: dict, title: str = "") -> tuple[dict, dict]:
+    """从此前需求单判定客户新旧及产品全新/迭代。
+
+    仅采用名称或型号的精确标准化匹配，避免把相似项目误判为老客户/迭代。
+    人工已经填写的值永远优先；返回的 evidence 会随需求单保存，方便追溯判定依据。
+    """
+    merged = {**(extracted or {}), **(current or {})}
+    customer_values = [
+        str(merged.get("final_customer_name") or "").strip(),
+        str(merged.get("transaction_customer_name") or "").strip(),
+    ]
+    customer_keys = {key for value in customer_values if (key := _history_key(value))}
+    product_values = [
+        str(merged.get("product_model") or "").strip(),
+        str(merged.get("product_name") or "").strip(),
+        str(merged.get("project_name") or "").strip(),
+    ]
+    product_keys = {key for value in product_values if (key := _history_key(value))}
+
+    customer_matches: list[dict] = []
+    product_matches: list[dict] = []
+    for row in store.list_requirements():
+        previous = row.get("requirement") or {}
+        previous_project = row.get("project") or {}
+        if previous.get("project_id") == project_id or previous_project.get("project_id") == project_id:
+            continue
+        previous_data = previous.get("data") or {}
+        previous_customer_keys = {
+            _history_key(previous_data.get(field))
+            for field in ("final_customer_name", "transaction_customer_name")
+            if _history_key(previous_data.get(field))
+        }
+        previous_product_keys = {
+            _history_key(previous_data.get(field))
+            for field in ("product_model", "product_name", "project_name")
+            if _history_key(previous_data.get(field))
+        }
+        reference = {
+            "project_id": previous_project.get("project_id") or previous.get("project_id"),
+            "requirement_no": previous.get("requirement_no") or "—",
+            "title": previous.get("title") or previous_data.get("title") or previous_project.get("source_name") or "未命名需求",
+            "created_at": previous.get("created_at") or previous_project.get("created_at") or "",
+        }
+        if customer_keys and customer_keys.intersection(previous_customer_keys):
+            customer_matches.append(reference)
+        if product_keys and product_keys.intersection(previous_product_keys):
+            product_matches.append(reference)
+
+    fields: dict[str, str] = {}
+    if customer_keys and not str(current.get("customer_type") or "").strip():
+        fields["customer_type"] = "old" if customer_matches else "new"
+    # 产品型号、产品名称或项目名称只要与已归档需求精确对应，即视为迭代；否则是全新。
+    # requirement_type 与“全新/迭代”保持一致，避免同一页面两个选择项互相矛盾。
+    current_requirement_type = str(current.get("requirement_type") or "").strip()
+    if product_keys:
+        iteration_value = "iteration" if product_matches else "new"
+        if not str(current.get("product_iteration") or "").strip():
+            fields["product_iteration"] = iteration_value
+        if not current_requirement_type or current_requirement_type == "工艺评估":
+            fields["requirement_type"] = iteration_value
+
+    evidence = {
+        "engine": "historical_requirement_comparison",
+        "compared_at": _now_str(),
+        "customer_candidates": [value for value in customer_values if value],
+        "product_candidates": [value for value in product_values if value],
+        "customer_match_count": len(customer_matches),
+        "product_match_count": len(product_matches),
+        "customer_matches": customer_matches[:10],
+        "product_matches": product_matches[:10],
+        "decision": {
+            "customer_type": fields.get("customer_type") or str(current.get("customer_type") or ""),
+            "product_iteration": fields.get("product_iteration") or str(current.get("product_iteration") or ""),
+            "requirement_type": fields.get("requirement_type") or current_requirement_type,
+        },
+    }
+    return fields, evidence
+
+
+def _apply_requirement_document_extraction(
+    project_id: str,
+    doc: RequirementDoc,
+    result: RequirementDocumentExtraction,
+    processed_files: list[str],
+    skipped_files: list[str],
+    user: dict,
+) -> dict:
+    """仅补齐空字段，保留首页输入和人工已填内容，形成可追溯的 1.1 草稿。"""
+    data = dict(doc.data or {})
+    filled: list[str] = []
+    for key, value in result.fields.items():
+        existing = str(data.get(key, "")).strip()
+        if existing:
+            continue
+        data[key] = value
+        filled.append(key)
+    history_fields, history_evidence = _history_requirement_autofill(
+        project_id, data, result.fields, result.title,
+    )
+    for key, value in history_fields.items():
+        data[key] = value
+        filled.append(key)
+    if result.title and not doc.title.strip():
+        doc.title = result.title
+        data["title"] = result.title
+        filled.append("title")
+    # 首页创建时已把文件存为项目附件；这里同时挂到 1.1 的“技术规格说明书”区域。
+    file_roles = dict(data.get("file_roles") or {})
+    current_technical = list(file_roles.get("technical_spec") or [])
+    uploaded_attachments = (store.load_meta(project_id) or {}).get("attachments", [])
+    file_roles["technical_spec"] = list(dict.fromkeys([
+        *current_technical, *uploaded_attachments, *processed_files,
+    ]))
+    data["file_roles"] = file_roles
+    data["document_extraction"] = {
+        "engine": "qwen_text",
+        "model": qwen_client.last_used_model() or QWEN_TEXT_MODEL,
+        "processed_files": processed_files,
+        "skipped_files": skipped_files,
+        "filled_fields": filled,
+        "summary": result.summary,
+        "open_questions": result.open_questions,
+        "extracted_at": _now_str(),
+    }
+    data["history_comparison"] = history_evidence
+    doc.data = data
+    doc.history.append(_workflow_event(
+        "qwen_document_extracted", user,
+        f"已从 {len(processed_files)} 份技术文档提取并补充 {len(filled)} 个 1.1 草稿字段。",
+    ))
+    doc.updated_at = _now_str()
+    saved = doc.model_dump()
+    store.save_requirement(project_id, saved, author=user.get("username", "system"))
+    store.audit(project_id, "workflow:requirement_document_extracted", {
+        "model": data["document_extraction"]["model"],
+        "processed_files": processed_files,
+        "skipped_files": skipped_files,
+        "filled_fields": filled,
+        "history_decision": history_evidence["decision"],
+    })
+    return {"requirement": saved, "filled_fields": filled, "processed_files": processed_files, "skipped_files": skipped_files}
+
+
+@app.get("/api/requirements")
+def list_requirements():
+    """真实需求列表；只返回已保存过需求单的项目，不生成演示记录。"""
+    return {"items": store.list_requirements()}
+
+
+@app.get("/api/projects/{project_id}/requirement")
+def get_requirement(project_id: str):
+    _workflow_project(project_id)
+    return {"requirement": store.load_requirement(project_id)}
+
+
+@app.get("/api/projects/{project_id}/requirement/precheck")
+def precheck_requirement(project_id: str):
+    """确认页结构化完整性检查，不发起外部模型请求。"""
+    _workflow_project(project_id)
+    saved = store.load_requirement(project_id)
+    if not saved:
+        raise HTTPException(404, "需求单不存在")
+    return _requirement_precheck(project_id, RequirementDoc(**saved))
+
+
+@app.post("/api/projects/{project_id}/requirement/extract-documents")
+def extract_requirement_documents(project_id: str, user: dict = Depends(current_user)):
+    """从已上传技术文档自动补齐 1.1 草稿；仅文字文档走 QWEN_TEXT_MODEL。"""
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
+    _workflow_project(project_id)
+    saved = store.load_requirement(project_id)
+    if not saved:
+        raise HTTPException(404, "请先保存需求单")
+    doc = RequirementDoc(**saved)
+    if doc.status not in {"draft", "rejected"}:
+        raise HTTPException(409, "当前需求已进入确认流程，不能自动覆盖草稿")
+    prepared = requirement_extract.prepare_documents(store.load_attachments(project_id))
+    if not prepared.text:
+        return {
+            "skipped": True,
+            "reason": "未找到可提取的 TXT、Markdown、CSV、PDF 或 DOCX 技术文档",
+            "processed_files": prepared.processed_files,
+            "skipped_files": prepared.skipped_files,
+        }
+
+    def job():
+        # 任务完成前可能有人工保存，重新读取最新草稿，并坚持“只补空字段”。
+        latest = store.load_requirement(project_id)
+        if not latest:
+            raise RuntimeError("需求单在技术文档提取期间被删除")
+        latest_doc = RequirementDoc(**latest)
+        if latest_doc.status not in {"draft", "rejected"}:
+            raise RuntimeError("需求单已进入确认流程，已停止自动补充")
+        extracted = requirement_extract.extract_requirement_fields(prepared)
+        return _apply_requirement_document_extraction(
+            project_id, latest_doc, extracted, prepared.processed_files, prepared.skipped_files, user,
+        )
+
+    return {"task_id": tasks.submit(project_id, "requirement_document_extract", job)}
+
+
+@app.post("/api/projects/{project_id}/requirement/ai-check")
+def ai_check_requirement(project_id: str, user: dict = Depends(current_user)):
+    """用户手动触发的 Qwen 审阅；不重试，结果与模型/时间一同落入需求单留痕。"""
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
+    meta = _workflow_project(project_id)
+    saved = store.load_requirement(project_id)
+    if not saved:
+        raise HTTPException(404, "需求单不存在")
+    doc = RequirementDoc(**saved)
+    rule_check = _requirement_precheck(project_id, doc)
+    payload = json.dumps(
+        {"requirement_no": doc.requirement_no, "title": doc.title, "status": doc.status, "data": doc.data},
+        ensure_ascii=False, default=str,
+    )
+    if len(payload) > 24000:
+        payload = payload[:24000] + "\n【表单内容已按检查上下文预算截断】"
+    content = [qwen_client.text_block("【待确认的工艺评估需求表单】\n" + payload)]
+    source = store.source_path(project_id)
+    source_name = meta.get("source_filename") or "source.png"
+    if source and source.exists() and source.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"):
+        image_bytes = source.read_bytes()
+        if len(image_bytes) <= 5 * 1024 * 1024:
+            content.extend([
+                qwen_client.text_block(f"【原始工程图：{source_name}】"),
+                qwen_client.image_block(image_bytes, source_name, detail="low"),
+            ])
+        else:
+            content.append(qwen_client.text_block("【原始工程图过大，本次仅检查表单字段】"))
+    result = qwen_client.run(
+        _REQUIREMENT_AI_CHECK_SYSTEM, content, RequirementAiCheckResult, max_tokens=1800,
+    )
+    check = _normalize_requirement_ai_check(rule_check, result)
+    doc.ai_check = check
+    doc.history.append(_workflow_event("qwen_requirement_checked", user, check["generated_note"]))
+    doc.updated_at = _now_str()
+    out = doc.model_dump()
+    store.save_requirement(project_id, out, author=user.get("username", "system"))
+    store.audit(project_id, "workflow:requirement_qwen_checked", {
+        "model": check["model"], "ok": check["ok"], "checked_at": check["checked_at"],
+    })
+    return {"check": check}
+
+
+@app.put("/api/projects/{project_id}/requirement")
+def save_requirement(project_id: str, doc: RequirementDoc, user: dict = Depends(current_user)):
+    """保存/更新需求单草稿。已进入确认或审核的需求不可被静默改写。"""
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
+    _workflow_project(project_id)
+    current = store.load_requirement(project_id)
+    if current and current.get("status") not in ("draft", "rejected"):
+        raise HTTPException(409, "需求已提交，不能直接修改；请先退回后再编辑")
+    doc.project_id = project_id
+    doc.requirement_no = doc.requirement_no or (current or {}).get("requirement_no") or _requirement_no(project_id)
+    doc.created_by = (current or {}).get("created_by") or user.get("username", "system")
+    doc.created_at = (current or {}).get("created_at") or _now_str()
+    doc.status = (current or {}).get("status") if current else (doc.status if doc.status == "draft" else "draft")
+    doc.history = [WorkflowReview(**row) for row in (current or {}).get("history", [])]
+    doc.updated_at = _now_str()
+    saved = doc.model_dump()
+    store.save_requirement(project_id, saved, author=user.get("username", "system"))
+    store.audit(project_id, "workflow:requirement_saved", {"requirement_no": doc.requirement_no})
+    return {"requirement": saved}
+
+
+@app.post("/api/projects/{project_id}/requirement/submit-confirmation")
+def submit_requirement_confirmation(
+    project_id: str, body: WorkflowAction = Body(default=WorkflowAction()),
+    user: dict = Depends(current_user),
+):
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
+    _workflow_project(project_id)
+    saved = store.load_requirement(project_id)
+    if not saved:
+        raise HTTPException(404, "请先保存需求单")
+    doc = RequirementDoc(**saved)
+    if doc.status not in ("draft", "rejected"):
+        raise HTTPException(409, "当前需求不在可提交状态")
+    doc.status = "pending_confirmation"
+    doc.history.append(_workflow_event("submit_confirmation", user, body.comment))
+    doc.updated_at = _now_str()
+    out = doc.model_dump()
+    store.save_requirement(project_id, out, author=user.get("username", "system"))
+    store.audit(project_id, "workflow:requirement_submitted", {"comment": body.comment})
+    return {"requirement": out}
+
+
+@app.post("/api/projects/{project_id}/requirement/confirm")
+def confirm_requirement(
+    project_id: str, body: WorkflowAction = Body(default=WorkflowAction()),
+    user: dict = Depends(current_user),
+):
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
+    _workflow_project(project_id)
+    saved = store.load_requirement(project_id)
+    if not saved:
+        raise HTTPException(404, "需求单不存在")
+    doc = RequirementDoc(**saved)
+    if doc.status != "pending_confirmation":
+        raise HTTPException(409, "当前需求不在待确认状态")
+    doc.status = "pending_review"
+    doc.confirmed_by = user.get("username", "system")
+    doc.confirmed_at = _now_str()
+    doc.confirmation_note = body.comment
+    doc.history.append(_workflow_event("confirmed", user, body.comment))
+    doc.updated_at = _now_str()
+    out = doc.model_dump()
+    store.save_requirement(project_id, out, author=user.get("username", "system"))
+    store.audit(project_id, "workflow:requirement_confirmed", {"comment": body.comment})
+    return {"requirement": out}
+
+
+@app.post("/api/projects/{project_id}/requirement/return-to-draft")
+def return_requirement_to_draft(
+    project_id: str, body: WorkflowAction = Body(default=WorkflowAction()),
+    user: dict = Depends(current_user),
+):
+    """确认人退回需求草稿，供创建人补充后再次提交。"""
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
+    _workflow_project(project_id)
+    saved = store.load_requirement(project_id)
+    if not saved:
+        raise HTTPException(404, "需求单不存在")
+    doc = RequirementDoc(**saved)
+    if doc.status != "pending_confirmation":
+        raise HTTPException(409, "当前需求不在待确认状态")
+    doc.status = "draft"
+    doc.confirmation_note = body.comment
+    doc.history.append(_workflow_event("confirmation_returned", user, body.comment))
+    doc.updated_at = _now_str()
+    out = doc.model_dump()
+    store.save_requirement(project_id, out, author=user.get("username", "system"))
+    store.audit(project_id, "workflow:requirement_returned", {"comment": body.comment})
+    return {"requirement": out}
+
+
+@app.post("/api/projects/{project_id}/requirement/review")
+def review_requirement(
+    project_id: str, body: WorkflowAction, user: dict = Depends(current_user)
+):
+    _require(user, auth.DIRECTOR_ROLES, "需要工艺技术总监或管理员权限")
+    _workflow_project(project_id)
+    saved = store.load_requirement(project_id)
+    if not saved:
+        raise HTTPException(404, "需求单不存在")
+    doc = RequirementDoc(**saved)
+    if doc.status != "pending_review":
+        raise HTTPException(409, "当前需求不在待审核状态")
+    if body.decision not in ("approve", "reject"):
+        raise HTTPException(400, "decision 必须为 approve 或 reject")
+    doc.status = "approved" if body.decision == "approve" else "rejected"
+    doc.reviewed_by = user.get("username", "system")
+    doc.reviewed_at = _now_str()
+    doc.review_note = body.comment
+    doc.history.append(_workflow_event(f"review_{body.decision}", user, body.comment))
+    doc.updated_at = _now_str()
+    out = doc.model_dump()
+    store.save_requirement(project_id, out, author=user.get("username", "system"))
+    store.audit(project_id, f"workflow:requirement_{body.decision}", {"comment": body.comment})
+    return {"requirement": out}
+
+
+def _new_report(project_id: str, user: dict) -> ProcessReport:
+    requirement = store.load_requirement(project_id) or {}
+    aggregate = summary_svc.aggregate(project_id)
+    summary = aggregate.get("summary") or {}
+    device_name = aggregate.get("device_name") or "未命名项目"
+    now = _now_str()
+    return ProcessReport(
+        project_id=project_id,
+        report_no=_report_no(project_id),
+        requirement_no=requirement.get("requirement_no", ""),
+        title=f"{device_name}工艺评估报告",
+        overview=summary.get("overview") or "",
+        highlights=summary.get("highlights") or [],
+        risks=summary.get("risks") or [],
+        conclusion=summary.get("conclusion") or "",
+        source_snapshot=aggregate,
+        prepared_by=user.get("username", "system"),
+        prepared_at=now,
+        updated_at=now,
+        history=[_workflow_event("report_prepared", user)],
+    )
+
+
+@app.get("/api/projects/{project_id}/process-report")
+def get_process_report(project_id: str):
+    _workflow_project(project_id)
+    return {"report": store.load_process_report(project_id)}
+
+
+@app.post("/api/projects/{project_id}/process-report/prepare")
+def prepare_process_report(project_id: str, user: dict = Depends(current_user)):
+    """从已保存的图纸、工艺与总结快照生成报告草稿，不调用模型。"""
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
+    _workflow_project(project_id)
+    current = store.load_process_report(project_id)
+    if current and current.get("status") not in ("draft", "rejected"):
+        raise HTTPException(409, "报告已送审或发布，不能覆盖；请基于现有版本继续处理")
+    doc = _new_report(project_id, user)
+    if current:
+        prior = ProcessReport(**current)
+        doc.version = prior.version + 1
+        doc.history = prior.history + [_workflow_event("report_refreshed", user)]
+    out = doc.model_dump()
+    store.save_process_report(project_id, out, author=user.get("username", "system"))
+    store.audit(project_id, "workflow:report_prepared", {"version": doc.version})
+    return {"report": out}
+
+
+@app.put("/api/projects/{project_id}/process-report")
+def save_process_report(project_id: str, doc: ProcessReport, user: dict = Depends(current_user)):
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
+    _workflow_project(project_id)
+    current = store.load_process_report(project_id)
+    if current and current.get("status") not in ("draft", "rejected"):
+        raise HTTPException(409, "报告已送审或发布，不能直接修改")
+    doc.project_id = project_id
+    doc.report_no = doc.report_no or (current or {}).get("report_no") or _report_no(project_id)
+    doc.requirement_no = doc.requirement_no or (store.load_requirement(project_id) or {}).get("requirement_no", "")
+    doc.prepared_by = (current or {}).get("prepared_by") or user.get("username", "system")
+    doc.prepared_at = (current or {}).get("prepared_at") or _now_str()
+    doc.status = (current or {}).get("status") if current else "draft"
+    doc.history = [WorkflowReview(**row) for row in (current or {}).get("history", [])]
+    doc.updated_at = _now_str()
+    out = doc.model_dump()
+    store.save_process_report(project_id, out, author=user.get("username", "system"))
+    store.audit(project_id, "workflow:report_saved", {"report_no": doc.report_no})
+    return {"report": out}
+
+
+@app.post("/api/projects/{project_id}/process-report/submit-review")
+def submit_process_report_review(
+    project_id: str, body: WorkflowAction = Body(default=WorkflowAction()),
+    user: dict = Depends(current_user),
+):
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
+    _workflow_project(project_id)
+    saved = store.load_process_report(project_id)
+    if not saved:
+        raise HTTPException(404, "请先汇总并保存评估报告")
+    doc = ProcessReport(**saved)
+    if doc.status not in ("draft", "rejected"):
+        raise HTTPException(409, "当前报告不在可送审状态")
+    doc.status = "in_review"
+    doc.history.append(_workflow_event("report_submitted", user, body.comment))
+    doc.updated_at = _now_str()
+    out = doc.model_dump()
+    store.save_process_report(project_id, out, author=user.get("username", "system"))
+    store.audit(project_id, "workflow:report_submitted", {"comment": body.comment})
+    return {"report": out}
+
+
+@app.post("/api/projects/{project_id}/process-report/review")
+def review_process_report(project_id: str, body: WorkflowAction, user: dict = Depends(current_user)):
+    _require(user, auth.DIRECTOR_ROLES, "需要工艺技术总监或管理员权限")
+    _workflow_project(project_id)
+    saved = store.load_process_report(project_id)
+    if not saved:
+        raise HTTPException(404, "评估报告不存在")
+    doc = ProcessReport(**saved)
+    if doc.status != "in_review":
+        raise HTTPException(409, "当前报告不在待审核状态")
+    if body.decision not in ("approve", "reject"):
+        raise HTTPException(400, "decision 必须为 approve 或 reject")
+    doc.status = "approved" if body.decision == "approve" else "rejected"
+    doc.reviewed_by = user.get("username", "system")
+    doc.reviewed_at = _now_str()
+    doc.review_note = body.comment
+    if body.review_items:
+        doc.review_items = body.review_items
+    if body.review_conclusion:
+        doc.review_conclusion = body.review_conclusion
+    if body.distribution_scope:
+        doc.distribution_scope = body.distribution_scope
+    if body.distribution_cc:
+        doc.distribution_cc = body.distribution_cc
+    doc.history.append(_workflow_event(f"report_review_{body.decision}", user, body.comment))
+    doc.updated_at = _now_str()
+    out = doc.model_dump()
+    store.save_process_report(project_id, out, author=user.get("username", "system"))
+    store.audit(project_id, f"workflow:report_{body.decision}", {"comment": body.comment})
+    return {"report": out}
+
+
+@app.post("/api/projects/{project_id}/process-report/publish")
+def publish_process_report(project_id: str, body: PublishAction, user: dict = Depends(current_user)):
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
+    _workflow_project(project_id)
+    saved = store.load_process_report(project_id)
+    if not saved:
+        raise HTTPException(404, "评估报告不存在")
+    doc = ProcessReport(**saved)
+    if doc.status != "approved":
+        raise HTTPException(409, "报告须审核通过后才能发布")
+    doc.status = "published"
+    doc.published_by = user.get("username", "system")
+    doc.published_at = _now_str()
+    doc.recipients = body.recipients
+    doc.history.append(_workflow_event("report_published", user, body.comment))
+    doc.updated_at = _now_str()
+    out = doc.model_dump()
+    store.save_process_report(project_id, out, author=user.get("username", "system"))
+    store.audit(project_id, "workflow:report_published", {
+        "comment": body.comment,
+        "recipients": [r.model_dump() for r in body.recipients],
+    })
+    return {"report": out}
+
+
+@app.post("/api/projects/{project_id}/process-report/new-version")
+def create_process_report_version(project_id: str, user: dict = Depends(current_user)):
+    """从已发布报告创建下一版草稿，保留既有内容和完整审计链。"""
+    _require(user, auth.MANAGER_ROLES, "需要工艺技术经理或管理员权限")
+    _workflow_project(project_id)
+    saved = store.load_process_report(project_id)
+    if not saved:
+        raise HTTPException(404, "评估报告不存在")
+    prior = ProcessReport(**saved)
+    if prior.status != "published":
+        raise HTTPException(409, "仅已发布报告可创建新版本")
+    doc = prior.model_copy(deep=True)
+    doc.version = prior.version + 1
+    doc.status = "draft"
+    doc.reviewed_by = None
+    doc.reviewed_at = None
+    doc.review_note = ""
+    doc.published_by = None
+    doc.published_at = None
+    doc.recipients = []
+    doc.history.append(_workflow_event("report_new_version", user, f"基于 V{prior.version} 创建 V{doc.version} 草稿"))
+    doc.updated_at = _now_str()
+    out = doc.model_dump()
+    store.save_process_report(project_id, out, author=user.get("username", "system"))
+    store.audit(project_id, "workflow:report_new_version", {"from_version": prior.version, "version": doc.version})
+    return {"report": out}
+
+
+@app.get("/api/projects/{project_id}/workflow")
+def get_workflow(project_id: str):
+    """一条项目级业务总览，供首页、需求详情和全流程留痕页面共同使用。"""
+    meta = _workflow_project(project_id)
+    return {
+        "project": meta,
+        "requirement": store.load_requirement(project_id),
+        "report": store.load_process_report(project_id),
+        "summary": store.load_summary(project_id),
+        "audit": store.list_audit(project_id),
+    }
+
+
 @app.get("/api/projects/{project_id}/source")
 def get_source(project_id: str):
     src = store.source_path(project_id)
@@ -2228,6 +3626,11 @@ if APPS_DIR.exists():
 
 FRONTEND_DIR = ROOT_DIR / "frontend"
 if FRONTEND_DIR.exists():
+    @app.get("/", include_in_schema=False)
+    def root_to_home():
+        """根地址默认进入首页；2.1 工作台仍通过 /index.html 显式访问。"""
+        return RedirectResponse(url="/home.html", status_code=307)
+
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
 
 

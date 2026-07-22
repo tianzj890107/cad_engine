@@ -1,0 +1,23 @@
+/* 全流程导航：只增强既有流程栏，不改变页面的业务内容。 */
+.workflow-nav-trigger{border:0;background:transparent;font:inherit;color:inherit;cursor:pointer}
+.workflow-nav-trigger:hover{filter:brightness(.92)}
+.workflow-nav-trigger:focus-visible,.workflow-nav-link:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
+.workflow-nav-link{border:0;background:transparent;color:#9ca3af;font:inherit;cursor:pointer;padding:2px 5px;border-radius:4px}
+/* 小步骤状态与原流程页一致：完成绿、当前蓝、未完成灰。 */
+.workflow-nav-link.done,.workflow-nav-link.completed{color:#10b981}
+.workflow-nav-link.active{background:#eff6ff;color:#3b82f6;font-weight:600}
+.workflow-sub .workflow-nav-link{font-size:11px}
+.sub-labels-row .workflow-nav-link{font-size:10px}
+.tp-flow-substeps .workflow-nav-link{font-size:11px}
+.workflow-nav-link:hover{background:#eff6ff;color:#2563eb}
+.workflow-nav-sub-collapsed{display:none!important}
+.workflow-nav-stage-done{color:#10b981!important}
+.workflow-nav-stage-active{color:#3b82f6!important}
+.workflow-nav-connector-done{background:#10b981!important}
+.workflow-nav-connector-active{background:#3b82f6!important}
+.workflow-nav-toast{position:fixed;right:22px;bottom:82px;z-index:10050;max-width:min(420px,calc(100vw - 32px));padding:11px 14px;border-radius:8px;background:#1f2937;color:#fff;font:13px/1.55 Inter,"PingFang SC",sans-serif;box-shadow:0 8px 24px #0003}
+.workflow-nav-toast.error{background:#b45309}
+
+/* 旧的拆解/成本页同样提供主流程回跳入口。 */
+.detail-step.workflow-nav-trigger{display:inline-flex;align-items:center}
+.detail-main-workflow>.workflow-nav-detail-wrapper{display:flex;min-width:132px;flex:0 0 auto;flex-direction:column;align-items:center}

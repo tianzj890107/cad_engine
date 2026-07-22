@@ -29,9 +29,370 @@ let currentDrawings = null;
 let currentIsImg = true;       // 是否为"图→IR"项目(3D 导入项目不可改参重生)
 let currentSelectedId = null;  // 当前选中的零件 id
 let diffPick = [];             // 版本对比已选的两个版本号
+const chatSessions = new Map(); // 项目级会话仅保存在当前浏览器内，不写入业务数据
+let chatBusy = false;
 
 const $ = (id) => document.getElementById(id);
-const status = (msg, busy = false) => { $("status").textContent = (busy ? "⏳ " : "") + msg; };
+const status = (msg, busy = false) => {
+  $("status").textContent = (busy ? "处理中 · " : "") + msg;
+  const card = $("statusCard");
+  if (card) card.dataset.busy = String(busy);
+};
+
+function fileTypeLabel(name) {
+  const suffix = String(name || "").split(".").pop().toUpperCase();
+  return suffix && suffix !== String(name || "").toUpperCase() ? suffix : "文件";
+}
+
+function renderProjectEvidence(meta = {}) {
+  const root = $("projectEvidence");
+  if (!root) return;
+  const sourceName = meta.source_filename || "需求原图";
+  const attachments = Array.isArray(meta.attachments) ? meta.attachments : [];
+  const projectId = currentProject;
+  const sourceMeta = attachments.length
+    ? `原图 + ${attachments.length} 份技术资料将共同参与 AI 解析`
+    : "原图将作为 AI 图纸解析依据";
+  let html = `<div class="uploaded-file-item blueprint-preview"><span class="evidence-icon">▧</span><div class="file-info"><div class="file-name">${esc(sourceName)}</div><div class="file-meta">${sourceMeta}</div></div><span class="evidence-type">图纸</span></div>`;
+  if (attachments.length) {
+    html += `<div class="evidence-caption">已带入的技术文档与补充资料</div><div class="evidence-list">`;
+    html += attachments.map(name => {
+      const href = projectId
+        ? mediaUrl(`${API}/api/projects/${encodeURIComponent(projectId)}/attachments/${encodeURIComponent(name)}`)
+        : "#";
+      return `<a class="uploaded-file-item evidence-file" href="${href}" target="_blank" rel="noopener"><span class="evidence-icon">▤</span><div class="file-info"><div class="file-name">${esc(name)}</div><div class="file-meta">将作为图纸解析的需求与约束依据</div></div><span class="evidence-type">${esc(fileTypeLabel(name))}</span></a>`;
+    }).join("");
+    html += "</div>";
+  }
+  root.innerHTML = html;
+}
+
+function safeExternalUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function renderModelLookup(report) {
+  const root = $("modelLookupResult");
+  if (!root) return;
+  root.replaceChildren();
+  if (!report || !report.generated_at) {
+    root.textContent = "完成图纸解析后，可在“更多功能”中发起型号联网核验。结果只作为人工确认依据，不会自动修改 CAD/BOM。";
+    return;
+  }
+  const intro = document.createElement("div");
+  intro.className = "lookup-summary";
+  intro.textContent = report.summary || "型号联网核验已完成。";
+  root.appendChild(intro);
+  const meta = document.createElement("div");
+  meta.className = "lookup-meta";
+  meta.textContent = `模型：${report.model || "—"} · 搜索 ${report.search_count || 0} 次 · ${report.generated_at}`;
+  root.appendChild(meta);
+  const confirmations = report.confirmations || {};
+  const appliedChanges = report.applied_changes || [];
+  (report.identifications || []).forEach(item => {
+    const card = document.createElement("div");
+    card.className = "lookup-item";
+    const title = document.createElement("div");
+    title.className = "lookup-title";
+    title.textContent = item.candidate_model || "未命名型号";
+    const statusTag = document.createElement("span");
+    statusTag.className = `lookup-status ${item.status || "ambiguous"}`;
+    statusTag.textContent = ({ matched: "已匹配", ambiguous: "待确认", not_found: "未找到", not_a_model: "非型号" })[item.status] || "待确认";
+    title.appendChild(statusTag);
+    card.appendChild(title);
+    const body = document.createElement("div");
+    body.className = "lookup-body";
+    const name = [item.manufacturer, item.identified_part_name || item.category].filter(Boolean).join(" · ");
+    body.textContent = `${name || "未形成可靠零件结论"}${item.specification_summary ? `\n${item.specification_summary}` : ""}${item.evidence_summary ? `\n依据：${item.evidence_summary}` : ""}`;
+    card.appendChild(body);
+    const confidence = document.createElement("div");
+    confidence.className = "lookup-confidence";
+    const applied = appliedChanges.find(change => String(change.candidate_model || "").trim().toUpperCase() === String(item.candidate_model || "").trim().toUpperCase());
+    confidence.textContent = applied
+      ? `联网匹配置信度：${Math.round(Number(item.confidence || 0) * 100)}% · 已自动同步至${applied.target === "part" ? "零件清单" : "BOM"}并创建新版本`
+      : `联网匹配置信度：${Math.round(Number(item.confidence || 0) * 100)}% · 未形成可自动写入的可靠匹配`;
+    card.appendChild(confidence);
+    const confirmation = confirmations[item.candidate_model] || confirmations[String(item.candidate_model || "").trim()] || null;
+    const actions = document.createElement("div");
+    actions.className = "lookup-actions";
+    if (applied) {
+      const confirmed = document.createElement("span");
+      confirmed.className = "lookup-confirmed confirmed";
+      confirmed.textContent = "已自动同步（可在版本记录中回溯）";
+      actions.appendChild(confirmed);
+    } else if (confirmation) {
+      const confirmed = document.createElement("span");
+      confirmed.className = `lookup-confirmed ${confirmation.decision}`;
+      confirmed.textContent = confirmation.decision === "confirmed" ? `已确认：${confirmation.by || ""}` : `已驳回：${confirmation.by || ""}`;
+      actions.appendChild(confirmed);
+    } else {
+      [
+        ["confirmed", "标记已复核"],
+        ["rejected", "驳回结论"],
+      ].forEach(([decision, text]) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = decision === "confirmed" ? "lookup-confirm" : "lookup-reject";
+        button.textContent = text;
+        button.onclick = () => confirmModelLookup(item.candidate_model, decision);
+        actions.appendChild(button);
+      });
+    }
+    card.appendChild(actions);
+    root.appendChild(card);
+  });
+  if (report.product_summary || (report.proposed_components || []).length || (report.process_designs || []).length) {
+    const research = document.createElement("div");
+    research.className = "lookup-product-research";
+    const heading = document.createElement("div");
+    heading.className = "lookup-title";
+    heading.textContent = "产品级结构与工艺推演";
+    research.appendChild(heading);
+    if (report.product_summary) {
+      const summary = document.createElement("div");
+      summary.className = "lookup-body";
+      summary.textContent = report.product_summary;
+      research.appendChild(summary);
+    }
+    if ((report.proposed_components || []).length) {
+      const componentTitle = document.createElement("div");
+      componentTitle.className = "lookup-research-heading";
+      componentTitle.textContent = "联网推演候选部件（已作为待图纸确认项同步至 BOM）";
+      research.appendChild(componentTitle);
+      report.proposed_components.forEach(item => {
+        const line = document.createElement("div");
+        line.className = "lookup-research-item";
+        line.textContent = `${item.name}${item.category ? ` · ${item.category}` : ""}${item.role ? `：${item.role}` : ""}${item.evidence_summary ? `\n依据：${item.evidence_summary}` : ""}`;
+        research.appendChild(line);
+      });
+    }
+    if ((report.process_designs || []).length) {
+      const processTitle = document.createElement("div");
+      processTitle.className = "lookup-research-heading";
+      processTitle.textContent = "公开资料中的技术 / 工艺要点（待工程确认）";
+      research.appendChild(processTitle);
+      report.process_designs.forEach(item => {
+        const line = document.createElement("div");
+        line.className = "lookup-research-item";
+        line.textContent = `${item.name}${item.related_component ? ` · ${item.related_component}` : ""}\n${item.design_summary || ""}${(item.key_controls || []).length ? `\n需确认：${item.key_controls.join("；")}` : ""}`;
+        research.appendChild(line);
+      });
+    }
+    root.appendChild(research);
+  }
+  if ((report.search_sources || []).length) {
+    const sources = document.createElement("div");
+    sources.className = "lookup-sources";
+    const heading = document.createElement("div");
+    heading.textContent = "联网搜索来源";
+    sources.appendChild(heading);
+    report.search_sources.forEach(source => {
+      const link = document.createElement("a");
+      const href = safeExternalUrl(source.url);
+      link.textContent = source.title || source.url;
+      if (href) { link.href = href; link.target = "_blank"; link.rel = "noopener"; }
+      else link.removeAttribute("href");
+      sources.appendChild(link);
+    });
+    root.appendChild(sources);
+  }
+  if ((report.open_questions || []).length) {
+    const questions = document.createElement("div");
+    questions.className = "lookup-questions";
+    questions.textContent = `待确认：${report.open_questions.join("；")}`;
+    root.appendChild(questions);
+  }
+}
+
+async function loadModelLookup(projectId) {
+  try {
+    const response = await fetch(`${API}/api/projects/${projectId}/model-lookup`);
+    if (!response.ok) return renderModelLookup(null);
+    let report = await response.json();
+    // 兼容上线前已经完成的旧核验：只同步已保存结果，不会再发起联网/模型调用。
+    if ((report.identifications || []).some(item => item.status === "matched") && !report.auto_sync_attempted_at) {
+      const applied = await fetch(`${API}/api/projects/${projectId}/model-lookup/apply`, { method: "POST" });
+      if (applied.ok) report = await applied.json();
+    }
+    if ((report.applied_changes || []).length && currentProject === projectId) {
+      const project = await fetch(`${API}/api/projects/${projectId}`).then(r => r.ok ? r.json() : null);
+      if (project?.ir) { currentIR = project.ir; renderIR(currentIR); }
+    }
+    renderModelLookup(report);
+  } catch { renderModelLookup(null); }
+}
+
+async function confirmModelLookup(candidateModel, decision) {
+  if (!currentProject) return;
+  const note = prompt(decision === "confirmed" ? "填写确认说明（可选）" : "填写驳回原因（可选）", "") || "";
+  try {
+    const response = await fetch(`${API}/api/projects/${currentProject}/model-lookup/confirm`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ candidate_model: candidateModel, decision, note }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || response.status);
+    renderModelLookup(payload);
+    status(decision === "confirmed" ? `已记录型号 ${candidateModel} 的人工复核意见` : `已驳回型号 ${candidateModel} 的联网结论`);
+  } catch (error) { status("记录确认失败: " + error.message); }
+}
+
+const WORKFLOW = ["upload", "parse", "generate"];
+function setWorkflow(stage, hint) {
+  // 当前工作台承载的是 2.1 图纸解析及其校核/几何处理；
+  // 只有正式输出报告时才应进入第 3 步，因此生成 CAD 后仍保持第 2 步高亮。
+  const normalized = (stage === "review" || stage === "generate") ? "parse" : stage;
+  const current = Math.max(0, WORKFLOW.indexOf(normalized));
+  document.querySelectorAll(".main-step-wrapper[data-step]").forEach(wrapper => {
+    const index = WORKFLOW.indexOf(wrapper.dataset.step);
+    const step = wrapper.querySelector(".main-step");
+    if (!step) return;
+    step.classList.toggle("active", index === current);
+    step.classList.toggle("completed", index < current);
+    step.classList.toggle("pending", index > current);
+  });
+  document.querySelectorAll(".main-connector").forEach((line, index) =>
+    line.classList.toggle("active", index < current));
+  const el = $("workflowHint");
+  if (el && hint) el.textContent = hint;
+}
+
+function questionStorageKey(question) {
+  return [question.field || "", question.reason || "", question.guess || ""].join("\u001f");
+}
+
+function readQuestionConfirmations() {
+  if (!currentProject) return {};
+  try {
+    return JSON.parse(localStorage.getItem(`cad-engine:clarifications:${currentProject}`) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveQuestionConfirmation(question, note) {
+  if (!currentProject) return;
+  const confirmations = readQuestionConfirmations();
+  confirmations[questionStorageKey(question)] = note;
+  try {
+    localStorage.setItem(`cad-engine:clarifications:${currentProject}`, JSON.stringify(confirmations));
+  } catch {
+    // 浏览器禁用本地存储时仍保留本次页面内的确认输入。
+  }
+}
+
+function renderClarifications(ir) {
+  const ex = $("extras");
+  ex.innerHTML = "";
+  const standards = ir.standard_parts || [];
+  const questions = ir.open_questions || [];
+
+  if (standards.length) {
+    const heading = document.createElement("div");
+    heading.className = "standard-parts-heading";
+    heading.textContent = "BOM / 外购及联网推演部件";
+    ex.appendChild(heading);
+    standards.forEach(s => {
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = `🔩 ${s.spec} ×${s.quantity}`;
+      ex.appendChild(tag);
+    });
+  }
+
+  if (!questions.length) {
+    const item = document.createElement("div");
+    item.className = "issue-item issue-empty";
+    const title = document.createElement("div");
+    title.className = "issue-title";
+    title.textContent = "人工确认说明";
+    const desc = document.createElement("div");
+    desc.className = "issue-desc";
+    desc.textContent = "当前图纸未返回必须澄清的字段；如有补充约束，请在此确认。";
+    const suggestion = document.createElement("div");
+    suggestion.className = "issue-suggestion";
+    suggestion.textContent = "AI 初步判断：现有信息可用于当前解析。";
+    const action = document.createElement("div");
+    action.className = "issue-action";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "issue-input";
+    input.placeholder = "输入确认说明...";
+    const emptyQuestion = { field: "人工确认说明", reason: desc.textContent, guess: suggestion.textContent };
+    const confirmations = readQuestionConfirmations();
+    input.value = confirmations[questionStorageKey(emptyQuestion)] || "";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "issue-btn";
+    button.textContent = input.value ? "更新确认" : "确认";
+    button.onclick = () => {
+      const note = input.value.trim();
+      if (!note) { input.focus(); status("请输入确认说明后再提交。"); return; }
+      saveQuestionConfirmation(emptyQuestion, note);
+      button.textContent = "更新确认";
+      status("已记录人工确认说明。");
+    };
+    action.append(input, button);
+    item.append(title, desc, suggestion, action);
+    ex.appendChild(item);
+    return;
+  }
+
+  const heading = document.createElement("div");
+  heading.className = "clarification-heading";
+  heading.textContent = standards.length ? "待澄清问题" : "请确认以下信息";
+  ex.appendChild(heading);
+
+  const confirmations = readQuestionConfirmations();
+  questions.forEach(question => {
+    const item = document.createElement("div");
+    item.className = "issue-item";
+    const title = document.createElement("div");
+    title.className = "issue-title";
+    title.textContent = question.field || "待确认项";
+    const desc = document.createElement("div");
+    desc.className = "issue-desc";
+    desc.textContent = question.reason || "请补充确认说明。";
+    item.append(title, desc);
+
+    const suggestion = document.createElement("div");
+    suggestion.className = "issue-suggestion";
+    suggestion.textContent = `AI 初步判断：${question.guess || "图纸信息不足，需人工确认后继续。"}`;
+    item.appendChild(suggestion);
+
+    const action = document.createElement("div");
+    action.className = "issue-action";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "issue-input";
+    input.placeholder = "输入确认说明...";
+    input.value = confirmations[questionStorageKey(question)] || "";
+    input.setAttribute("aria-label", `${question.field || "待确认项"}的确认说明`);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "issue-btn";
+    button.textContent = input.value ? "更新确认" : "确认";
+    button.onclick = () => {
+      const note = input.value.trim();
+      if (!note) {
+        input.focus();
+        status("请输入确认说明后再提交。");
+        return;
+      }
+      saveQuestionConfirmation(question, note);
+      button.textContent = "更新确认";
+      status(`已记录「${question.field || "待确认项"}」的确认说明。`);
+    };
+    action.append(input, button);
+    item.appendChild(action);
+    ex.appendChild(item);
+  });
+}
 
 // --------------------------------------------------------------------------- //
 // 健康检查 + 历史项目
@@ -75,12 +436,211 @@ function afterAuth() {
   }).catch(() => { localStorage.removeItem("lastProject"); });
 }
 
+$("btnMoreActions").onclick = () => {
+  const sheet = $("actionSheet");
+  sheet.hidden = !sheet.hidden;
+  $("btnMoreActions").setAttribute("aria-expanded", String(!sheet.hidden));
+};
+document.addEventListener("click", (event) => {
+  const sheet = $("actionSheet"), trigger = $("btnMoreActions");
+  if (sheet && !sheet.hidden && !sheet.contains(event.target) && event.target !== trigger) {
+    sheet.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+  }
+});
+
+$("btnPrevious").onclick = () => {
+  if (history.length > 1) history.back();
+  else location.href = "index.html";
+};
+$("btnReport").onclick = () => {
+  if (!currentProject) {
+    status("请先创建或打开一个项目，再查看工艺解析报告。");
+    return;
+  }
+  location.href = `report.html?project=${encodeURIComponent(currentProject)}`;
+};
+
+function openBusinessWorkbench(biz) {
+  const project = currentProject ? `&project=${encodeURIComponent(currentProject)}` : "";
+  location.href = `/apps/tech-process/?biz=${encodeURIComponent(biz)}${project}`;
+}
+
+function activeChatSession() {
+  if (!currentProject) return [];
+  if (!chatSessions.has(currentProject)) chatSessions.set(currentProject, []);
+  return chatSessions.get(currentProject);
+}
+
+function chatPartLabel(part) {
+  if (!part) return "当前项目整体";
+  return `${part.part_id} · ${part.name || "未命名零件"}`;
+}
+
+function renderChat() {
+  const box = $("chatMessages");
+  const messages = activeChatSession();
+  box.innerHTML = "";
+  if (!messages.length) {
+    box.innerHTML = `<div class="chat-empty"><div class="chat-empty-mark">AI</div><strong>图纸工艺助手</strong><p>选择零件后，可以询问结构、材料、工艺路径或待澄清事项。</p></div>`;
+    return;
+  }
+  messages.forEach(message => {
+    const row = document.createElement("div");
+    row.className = `chat-message ${message.role}${message.error ? " error" : ""}`;
+    const avatar = document.createElement("span");
+    avatar.className = "chat-avatar";
+    avatar.textContent = message.role === "user" ? "U" : "AI";
+    const bubble = document.createElement("div");
+    bubble.className = "chat-bubble";
+    bubble.textContent = message.content;
+    row.append(avatar, bubble);
+    box.appendChild(row);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+function renderChatTyping() {
+  const box = $("chatMessages");
+  const row = document.createElement("div");
+  row.className = "chat-message assistant";
+  row.id = "chatTyping";
+  row.innerHTML = `<span class="chat-avatar">AI</span><div class="chat-bubble chat-typing"><i></i><i></i><i></i></div>`;
+  box.appendChild(row);
+  box.scrollTop = box.scrollHeight;
+}
+
+function updateChatContext(part = null) {
+  const context = $("chatContext");
+  const reference = $("chatReference");
+  const badge = $("chatModelBadge");
+  if (!currentProject) {
+    context.textContent = "选择项目后可结合图纸和零件信息提问";
+    reference.textContent = "当前未引用图纸";
+    badge.textContent = "项目上下文";
+    return;
+  }
+  const device = (currentIR && currentIR.device_name) || "当前图纸";
+  context.textContent = `当前上下文：${device} · ${chatPartLabel(part)}`;
+  reference.textContent = `已引用：${chatPartLabel(part)}、设计意图与解析结果`;
+  badge.textContent = "AI 工艺助手";
+}
+
+function appendChatMessage(role, content, error = false) {
+  activeChatSession().push({ role, content, error });
+  renderChat();
+}
+
+async function refreshAfterChatEdit(edit) {
+  if (!edit || !currentProject || !edit.part_id) return;
+  status(`AI 已保存 ${edit.part_id} 的参数修改，正在刷新工作台…`, true);
+  try {
+    if (edit.requires_regeneration) {
+      const response = await fetch(`${API}/api/projects/${currentProject}/parts/${encodeURIComponent(edit.part_id)}/regenerate`, { method: "POST" });
+      const generated = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(generated.detail || "几何重生失败");
+      upsertLocal(currentGeometry, generated.geometry);
+      upsertLocal(currentDrawings, generated.drawings);
+    }
+    const project = await fetch(`${API}/api/projects/${currentProject}`).then(r => r.ok ? r.json() : null);
+    if (project?.ir) {
+      currentIR = project.ir;
+      currentGeometry = project.geometry || currentGeometry;
+      currentDrawings = project.drawings || currentDrawings;
+      renderIR(currentIR);
+      const part = (currentIR.parts || []).find(item => item.part_id === edit.part_id);
+      if (part) selectPart(part);
+    }
+    loadVersions();
+    status(edit.requires_regeneration ? "AI 修改已保存，3D 与工程图已重新生成。" : "AI 修改已保存，并已创建新版本。");
+  } catch (error) {
+    status(`AI 参数已保存，但几何/工程图刷新失败：${error.message}`);
+  }
+}
+
+async function sendWorkbenchChat() {
+  const input = $("chatInput");
+  const message = input.value.trim();
+  if (!message || chatBusy) return;
+  if (!currentProject) {
+    appendChatMessage("assistant", "请先创建或打开项目，再结合图纸与零件信息提问。", true);
+    return;
+  }
+  const selected = (currentIR && currentIR.parts || []).find(p => p.part_id === currentSelectedId);
+  appendChatMessage("user", message);
+  input.value = "";
+  input.style.height = "auto";
+  chatBusy = true;
+  $("btnChatSend").disabled = true;
+  renderChatTyping();
+  try {
+    const history = activeChatSession().slice(-7, -1).map(item => ({
+      role: item.role,
+      content: item.content,
+    }));
+    const response = await fetch(`${API}/api/projects/${currentProject}/workbench-chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, part_id: selected ? selected.part_id : "", history }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || response.status);
+    appendChatMessage("assistant", data.answer || "未获得可用回复，请换一种问法。\n");
+    if (data.model) $("chatModelBadge").textContent = data.model;
+    if (data.edit_applied) await refreshAfterChatEdit(data.edit_applied);
+  } catch (error) {
+    appendChatMessage("assistant", `对话暂时失败：${error.message || "请稍后重试"}`, true);
+  } finally {
+    document.getElementById("chatTyping")?.remove();
+    chatBusy = false;
+    $("btnChatSend").disabled = false;
+    $("chatInput").focus();
+  }
+}
+
+$("btnTechProcess").onclick = () => openBusinessWorkbench("tech");
+$("btnQuoteManagement").onclick = () => openBusinessWorkbench("quote");
+
+$("chatForm").onsubmit = (event) => {
+  event.preventDefault();
+  sendWorkbenchChat();
+};
+$("chatInput").addEventListener("keydown", event => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    sendWorkbenchChat();
+  }
+});
+$("chatInput").addEventListener("input", event => {
+  event.target.style.height = "auto";
+  event.target.style.height = `${Math.min(event.target.scrollHeight, 96)}px`;
+});
+$("btnChatUseDrawing").onclick = () => {
+  const selected = (currentIR && currentIR.parts || []).find(p => p.part_id === currentSelectedId);
+  const input = $("chatInput");
+  input.value = selected
+    ? `请结合当前图纸，分析 ${chatPartLabel(selected)} 的制造工艺与风险。`
+    : "请结合当前图纸，概述零件结构、关键工艺和待澄清风险。";
+  input.focus();
+  input.dispatchEvent(new Event("input"));
+};
+
+function bindFilePicker(inputId, nameId) {
+  const input = $(inputId);
+  const name = $(nameId);
+  input.addEventListener("change", () => {
+    const files = Array.from(input.files || []);
+    if (!files.length) name.textContent = "未选择文件";
+    else if (files.length === 1) name.textContent = files[0].name;
+    else name.textContent = `已选择 ${files.length} 个文件`;
+  });
+}
+bindFilePicker("fileInput", "fileInputName");
+bindFilePicker("attachInput", "attachInputName");
+bindFilePicker("file3d", "file3dName");
+
 function renderUserBox() {
-  if (!authEnabled) { $("userBox").style.display = "none"; return; }
-  $("userBox").style.display = "flex";
-  $("userInfo").textContent =
-    `${currentUser.display_name}（${ROLE_LABEL_CN[currentUser.role] || currentUser.role}）`;
-  $("btnAddUser").style.display = currentUser.role === "admin" ? "" : "none";
+  // 2.1 工作台不再放账户/登出入口，账户资料和权限统一由首页右上角进入。
 }
 
 $("loginForm").onsubmit = async (e) => {
@@ -102,24 +662,6 @@ $("loginForm").onsubmit = async (e) => {
   } catch { $("loginErr").textContent = "网络错误"; }
 };
 
-$("btnLogout").onclick = () => {
-  authToken = ""; currentUser = null;
-  localStorage.removeItem("authToken");
-  location.reload();
-};
-
-$("btnAddUser").onclick = async () => {
-  const username = prompt("新用户 用户名:"); if (!username) return;
-  const password = prompt("初始密码:"); if (!password) return;
-  const role = prompt("角色 (viewer / engineer / reviewer / admin):", "engineer"); if (!role) return;
-  const display_name = prompt("显示名(可选):", username) || username;
-  const r = await fetch(`${API}/api/users`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password, role, display_name }),
-  });
-  const d = await r.json();
-  status(r.ok ? `已创建用户 ${username}（${ROLE_LABEL_CN[role] || role}）` : "创建失败: " + (d.detail || r.status));
-};
 
 async function loadProjects() {
   const list = await fetch(`${API}/api/projects`).then(r => r.json());
@@ -148,54 +690,95 @@ $("btnUpload").onclick = async () => {
   currentIR = null; currentGeometry = null; currentDrawings = null;
   currentIsImg = true; currentSelectedId = null;
   diffPick = []; $("versions").innerHTML = ""; $("diffView").innerHTML = "";
+  updateChatContext();
+  renderChat();
   const phEl = document.querySelector(".image-wrap .placeholder");
   if (phEl) phEl.remove();
   $("sourceImg").style.display = "";
   $("sourceImg").src = mediaUrl(`${API}/api/projects/${currentProject}/source?t=${Date.now()}`);
+  renderProjectEvidence({
+    source_filename: f.name,
+    attachments: Array.from($("attachInput").files).map(file => file.name),
+  });
   $("btnParse").disabled = false;
   $("btnVerify").disabled = true;
   $("btnDecompose").disabled = true;
+  $("btnModelLookup").disabled = true;
   $("btnGenerate").disabled = true;
   $("btnDrawings").disabled = true;
   $("btnBom").disabled = true;
+  renderModelLookup(null);
   const nAtt = $("attachInput").files.length;
   status(`已创建项目 ${currentProject}（补充说明${$("noteInput").value ? "✓" : "—"}，佐证文件 ${nAtt} 个），可解析`);
+  setWorkflow("parse", "图纸已保存。确认后可开始 AI 解析。");
   loadProjects();
 };
 
 $("btnParse").onclick = async () => {
   if (!currentProject) return;
-  status("Claude 正在解析图纸为结构化 IR（含视觉理解，稍候）...", true);
+  status("模型正在解析图纸与技术文档需求为结构化 IR（含视觉理解，稍候）...", true);
   try {
     currentIR = await runTask(currentProject, `/api/projects/${currentProject}/parse`, "解析");
     renderIR(currentIR);
     $("btnVerify").disabled = false;
     $("btnDecompose").disabled = false;
+    $("btnModelLookup").disabled = false;
     $("btnGenerate").disabled = false;
     $("btnDrawings").disabled = false;
     $("btnBom").disabled = false;
-    status(`解析完成（平均置信度 ${avgConfidence(currentIR)}）`);
+    const documentCount = await fetch(`${API}/api/projects/${currentProject}/attachments`)
+      .then(r => r.ok ? r.json() : { attachments: [] })
+      .then(payload => (payload.attachments || []).length)
+      .catch(() => 0);
+    status(`解析完成（已结合 ${documentCount} 份技术资料；平均置信度 ${avgConfidence(currentIR)}）`);
+    setWorkflow("review", "AI 已完成解析，请确认零件、材料与待澄清项。");
   } catch (e) { status("解析失败: " + e.message); }
+};
+
+$("btnModelLookup").onclick = async () => {
+  if (!currentProject || !currentIR) return;
+  status("Qwen 正在联网核验型号候选与公开零件资料（会产生联网搜索与模型 token 消耗）...", true);
+  try {
+    const report = await runTask(currentProject, `/api/projects/${currentProject}/model-lookup`, "型号联网核验");
+    renderModelLookup(report);
+    $("modelLookupDetails").open = true;
+    const applied = (report.applied_changes || []).length;
+    if (applied) {
+      const project = await fetch(`${API}/api/projects/${currentProject}`).then(r => r.ok ? r.json() : null);
+      if (project?.ir) { currentIR = project.ir; renderIR(currentIR); }
+      loadVersions();
+    }
+    status(`型号联网核验完成（${(report.identifications || []).length} 个候选，搜索 ${report.search_count || 0} 次；已同步 ${applied} 项至零件清单/BOM，并生成新版本）`);
+  } catch (error) { status("型号联网核验失败: " + error.message); }
 };
 
 $("btnVerify").onclick = async () => {
   if (!currentProject) return;
   const before = avgConfidence(currentIR);
-  status("Claude 正在对照原图自校验、修正尺寸并重估置信度...", true);
+  status("模型正在对照原图自校验（会产生一次额外调用费用）...", true);
   try {
-    currentIR = await runTask(currentProject, `/api/projects/${currentProject}/verify`, "校验");
+    const result = await runTask(currentProject, `/api/projects/${currentProject}/verify`, "校验");
+    if (result.verification && result.verification.status === "rejected") {
+      currentIR = result.ir;
+      renderIR(currentIR);
+      status(result.verification.message + " 详情：" + result.verification.detail);
+      return;
+    }
+    currentIR = result;
     renderIR(currentIR);
     status(`校验完成（平均置信度 ${before} → ${avgConfidence(currentIR)}）`);
+    setWorkflow("review", "校验完成，可继续确认识别结果或生成 CAD。");
   } catch (e) { status("自校验失败: " + e.message); }
 };
 
 $("btnDecompose").onclick = async () => {
   if (!currentProject) return;
-  status("Claude 正在做拆解推荐增强...", true);
+  status("模型正在做拆解推荐增强...", true);
   try {
     currentIR = await runTask(currentProject, `/api/projects/${currentProject}/decompose`, "拆解推荐");
     renderIR(currentIR);
     status("拆解推荐完成");
+    setWorkflow("review", "拆解建议已更新，可确认后生成 CAD。");
   } catch (e) { status("拆解失败: " + e.message); }
 };
 
@@ -206,6 +789,7 @@ $("btnGenerate").onclick = async () => {
     currentGeometry = await runTask(currentProject, `/api/projects/${currentProject}/generate`, "几何生成");
     renderIR(currentIR);  // 重渲染以挂上几何状态
     status("几何生成完成，点击零件查看 3D");
+    setWorkflow("generate", "CAD 几何已生成，可查看 3D、工程图和 BOM。");
   } catch (e) { status("几何生成失败: " + e.message); }
 };
 
@@ -252,6 +836,8 @@ async function postJSON(path) {
 // 异步任务: 提交 -> 轮询状态/进度 -> 取结果(替代原来的阻塞式调用)
 // --------------------------------------------------------------------------- //
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+// 同一页面中相同任务只允许一个轮询链，双击不会重复提交/重复计费。
+const activeTaskPromises = new Map();
 
 async function pollTask(projectId, taskId, label) {
   while (true) {
@@ -266,11 +852,26 @@ async function pollTask(projectId, taskId, label) {
 }
 
 async function runTask(projectId, submitPath, label) {
-  const r = await fetch(`${API}${submitPath}`, { method: "POST" });
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(d.detail || r.status);
-  status(`${label}已提交(任务 ${String(d.task_id).slice(0, 6)})，处理中…`, true);
-  return pollTask(projectId, d.task_id, label);
+  const key = `${projectId}:${submitPath}`;
+  const active = activeTaskPromises.get(key);
+  if (active) {
+    status(`${label}已在处理中，复用当前任务…`, true);
+    return active;
+  }
+
+  const task = (async () => {
+    const r = await fetch(`${API}${submitPath}`, { method: "POST" });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.detail || r.status);
+    status(`${label}已提交(任务 ${String(d.task_id).slice(0, 6)})，处理中…`, true);
+    return pollTask(projectId, d.task_id, label);
+  })();
+  activeTaskPromises.set(key, task);
+  try {
+    return await task;
+  } finally {
+    if (activeTaskPromises.get(key) === task) activeTaskPromises.delete(key);
+  }
 }
 
 // --------------------------------------------------------------------------- //
@@ -289,6 +890,7 @@ async function openProject(pid) {
   currentIR = data.ir;
   currentGeometry = data.geometry;
   currentDrawings = data.drawings;
+  renderProjectEvidence(data.meta);
 
   // 原图区: 图片项目显示原图; 3D 导入项目无 2D 原图,显示占位
   const fname = (data.meta && data.meta.source_filename) || "";
@@ -315,14 +917,19 @@ async function openProject(pid) {
   $("btnParse").disabled = !isImg;
   $("btnVerify").disabled = !isImg || !data.ir;
   $("btnDecompose").disabled = !data.ir;
+  $("btnModelLookup").disabled = !data.ir;
   $("btnGenerate").disabled = !isImg || !data.ir;
   $("btnDrawings").disabled = !isImg || !data.ir;
   $("btnBom").disabled = !data.ir;
   if (data.ir) renderIR(data.ir);
+  loadModelLookup(pid);
+  updateChatContext();
+  renderChat();
   loadVersions();
   const note = data.meta && data.meta.note ? data.meta.note : "";
   const atts = data.meta && data.meta.attachments ? data.meta.attachments.length : 0;
   status(`已打开项目 ${pid}（补充说明${note ? "✓" : "—"}，佐证文件 ${atts} 个）`);
+  setWorkflow(data.geometry ? "generate" : data.ir ? "review" : "parse");
 }
 
 function avgConfidence(ir) {
@@ -395,21 +1002,44 @@ function renderNode(node, container, depth, partById) {
   const g = geomFor(p.part_id);
   const dw = drawingsFor(p.part_id);
   const div = document.createElement("div");
-  div.className = "part";
+  div.className = "part part-item confirmed";
   div.dataset.partId = p.part_id;
   div.style.marginLeft = pad + "px";
   const feats = (p.features || []).map(f => f.type).join(", ");
   const gstat = g ? (g.ok ? " · 几何✓" : " · 几何✗") : "";
   const dstat = dw ? (dw.ok ? " · 2D✓" : " · 2D✗") : "";
   div.innerHTML =
-    `<div class="pname">${esc(p.part_id)} ${esc(p.name)}` +
-    `<span class="conf ${confClass(p.confidence)}">置信 ${(p.confidence * 100 | 0)}%</span></div>` +
-    `<div class="pmeta">${esc(p.role || "")} · 数量×${p.quantity}` +
-    `${p.material ? " · " + esc(p.material.spec) : ""}${gstat}${dstat}</div>` +
-    `<div class="feats">特征: ${esc(feats)}</div>` +
-    (p.recommendation ? `<div class="recommend">💡 ${esc(p.recommendation)}</div>` : "");
+    `${partThumbnail(p)}<div class="part-info">` +
+    `<div class="part-name">${esc(p.part_id)} ${esc(p.name)}` +
+    `<span class="part-confidence">${(p.confidence * 100 | 0)}%</span></div>` +
+    `<div class="part-type">${esc(feats)} · ${p.material ? esc(p.material.spec) : "材料待确认"} · ${p.quantity}件${gstat}${dstat}</div>` +
+    (p.recommendation ? `<div class="recommend">💡 ${esc(p.recommendation)}</div>` : "") +
+    `</div>`;
   div.onclick = () => selectPart(p);
   container.appendChild(div);
+}
+
+// 根据已经解析出的几何特征显示一个轻量缩略图。它完全由本地 IR 生成，
+// 不读取或生成新的图纸，也不会发起模型调用。
+function partThumbnail(part) {
+  const types = new Set((part.features || []).map(f => f && f.type).filter(Boolean));
+  let kind = "generic";
+  if (types.has("hole_pattern")) kind = "pattern";
+  else if (types.has("cylinder")) kind = "cylinder";
+  else if (types.has("box")) kind = "box";
+  else if (types.has("plate")) kind = "plate";
+  else if (types.has("hole")) kind = "hole";
+
+  const drawings = {
+    plate: `<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="6" y="9" width="20" height="14" rx="2"/><path d="M9 13h14M9 19h14"/></svg>`,
+    box: `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 11 16 6l9 5v11l-9 5-9-5z"/><path d="M7 11l9 5 9-5M16 16v11"/></svg>`,
+    cylinder: `<svg viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="9" rx="8" ry="3.5"/><path d="M8 9v13c0 2 16 2 16 0V9"/><path d="M8 22c0 2 16 2 16 0"/></svg>`,
+    pattern: `<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="6" width="22" height="20" rx="3"/><circle cx="11" cy="12" r="1.7"/><circle cx="21" cy="12" r="1.7"/><circle cx="11" cy="20" r="1.7"/><circle cx="21" cy="20" r="1.7"/></svg>`,
+    hole: `<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="8" width="22" height="16" rx="3"/><circle cx="16" cy="16" r="4"/></svg>`,
+    generic: `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="m16 5 9 5v12l-9 5-9-5V10z"/><path d="m7 10 9 5 9-5M16 15v12"/></svg>`,
+  };
+  const labels = { plate: "板件", box: "方体件", cylinder: "圆柱件", pattern: "孔阵列件", hole: "带孔件", generic: "零件" };
+  return `<div class="part-icon part-icon-${kind}" title="${labels[kind]}" aria-label="${labels[kind]}">${drawings[kind]}</div>`;
 }
 
 // 在原图上叠加各零件的 bbox(provenance.bbox 归一化 [x,y,w,h]),按置信度着色
@@ -437,34 +1067,24 @@ function renderBboxes(ir) {
 }
 
 function renderIR(ir) {
-  $("deviceName").textContent = ir.device_name ? `· ${ir.device_name}` : "";
+  $("deviceName").textContent = ir.device_name || "当前解析任务";
   $("intent").innerHTML =
     `<b>设计意图:</b> ${esc(ir.design_intent || "")}<br>` +
     (ir.overall_dims ? `<b>总体尺寸:</b> ${esc(ir.overall_dims)}<br>` : "") +
     (ir.assembly_notes ? `<b>装配:</b> ${esc(ir.assembly_notes)}` : "");
+  $("partsMetric").textContent = `${(ir.parts || []).length}`;
+  $("confidenceMetric").textContent = avgConfidence(ir);
 
   const tree = $("tree");
   tree.innerHTML = "";
+  tree.classList.toggle("empty-state", !(ir.parts || []).length);
   const partById = {};
   (ir.parts || []).forEach(p => { partById[p.part_id] = p; });
   const root = buildClientTree(ir);
   root.children.forEach(c => renderNode(c, tree, 0, partById));
 
-  // 标准件 + 待澄清
-  const ex = $("extras");
-  ex.innerHTML = "";
-  (ir.standard_parts || []).forEach(s => {
-    const t = document.createElement("span");
-    t.className = "tag";
-    t.textContent = `🔩 ${s.spec} ×${s.quantity}`;
-    ex.appendChild(t);
-  });
-  (ir.open_questions || []).forEach(q => {
-    const d = document.createElement("div");
-    d.className = "q";
-    d.textContent = `❓ ${q.field}: ${q.reason}` + (q.guess ? ` (猜测: ${q.guess})` : "");
-    ex.appendChild(d);
-  });
+  // 标准件 + 待澄清：确认说明只在本地保存，不会触发新的 AI 调用。
+  renderClarifications(ir);
 
   renderBboxes(ir);
   // 重渲染后保持选中态(高亮 tree/box)
@@ -479,6 +1099,11 @@ function renderIR(ir) {
 // 版本与校核审签(PRD 6.5): 每次保存 IR 自动留版,可对比/送审/通过/驳回/恢复
 // --------------------------------------------------------------------------- //
 const STATUS_LABEL = { draft: "草稿", in_review: "送审中", approved: "已通过", rejected: "已驳回" };
+const VERSION_STAGE_LABEL = {
+  parsed: "AI 图纸解析完成", parsed_3d: "导入 3D 模型解析", verified: "AI 校验修正完成",
+  decomposed: "AI 拆解推荐已同步", edited: "人工编辑零件参数", ai_chat_edited: "AI 对话修改零件参数",
+  model_lookup_applied: "联网型号核验同步清单", restored: "恢复历史版本",
+};
 
 async function loadVersions() {
   if (!currentProject) { $("versions").innerHTML = ""; return; }
@@ -509,8 +1134,10 @@ function renderVersions(versions) {
     div.innerHTML =
       `<div class="ver-top"><span class="vn">v${v.version}</span>` +
       `<span class="st ${v.status}">${STATUS_LABEL[v.status] || v.status}</span>` +
-      `<span class="vstage">${esc(v.stage)}</span></div>` +
+      `<span class="vstage">${esc(VERSION_STAGE_LABEL[v.stage] || v.stage)}</span></div>` +
       `<div class="vmeta">${esc(v.ts)} · ${esc(v.author)} · ${v.parts}零件${conf}</div>` +
+      (v.note ? `<div class="vmeta">本次操作：${esc(v.note)}</div>` : "") +
+      `<div class="vmeta">相对上一版本：${esc(v.change_summary || "暂无变更说明")}</div>` +
       reviewNote +
       `<div class="vacts">` +
       `<button class="pick ${picked ? "on" : ""}" data-act="pick" data-v="${v.version}">` +
@@ -598,6 +1225,19 @@ function renderDiff(from, to, d) {
     });
     html += `</div>`;
   });
+  const S = d.standard_parts || {};
+  (S.added || []).forEach(item =>
+    html += `<div class="chg"><span class="add">+ 新增 BOM / 外购件 ${esc(item.spec || item.model_no || "")}</span></div>`);
+  (S.removed || []).forEach(item =>
+    html += `<div class="chg"><span class="del">− 删除 BOM / 外购件 ${esc(item.spec || item.model_no || "")}</span></div>`);
+  (S.modified || []).forEach(item => {
+    html += `<div class="chg"><span class="f">BOM / 外购件 ${esc(item.spec || item.key || "")}</span>`;
+    item.changes.forEach(c => {
+      html += `<div>· ${esc(c.field)}: <span class="o">${esc(c.old)}</span> → ` +
+        `<span class="n">${esc(c.new)}</span></div>`;
+    });
+    html += `</div>`;
+  });
   el.innerHTML = html;
 }
 
@@ -627,41 +1267,52 @@ function selectPart(part) {
   currentSelectedId = part.part_id;
   markSelection(part.part_id);
   const g = geomFor(part.part_id);
-  $("viewerPartName").textContent = `· ${part.part_id} ${part.name}`;
+  $("viewerPartName").textContent = `${part.part_id} ${part.name}`;
+  updateChatContext(part);
 
   // 跳转到工艺拆解 / 成本分析页
-  const pq = `project=${encodeURIComponent(currentProject)}&part=${encodeURIComponent(part.part_id)}`;
+  // 页面版本参数用于绕开浏览器对旧深色详情页的历史缓存；后端会忽略 ui 参数。
+  const pq = `ui=20260714-unified2&project=${encodeURIComponent(currentProject)}&part=${encodeURIComponent(part.part_id)}`;
   let html = `<div class="part-nav">` +
     `<a class="btn-process" href="process.html?${pq}">🔧 工艺拆解 →</a>` +
     `<a class="btn-cost" href="cost.html?${pq}">💰 成本分析 →</a></div>`;
+  if (part.model_no || part.manufacturer || part.model_specification) {
+    html += `<div class="model-identity"><b>联网型号核验</b>` +
+      `${part.model_no ? `<div>型号：${esc(part.model_no)}</div>` : ""}` +
+      `${part.manufacturer ? `<div>制造商：${esc(part.manufacturer)}</div>` : ""}` +
+      `${part.model_specification ? `<div>公开规格：${esc(part.model_specification)}</div>` : ""}` +
+      `${part.model_lookup_evidence ? `<div>核验依据：${esc(part.model_lookup_evidence)}</div>` : ""}` +
+      `</div>`;
+  }
+  let parameterHtml = "";
 
   // 行内可编辑特征(仅"图→IR"项目;3D 导入项目几何来自真实实体,不改参重生)
   if (currentIsImg) {
-    html += `<div class="edit-grid">` +
+    parameterHtml += `<div class="edit-grid">` +
       `<label>名称</label><input data-pf="name" value="${esc(part.name || "")}"/>` +
       `<label>数量</label><input data-pf="quantity" type="number" value="${part.quantity || 1}"/>` +
       `<label>材料</label><input data-pf="material" value="${esc(part.material ? part.material.spec : "")}"/>` +
       `</div>`;
     (part.features || []).forEach((f, fi) => {
       const fields = FEAT_FIELDS[f.type] || [];
-      html += `<div class="feat-edit"><div class="feat-type">特征 #${fi + 1}: ${f.type}` +
+      parameterHtml += `<div class="feat-edit"><div class="feat-type">特征 #${fi + 1}: ${f.type}` +
         `${f.purpose ? " · " + esc(f.purpose) : ""}</div><div class="edit-grid">`;
       fields.forEach(k => {
         const v = f[k];
-        html += `<label>${k}</label><input data-fi="${fi}" data-fk="${k}" type="number" ` +
+        parameterHtml += `<label>${k}</label><input data-fi="${fi}" data-fk="${k}" type="number" ` +
           `value="${v != null ? v : ""}"/>`;
       });
-      html += `</div></div>`;
+      parameterHtml += `</div></div>`;
     });
-    html += `<button class="btn-regen" id="btnRegen">💾 保存并重生该零件</button>`;
+    parameterHtml += `<button class="btn-regen" id="btnRegen">保存并重新生成该零件</button>`;
   } else {
-    html += "<table>";
+    parameterHtml += "<table>";
     (part.features || []).forEach(f => {
       const dims = Object.entries(f).filter(([k, v]) =>
         v != null && !["type", "purpose"].includes(k)).map(([k, v]) => `${k}=${v}`).join(", ");
-      html += `<tr><td>${f.type}</td><td>${dims}${f.purpose ? " · " + esc(f.purpose) : ""}</td></tr>`;
+      parameterHtml += `<tr><td>${f.type}</td><td>${dims}${f.purpose ? " · " + esc(f.purpose) : ""}</td></tr>`;
     });
-    html += "</table>";
+    parameterHtml += "</table>";
   }
 
   if (g) {
@@ -676,7 +1327,7 @@ function selectPart(part) {
       loadSTL(mediaUrl(`${API}${g.stl_url}`));
     }
   } else {
-    html += `<div class="warn">尚未生成几何，请点击「5·生成几何」</div>`;
+    html += `<div class="warn">尚未生成几何，请使用底部的「生成 CAD 几何」。</div>`;
     clearViewer();
   }
 
@@ -697,6 +1348,7 @@ function selectPart(part) {
   }
 
   $("partDetail").innerHTML = html;
+  $("parameterEditor").innerHTML = parameterHtml || "此零件暂无可编辑参数。";
   const rb = document.getElementById("btnRegen");
   if (rb) rb.onclick = () => savePartEdits(part.part_id);
 }
@@ -706,7 +1358,7 @@ async function savePartEdits(partId) {
   if (!currentProject || !currentIR) return;
   const part = (currentIR.parts || []).find(p => p.part_id === partId);
   if (!part) return;
-  const detail = $("partDetail");
+  const detail = $("parameterEditor");
 
   // 零件级字段
   detail.querySelectorAll("[data-pf]").forEach(inp => {
@@ -763,13 +1415,17 @@ let scene, camera, renderer, controls, mesh;
 function initViewer() {
   const el = $("viewer");
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0b0f14);
+  scene.background = new THREE.Color(0xf8fafc);
   camera = new THREE.PerspectiveCamera(45, el.clientWidth / el.clientHeight, 0.1, 100000);
   camera.position.set(120, 120, 120);
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(el.clientWidth, el.clientHeight);
   el.appendChild(renderer.domElement);
   controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 4;
 
   scene.add(new THREE.AmbientLight(0xffffff, 0.6));
   const dir = new THREE.DirectionalLight(0xffffff, 0.8);

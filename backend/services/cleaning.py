@@ -12,7 +12,7 @@ from typing import List, Optional
 from ..models.cost import WebSource
 from ..models.cleaning import CleaningRecommendation
 from ..models.ir import DesignIR
-from . import claude_client
+from . import llm_client as claude_client
 
 SYSTEM_PROMPT = """你是资深电子陶瓷 / 半导体表面清洗与洁净度管控工程师。给定器件设计意图、
 已确定的材料方案,以及**图纸标注的洁净度等级**(若有),请制定结构化清洗与洁净度管控方案:
@@ -32,7 +32,7 @@ SYSTEM_PROMPT = """你是资深电子陶瓷 / 半导体表面清洗与洁净度�
 全程用中文,调用工具输出结构化 CleaningRecommendation。"""
 
 
-def _context(ir: Optional[DesignIR], material_plan: Optional[dict], note: str) -> str:
+def _context(ir: Optional[DesignIR], material_plan: Optional[dict], note: str, use_web: bool) -> str:
     lines: List[str] = []
     if ir:
         if ir.device_name:
@@ -61,7 +61,10 @@ def _context(ir: Optional[DesignIR], material_plan: Optional[dict], note: str) -
     )
     if note and note.strip():
         lines.append(f"\n【用户补充说明 / 图纸洁净度标注(请优先采用)】\n{note.strip()}")
-    lines.append("\n请先联网检索相关清洗剂/洁净度标准,再输出结构化 CleaningRecommendation。")
+    lines.append(
+        "\n请先联网检索相关清洗剂/洁净度标准,再输出结构化 CleaningRecommendation。"
+        if use_web else "\n请基于上述项目资料与通用工程知识输出结构化 CleaningRecommendation。"
+    )
     return "\n".join(lines)
 
 
@@ -69,8 +72,12 @@ def recommend(
     ir: Optional[DesignIR] = None, material_plan: Optional[dict] = None,
     note: str = "", web: bool = True,
 ) -> CleaningRecommendation:
-    content = [claude_client.text_block(_context(ir, material_plan, note))]
-    extra_tools = [claude_client.WEB_SEARCH_TOOL] if web else None
+    use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    content = [
+        claude_client.text_block(_context(ir, material_plan, note, use_web)),
+        claude_client.text_block(claude_client.web_search_notice(use_web)),
+    ]
+    extra_tools = claude_client.web_search_tools(use_web)
     sources: list = []
     rec = claude_client.run(
         SYSTEM_PROMPT, content, CleaningRecommendation,

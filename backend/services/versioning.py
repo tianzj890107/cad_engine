@@ -10,7 +10,17 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 # 零件级标量字段(直接比较)
-_PART_SCALARS = ("name", "role", "tolerance_general", "quantity", "confidence", "parent_id")
+_PART_SCALARS = (
+    "name", "model_no", "manufacturer", "model_specification", "model_lookup_evidence",
+    "role", "tolerance_general", "quantity", "confidence", "parent_id",
+)
+_STANDARD_SCALARS = ("spec", "category", "quantity", "model_no", "manufacturer", "model_specification")
+_FIELD_LABELS = {
+    "name": "名称", "model_no": "型号", "manufacturer": "制造商", "model_specification": "规格摘要",
+    "model_lookup_evidence": "联网核验依据", "role": "功能角色", "tolerance_general": "一般公差",
+    "quantity": "数量", "confidence": "识别置信度", "parent_id": "所属总成", "material.spec": "材料",
+    "features.count": "特征数量",
+}
 
 
 def summarize(ir: Optional[dict]) -> dict:
@@ -84,11 +94,66 @@ def diff_ir(old: Optional[dict], new: Optional[dict]) -> dict:
             if ch:
                 modified.append({"part_id": pid, "name": np.get("name"), "changes": ch})
 
-    n_changes = len(header) + len(added) + len(removed) + sum(len(m["changes"]) for m in modified)
+    # 标准件/外购件没有稳定的 part_id；平台写入时只追加或按型号更新，因此用
+    # model_no（无型号时回退 spec）作为对比键，保证型号核验同步可在版本里看见。
+    def standard_key(item: dict, index: int) -> str:
+        return str(item.get("model_no") or item.get("spec") or f"#{index}").strip().upper()
+
+    old_standards = {standard_key(item, index): item for index, item in enumerate(old.get("standard_parts") or [])}
+    new_standards = {standard_key(item, index): item for index, item in enumerate(new.get("standard_parts") or [])}
+    standard_added = [new_standards[key] for key in new_standards if key not in old_standards]
+    standard_removed = [old_standards[key] for key in old_standards if key not in new_standards]
+    standard_modified: List[dict] = []
+    for key, current in new_standards.items():
+        previous = old_standards.get(key)
+        if previous is None:
+            continue
+        changes = [
+            {"field": field, "old": previous.get(field), "new": current.get(field)}
+            for field in _STANDARD_SCALARS if previous.get(field) != current.get(field)
+        ]
+        if changes:
+            standard_modified.append({"key": key, "spec": current.get("spec"), "changes": changes})
+
+    n_changes = (
+        len(header) + len(added) + len(removed) + sum(len(m["changes"]) for m in modified)
+        + len(standard_added) + len(standard_removed) + sum(len(m["changes"]) for m in standard_modified)
+    )
     return {
         "header": header,
         "parts": {"added": added, "removed": removed, "modified": modified},
+        "standard_parts": {"added": standard_added, "removed": standard_removed, "modified": standard_modified},
         "total_changes": n_changes,
         "summary_old": summarize(old),
         "summary_new": summarize(new),
     }
+
+
+def change_summary(old: Optional[dict], new: Optional[dict], max_items: int = 5) -> str:
+    """把版本 diff 压缩成版本卡片可直接阅读的中文说明。"""
+    diff = diff_ir(old, new)
+    if not diff["total_changes"]:
+        return "与上一版本相比，业务数据未发生变化。"
+    items: List[str] = []
+    for change in diff["header"]:
+        label = _FIELD_LABELS.get(change["field"], change["field"])
+        items.append(f"{label}：{change.get('old') or '—'} → {change.get('new') or '—'}")
+    for part in diff["parts"]["added"]:
+        items.append(f"新增零件 {part.get('part_id')} {part.get('name') or ''}".strip())
+    for part in diff["parts"]["removed"]:
+        items.append(f"删除零件 {part.get('part_id')} {part.get('name') or ''}".strip())
+    for part in diff["parts"]["modified"]:
+        for change in part["changes"]:
+            label = _FIELD_LABELS.get(change["field"], change["field"])
+            items.append(f"{part.get('part_id')} {label}：{change.get('old') if change.get('old') is not None else '—'} → {change.get('new') if change.get('new') is not None else '—'}")
+    for standard in diff["standard_parts"]["added"]:
+        items.append(f"新增 BOM / 外购件：{standard.get('spec') or standard.get('model_no') or '未命名项'}")
+    for standard in diff["standard_parts"]["removed"]:
+        items.append(f"删除 BOM / 外购件：{standard.get('spec') or standard.get('model_no') or '未命名项'}")
+    for standard in diff["standard_parts"]["modified"]:
+        for change in standard["changes"]:
+            label = _FIELD_LABELS.get(change["field"], change["field"])
+            items.append(f"BOM {label}：{change.get('old') if change.get('old') is not None else '—'} → {change.get('new') if change.get('new') is not None else '—'}")
+    if len(items) > max_items:
+        return "；".join(items[:max_items]) + f"；另有 {len(items) - max_items} 项变更"
+    return "；".join(items)

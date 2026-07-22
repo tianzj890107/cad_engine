@@ -32,6 +32,11 @@ const PART = qs.get("part");
 
 let part = null, analysis = null, summary = null, editing = false;
 
+$("extraFiles").addEventListener("change", () => {
+  const names = [...$("extraFiles").files].map(file => file.name);
+  $("extraFilesName").textContent = names.length ? names.join("、") : "未选择文件";
+});
+
 async function init() {
   try { const h = await fetch(`${API}/api/health`).then(r => r.json()); $("health").textContent = ""; }
   catch { $("health").textContent = "后端未连接"; }
@@ -64,7 +69,7 @@ async function loadCost() {
     status("已加载成本分析。可「编辑」改价后保存,或「重新生成」。");
   } else {
     $("costArea").innerHTML = `<div class="panel-card"><div class="row">尚未生成成本分析。` +
-      `设定批量后点击「💰 生成成本分析」,Claude 将<b>联网检索当前材料/外购/加工行情</b>,` +
+      `设定批量后点击「💰 生成成本分析」,AI 将<b>联网检索当前材料/外购/加工行情</b>,` +
       `并按材料/加工/表面/管理/利润等拆解结构化成本。</div></div>`;
     status("尚未生成成本分析。");
   }
@@ -73,7 +78,7 @@ async function loadCost() {
 $("btnGen").onclick = async () => {
   const qty = Math.max(1, parseInt($("qtyInput").value) || 1);
   $("btnGen").disabled = true;
-  status("已提交成本分析任务,Claude 正在联网检索行情并拆解成本(较耗时)…", true);
+  status("已提交成本分析任务，AI 正在联网检索行情并拆解成本（较耗时）…", true);
   try {
     const fd = new FormData();
     fd.append("note", $("extraNote").value || "");
@@ -152,7 +157,7 @@ function render() {
     `</tr></thead><tbody>`;
   (analysis.items || []).forEach((it, i) => h += itemRow(it, i));
   h += `</tbody></table>`;
-  if (editing) h += `<div class="row" style="margin-top:6px;color:#7d8896">提示:保存后平台会按 数量×单价 重算金额与合计。</div>`;
+  if (editing) h += `<div class="row edit-hint">提示：保存后平台会按 数量×单价 重算金额与合计。</div>`;
   h += `</section>`;
 
   // 价格依据(联网检索,带可点击链接)

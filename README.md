@@ -2,11 +2,11 @@
 
 设备需求原图 → **结构化设计意图(IR)** → **确定性 CAD 几何**(STEP/STL/3D)。
 
-核心思路:大模型(Claude)只负责把原图**理解并结构化**成「特征 + 参数 + 装配关系」的设计意图(IR);
+核心思路:大模型(Claude / OpenAI)只负责把原图**理解并结构化**成「特征 + 参数 + 装配关系」的设计意图(IR);
 真正的几何由确定性 CAD 内核(CadQuery / OpenCASCADE)生成 —— 从而输出**可制造、可校验、可追溯**。
 
 ```
-上传原图 ──▶ Claude 视觉解析(IR) ──▶ Claude 拆解推荐 ──▶ CAD 内核生成几何+校验 ──▶ 前端展示
+上传原图 ──▶ 大模型视觉解析(IR) ──▶ 大模型拆解推荐 ──▶ CAD 内核生成几何+校验 ──▶ 前端展示
             structured outputs        DFM/复用建议        STEP/STL/质量属性     拆解树/3D/告警
 ```
 
@@ -17,7 +17,9 @@ backend/
   config.py              全局配置(.env)
   models/ir.py           ★ 设计意图 IR 数据契约(Pydantic) —— 全平台地基
   services/
-    claude_client.py     Claude 封装(工具调用承载结构化输出 + prompt caching + 视觉)
+    claude_client.py     Anthropic / Claude 原有封装
+    openai_client.py     OpenAI 可选封装(Responses API + 结构化输出 + 视觉)
+    llm_client.py        提供商选择层(由 LLM_PROVIDER 决定)
     vision.py            图解析: 原图 -> IR
     decompose.py         拆解推荐: IR -> 增强 IR(生成/复用/DFM 建议)
     geometry.py          ★ 几何内核: IR 特征 -> CadQuery B-rep -> STEP/STL + 校验
@@ -53,7 +55,7 @@ pip install -r requirements.txt
 
 ```powershell
 copy .env.example .env
-# 编辑 .env, 填入 ANTHROPIC_API_KEY
+# 编辑 .env, 填入 ANTHROPIC_API_KEY (默认) 或 OPENAI_API_KEY (选择 OpenAI 时)
 ```
 
 ### 3. 启动
@@ -66,14 +68,14 @@ uvicorn backend.main:app --reload --port 8000
 
 > **一键私有化部署**(应用 + Postgres + MinIO):见 [DEPLOY.md](DEPLOY.md) ——
 > 配好 `.env` 后 `docker compose up -d --build` 即可,元数据进库、二进制进对象存储、
-> 默认开启鉴权,应用无状态可水平扩容。
+> 默认开启鉴权。当前 AI/CAD 任务队列为进程内实现，生产环境请保持单个 app 实例。
 
 ### 4. 使用
 
 1. 选择设备需求原图(工程图/草图/照片均可);**可选**填写「补充文字说明」、上传「佐证文件」
    (其它视图图片 / 规格文本) → **上传**。补充资料能显著提升解析置信度。
-2. **解析为IR**:Claude 综合原图+补充资料,视觉解析成结构化设计意图(状态栏显示平均置信度)。
-3. **校验修正**(自校验第二遍):Claude 对照原图逐条核对尺寸/特征、补漏并重估置信度
+2. **解析为IR**:所选大模型综合原图+补充资料,视觉解析成结构化设计意图(状态栏显示平均置信度)。
+3. **校验修正**(自校验第二遍):所选大模型对照原图逐条核对尺寸/特征、补漏并重估置信度
    (状态栏显示 置信度 前→后 的变化)。
 4. **拆解推荐**:补全工艺/复用/DFM 建议。
 5. **生成几何**:CAD 内核生成 STEP/STL,点击零件查看 3D、质量属性与校验告警。
@@ -145,13 +147,14 @@ python scripts\smoke_geometry.py
 私有化部署置 `AUTH_ENABLED=true` 即开启登录与角色权限(零外部依赖:pbkdf2 加盐散列口令 +
 HMAC 签名自包含令牌):
 
-- **角色**:`viewer`(只读)、`engineer`(建模/解析/改参/生成)、`reviewer`(校核审签)、
-  `admin`(全权 + 用户管理)。
+- **角色**:`viewer`(只读)、`engineer`(仅可编辑自己的项目)、`process_manager`(创建需求、
+  汇总结果)、`process_director`(审核/发布)、`admin`(全权 + 用户管理)。
 - 首次启动自动创建管理员(默认 `admin/admin123`,见 `.env`,**请尽快改密**)。
-- 写操作(上传/解析/生成/改参)需 `engineer+`;审签通过/驳回需 `reviewer+`;建号需 `admin`。
+- 写操作会按项目所有者及角色校验；审核/发布需工艺技术总监或管理员。
 - **审签实名**:通过/驳回的「审签人」即当前登录账号(不再是前端自填字符串),与时间/意见一起
   写入版本审签记录与审计轨迹。
-- 前端未登录时弹登录页;`<img>`/STL 等无法带请求头的资源通过 `?token=` 透传。
+- 前端未登录时弹登录页；部分浏览器原生媒体/下载资源需临时以 `?token=` 透传，服务端
+  已设置严格 Referrer-Policy，后续可升级为一次性下载票据。
 
 接口:`POST /api/login`、`GET /api/me`、`GET/POST /api/users`(管理员)。开启前务必把
 `AUTH_SECRET` 改成随机长串。

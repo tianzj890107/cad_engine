@@ -90,14 +90,32 @@
         padding: 14px 0 4px;
         background: #fff;
       }
+      /* 与图纸工作台统一：浅灰页面、白色圆角卡片、蓝色当前步骤。 */
+      :root { --tp-blue:#3b82f6; --tp-blue-soft:#eff6ff; --tp-green:#10b981; --tp-line:#e5e7eb; --tp-ink:#1f2937; --tp-muted:#6b7280; }
+      html,body,#root { background:#f5f5f5; color:var(--tp-ink); font-family:Inter,"PingFang SC",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+      .tp-page { width:min(1280px,100%); margin:0 auto; padding:20px; }
+      .tp-card { padding:24px; border:1px solid var(--tp-line); border-radius:12px; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+      .tp-home-link{position:fixed;top:18px;right:20px;z-index:1300;display:inline-flex;align-items:center;gap:7px;padding:9px 13px;border:1px solid #bfdbfe;border-radius:8px;background:#fff;color:var(--tp-blue);font:600 13px/1.2 Inter,"PingFang SC",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-decoration:none;box-shadow:0 3px 12px rgba(30,64,175,.1);transition:.15s}.tp-home-link:hover{border-color:var(--tp-blue);background:var(--tp-blue-soft);transform:translateY(-1px)}
+      .tp-toolbar { justify-content:space-between; }
+      .tp-toolbar::before { content:"AI 工艺 · 项目工作台"; color:var(--tp-ink); font-size:18px; font-weight:700; }
+      .tp-filter { padding:14px 16px; background:#fafafa; border:1px solid #f1f5f9; border-radius:10px; }
+      .tp-filter .tp-field { max-width:520px; }.tp-field label{color:var(--tp-muted);font-size:12px}.tp-link{color:var(--tp-blue)}
+      .tp-detail-title { margin-bottom:20px; color:var(--tp-ink); }.tp-section-title { color:var(--tp-ink); }
+      .tp-top-workflow { display:flex; align-items:flex-start; justify-content:center; gap:8px; margin:0 0 20px; padding:16px; background:#fff; border:1px solid var(--tp-line); border-radius:12px; overflow-x:auto; }
+      .tp-flow-wrapper{display:flex;min-width:132px;flex:0 0 auto;flex-direction:column;align-items:center}.tp-flow-substeps{display:flex;align-items:center;gap:3px;margin-top:4px;padding-left:26px;white-space:nowrap}.tp-flow-substep{padding:2px 5px;border-radius:4px;color:#9ca3af;font-size:11px}.tp-flow-substep.done{color:var(--tp-green)}.tp-flow-substep.active{background:var(--tp-blue-soft);color:var(--tp-blue);font-weight:600}.tp-flow-subarrow{color:#9ca3af;font-size:10px}
+      .tp-flow-line.done{background:var(--tp-green)}
+      .tp-flow-step { display:flex; align-items:center; gap:7px; flex:0 0 auto; padding:5px 12px; color:#9ca3af; border-radius:999px; font-size:12px; white-space:nowrap; }.tp-flow-step b{display:grid;width:22px;height:22px;place-items:center;border-radius:50%;background:#f3f4f6;font-size:11px}.tp-flow-step.done{color:var(--tp-green)}.tp-flow-step.done b{color:#fff;background:var(--tp-green)}.tp-flow-step.active{color:var(--tp-blue);background:var(--tp-blue-soft);font-weight:600}.tp-flow-step.active b{color:#fff;background:var(--tp-blue)}.tp-flow-line{width:36px;height:2px;flex:0 0 36px;margin-top:15px;background:var(--tp-line)}.tp-flow-line.done{background:var(--tp-blue)}
+      .ant-tabs-nav{margin-bottom:18px!important}.ant-tabs-tab{padding:8px 10px!important;color:var(--tp-muted)}.ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn{color:var(--tp-blue)!important;font-weight:600}.ant-tabs-ink-bar{background:var(--tp-blue)!important}.ant-steps-item-process .ant-steps-item-icon{background:var(--tp-blue)!important;border-color:var(--tp-blue)!important}.ant-btn-primary{background:var(--tp-blue);border-color:var(--tp-blue);border-radius:8px}.ant-btn{border-radius:8px}.ant-table-wrapper .ant-table{border:1px solid var(--tp-line);border-radius:10px;overflow:hidden}.ant-table-thead>tr>th{background:#fafafa;color:var(--tp-muted);font-size:12px}.ant-alert{border-radius:8px}.ant-card,.ant-modal-content{border-radius:12px}
+      @media(max-width:700px){.tp-page{padding:12px}.tp-card{padding:16px}.tp-top-workflow{justify-content:flex-start}.tp-flow-line{width:16px;flex-basis:16px}.tp-filter{display:block}.tp-filter-actions{margin:10px 0 0!important}.tp-home-link{top:10px;right:12px;padding:8px 10px;font-size:12px}}
     </style>
   </head>
   <body>
     <div id="root"></div>
+    <a class="tp-home-link" href="/home.html" aria-label="返回 AI 工艺平台首页">⌂ AI 工艺平台首页</a>
     <script type="text/babel" data-presets="react">
       const { useState, useEffect } = React;
       const {
-        Table, Button, Input, InputNumber, Tag, Pagination, Steps, Tabs, Form, Radio,
+        Table, Button, Input, InputNumber, Tag, Pagination, Steps, Form, Radio,
         Select, DatePicker, Row, Col, message, ConfigProvider,
         Modal, Popconfirm, Spin, Space, Alert, Empty, Descriptions, Divider,
       } = antd;
@@ -109,35 +127,33 @@
       // 与后端同源:本应用由 process_drawing 服务在 /apps/tech-process/ 提供,/api/* 同源。
       const API = '';
       async function api(path, opts) {
-        const res = await fetch(API + path, opts);
+        const token = localStorage.getItem('authToken') || '';
+        const request = opts || {};
+        const headers = Object.assign({}, request.headers || {});
+        if (token && !headers.Authorization && !headers.authorization) {
+          headers.Authorization = 'Bearer ' + token;
+        }
+        const res = await fetch(API + path, Object.assign({}, request, { headers }));
         const text = await res.text();
         let data = {};
         try { data = text ? JSON.parse(text) : {}; } catch (e) { data = { raw: text }; }
         if (!res.ok) throw new Error(data.detail || data.raw || ('HTTP ' + res.status));
         return data;
       }
+      // 浏览器新窗口下载无法添加 Authorization 头，沿用后端支持的 ?token= 透传。
+      function resourceUrl(path) {
+        const token = localStorage.getItem('authToken') || '';
+        return token ? `${path}${path.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : path;
+      }
       const { Step } = Steps;
-      const { TabPane } = Tabs;
       const { Option } = Select;
 
-      // ----- 列表页假数据(复刻销售项目管理列表) -----
+      // ----- 列表状态 -----
       const STATUS_COLORS = {
-        决策中: 'success', 草稿: 'error', 验证商机: 'processing',
-        拓展商机: 'processing', 评审中: 'warning', 决策完成: 'success',
+        已定稿: 'success', 已录入: 'processing', 已完成: 'success',
+        解析完成: 'processing', 已生成图纸: 'processing', 已生成几何: 'processing',
+        已上传: 'default', 未解析: 'default', 审核中: 'warning', 已驳回: 'error',
       };
-      const ROWS = [
-        ['GY20260520-004', '电子****ET需求-2026', '鲜***', '陈***', '一二三***限公司', 'KH-20251127-003', '2026/05/20 16:01:00', '决策中', false],
-        ['GY20260520-002', '上海芯22是的******...', '贾***', '王***', '西安西***限公司', 'KH-20251218-001', '2026/05/20 15:42:48', '草稿', true],
-        ['GY20260520-001', '上海芯******韦尔股份', '贾***', '严***', '一二三***限公司', 'KH-20251127-003', '2026/05/20 14:56:33', '草稿', true],
-        ['GY20260325-001', 'a家电行业中，中低...', '蒋***', '', '润西微***限公司', 'test001', '2026/03/25 14:18:08', '验证商机', false],
-        ['GY20260320-001', '电子科技-杭州A导电...', '蒋***', '管***', '一二三***限公司', 'KH-20251127-003', '2026/03/20 11:34:19', '拓展商机', false],
-        ['GY20241202-001', '海力绿色建筑科技（...', '12897', '10016', 'KH20231030-001', '-', '2025/12/17 00:00:00', '评审中', false],
-        ['GY20241204-001', '移动端线索测试 1204', '13282', '10018', 'KH20241202-003', '-', '2025/12/17 00:00:00', '决策完成', false],
-      ].map((r, i) => ({
-        key: i, code: r[0], name: r[1], cm: r[2], bm: r[3],
-        buyerName: r[4], buyerCode: r[5], created: r[6], status: r[7], editable: r[8],
-      }));
-
       // 同一套页面承载两个业务,用 URL 参数 ?biz= 切换文案与流程步骤:
       //   biz=tech (默认) -> 技术工艺管理
       //   biz=quote        -> 商机报价管理
@@ -149,37 +165,35 @@
           editTitle: '技术工艺基本信息',
           codeLabel: '工艺编号',
           nameLabel: '工艺名称',
-          // 该步骤直接嵌入 process_drawing(AI 图纸拆解平台);null 表示无嵌入步骤。
-          drawingStep: '图纸解析与设计工艺转化',
+          // 2.1 直接嵌入 process_drawing(AI 图纸拆解平台);null 表示无嵌入步骤。
+          drawingStep: '2.1 图纸解析',
           // 该步骤为「材料定性与供应链拆解」,调用 /api/* 真实数据;null 表示无此步骤。
-          materialStep: '材料定性与供应链拆解',
+          materialStep: '2.2 材料定性',
           // 该步骤为「制造工艺路径规划和BOM编制」,调用 /api/* 真实数据。
-          manufacturingStep: '制造工艺路径规划和BOM编制',
+          manufacturingStep: '2.3 工艺路径',
           // 该步骤为「清洗与洁净度管控方案制定」,调用 /api/* 真实数据。
-          cleaningStep: '清洗与洁净度管控方案制定',
+          cleaningStep: '2.4 洁净管控',
           // 该步骤为「组装与检测方案制定」,调用 /api/* 真实数据。
-          assemblyStep: '组装与检测方案制定',
+          assemblyStep: '2.5 组装检测',
           // 该步骤为「产线匹配与产能评估」,调用 /api/* 真实数据。
-          productionStep: '产线匹配与产能评估',
+          productionStep: '2.6 产能评估',
           // 该步骤为「技术工艺总结」,汇总各步 + 可编辑 + 导出文档。
           summaryStep: '技术工艺总结',
-          // 「结束」步:最终确认,录入到技术工艺管理列表。
-          endStep: '结束',
+          // 最终确认并录入放在「技术工艺总结」页末尾，不再占用独立结束步骤。
+          endStep: null,
           costStep: null, // 技术工艺流程无「成本测算」步
           pricingStep: null,
           negotiationStep: null,
           priceNegoStep: null,
           approvalStep: null,
           steps: [
-            '开始',
-            '图纸解析与设计工艺转化',
-            '材料定性与供应链拆解',
-            '制造工艺路径规划和BOM编制',
-            '清洗与洁净度管控方案制定',
-            '组装与检测方案制定',
-            '产线匹配与产能评估',
+            '2.1 图纸解析',
+            '2.2 材料定性',
+            '2.3 工艺路径',
+            '2.4 洁净管控',
+            '2.5 组装检测',
+            '2.6 产能评估',
             '技术工艺总结',
-            '结束',
           ],
         },
         quote: {
@@ -228,38 +242,77 @@
         return new URLSearchParams(location.search).get('drawingUrl') || '/';
       })();
 
+      // 项目上下文只来自 URL / 已打开的真实项目；各业务步骤共享这一选择。
+      const INITIAL_PROJECT_ID = (function () {
+        const fromUrl = new URLSearchParams(location.search).get('project');
+        if (fromUrl) return fromUrl;
+        try { return localStorage.getItem('techprocess:projectId') || ''; } catch (e) { return ''; }
+      })();
+
+      function rememberProject(projectId) {
+        if (!projectId) return;
+        try { localStorage.setItem('techprocess:projectId', projectId); } catch (e) {}
+      }
+
+      function projectStage(meta) {
+        const stages = (meta && meta.stages) || {};
+        if (stages.geometry && stages.drawings) return '已生成图纸';
+        if (stages.geometry) return '已生成几何';
+        if (stages.parsed) return '解析完成';
+        if (stages.uploaded) return '已上传';
+        return '未解析';
+      }
+
+      if (INITIAL_PROJECT_ID) rememberProject(INITIAL_PROJECT_ID);
+
       // ===================== 列表页 =====================
       function ListPage({ onCreate, onOpen }) {
-        // 已录入的真实记录(来自「结束」步录入),置于演示数据之上。
+        // 只展示真实项目与真实的「结束」记录；不混入任何演示数据。
         const [records, setRecords] = useState([]);
+        const [keyword, setKeyword] = useState('');
         useEffect(() => {
-          api(`/api/techprocess/records?biz=${BIZ}`).then((d) => {
-            setRecords((d.records || []).map((r) => ({
-              key: r.id, code: r.code, name: r.name, cm: '', bm: '',
-              buyerName: '', buyerCode: '', created: r.created_at,
-              status: r.status, editable: true, project_id: r.project_id,
-            })));
-          }).catch(() => {});
+          Promise.all([api(`/api/techprocess/records?biz=${BIZ}`), api('/api/projects')])
+            .then(([recordData, projectData]) => {
+              const finalized = (recordData.records || []).map((r) => ({
+                key: 'record-' + r.id, code: r.code || r.project_id, name: r.name,
+                owner: r.owner || '—', created: r.updated_at || r.created_at,
+                status: r.status || '已录入', editable: true, project_id: r.project_id,
+                note: r.note || '', source: 'record',
+              }));
+              const recordedProjectIds = new Set(finalized.map((r) => r.project_id).filter(Boolean));
+              const projects = Array.isArray(projectData) ? projectData : (projectData.projects || []);
+              const activeProjects = projects.filter((p) => !recordedProjectIds.has(p.project_id)).map((p) => ({
+                key: 'project-' + p.project_id, code: p.project_id,
+                name: p.device_name || p.source_filename || '未命名图纸项目', owner: p.owner || '—',
+                created: p.created_at, status: projectStage(p), editable: true, project_id: p.project_id,
+                note: p.note || '', source: 'project',
+              }));
+              setRecords([...finalized, ...activeProjects]);
+            }).catch((e) => message.error('加载项目列表失败: ' + e.message));
         }, []);
 
         // 打开记录:若关联了图纸项目,带入 projectId 便于各步加载其数据。
         const openRow = (row, mode) => {
           if (row.project_id) {
-            try { localStorage.setItem('techprocess:projectId', row.project_id); } catch (e) {}
+            rememberProject(row.project_id);
           }
           onOpen(row, mode);
         };
 
-        const dataSource = [...records, ...ROWS];
+        const dataSource = records.filter((row) => {
+          const q = keyword.trim().toLowerCase();
+          if (!q) return true;
+          return [row.code, row.name, row.owner, row.status, row.note].some((v) =>
+            String(v || '').toLowerCase().includes(q));
+        });
 
         const columns = [
-          { title: CFG.codeLabel, dataIndex: 'code', sorter: true,
+          { title: CFG.codeLabel, dataIndex: 'code', sorter: true, width: 180,
             render: (t, row) => <span className="tp-link" onClick={() => openRow(row, 'view')}>{t}</span> },
           { title: CFG.nameLabel, dataIndex: 'name', sorter: true, ellipsis: true },
-          { title: '客户经理', dataIndex: 'cm', sorter: true },
-          { title: '商务经理', dataIndex: 'bm', sorter: true },
-          { title: '采购方（客户名称）', dataIndex: 'buyerName', sorter: true, ellipsis: true },
-          { title: '采购方（客户编码）', dataIndex: 'buyerCode', sorter: true },
+          { title: '项目负责人', dataIndex: 'owner', width: 130 },
+          { title: '来源', dataIndex: 'source', width: 120,
+            render: (s) => <Tag color={s === 'record' ? 'success' : 'processing'}>{s === 'record' ? '已归档记录' : '进行中项目'}</Tag> },
           { title: '创建时间', dataIndex: 'created', sorter: true, width: 170 },
           { title: '状态', dataIndex: 'status', width: 110,
             render: (s) => <Tag color={STATUS_COLORS[s] || 'default'}>{s}</Tag> },
@@ -283,18 +336,12 @@
 
               <div className="tp-filter">
                 <div className="tp-field">
-                  <label>{CFG.codeLabel}</label>
-                  <Input placeholder="请输入" allowClear />
-                </div>
-                <div className="tp-field">
-                  <label>{CFG.nameLabel}</label>
-                  <Input placeholder="请输入" allowClear />
+                  <label>搜索真实项目</label>
+                  <Input value={keyword} onChange={(e) => setKeyword(e.target.value)}
+                    placeholder="项目名称、项目编号、负责人或状态" allowClear />
                 </div>
                 <div className="tp-filter-actions" style={{ marginLeft: 'auto' }}>
-                  <span className="tp-link">快捷筛选</span>
-                  <span className="tp-link">展开 ⌄</span>
-                  <Button>重 置</Button>
-                  <Button type="primary">搜 索</Button>
+                  <Button onClick={() => setKeyword('')}>重置</Button>
                 </div>
               </div>
 
@@ -307,13 +354,50 @@
               />
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: 16 }}>
-                <span style={{ marginRight: 16, color: '#646a73' }}>总共: 34 条</span>
-                <Pagination defaultCurrent={1} total={34} pageSize={10}
-                  showSizeChanger pageSizeOptions={['10', '20', '50']} />
+                <span style={{ marginRight: 16, color: '#646a73' }}>共 {dataSource.length} 条真实记录</span>
               </div>
             </div>
           </div>
         );
+      }
+
+      function ProjectOverview({ projectId }) {
+        const [project, setProject] = useState(null);
+        const [loading, setLoading] = useState(false);
+        useEffect(() => {
+          if (!projectId) { setProject(null); return; }
+          setLoading(true);
+          api(`/api/projects/${projectId}`).then(setProject)
+            .catch((e) => message.error('加载项目概览失败: ' + e.message))
+            .finally(() => setLoading(false));
+        }, [projectId]);
+
+        if (!projectId) {
+          return <Alert type="info" showIcon
+            message="请先创建或选择一个图纸项目"
+            description={<span>现有后端的需求入口是「上传图纸创建项目」。创建后，图纸解析及后续工艺数据都会绑定到该项目。<a href="/" style={{ marginLeft: 8 }}>打开图纸工作台 ↗</a></span>} />;
+        }
+        const meta = (project && project.meta) || {};
+        const ir = (project && project.ir) || {};
+        return <Spin spinning={loading}>
+          <Alert type="info" showIcon style={{ marginBottom: 16 }}
+            message="项目概览"
+            description="此页只展示后端已保存的项目资料；需求受理的扩展字段尚无后端模型，因此不会在此伪造可保存表单。" />
+          <Descriptions bordered size="small" column={2}>
+            <Descriptions.Item label="项目编号">{projectId}</Descriptions.Item>
+            <Descriptions.Item label="当前阶段">{projectStage(meta)}</Descriptions.Item>
+            <Descriptions.Item label="项目名称">{ir.device_name || meta.source_filename || '—'}</Descriptions.Item>
+            <Descriptions.Item label="创建人">{meta.owner || '—'}</Descriptions.Item>
+            <Descriptions.Item label="创建时间">{meta.created_at || '—'}</Descriptions.Item>
+            <Descriptions.Item label="解析状态">{meta.has_ir || ir.device_name ? '已生成设计意图 IR' : '尚未解析'}</Descriptions.Item>
+            <Descriptions.Item label="补充技术说明" span={2}>{meta.note || '—'}</Descriptions.Item>
+            <Descriptions.Item label="佐证文件" span={2}>{(meta.attachments || []).join('、') || '无'}</Descriptions.Item>
+          </Descriptions>
+          <Space style={{ marginTop: 16 }}>
+            <Button type="primary" href={`/?project=${encodeURIComponent(projectId)}`}>打开图纸工作台</Button>
+            <Button href={resourceUrl(`/api/projects/${projectId}/audit`)} target="_blank">查看审计记录</Button>
+          </Space>
+        </Spin>;
       }
 
       // ===================== 供应商目录维护(弹窗) =====================
@@ -555,7 +639,7 @@
               <Space>
                 {b.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {b.confirmed_at}</Tag>}
                 <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>
-                  AI 推荐(联网)
+                  AI 推荐
                 </Button>
               </Space>,
               <div>
@@ -801,7 +885,7 @@
             {card('① 核心制造工艺路径(生坯成型 → 高温共烧 → 精密研磨 …)',
               <Space>
                 {path.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {path.confirmed_at}</Tag>}
-                <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 规划(联网)</Button>
+                <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 规划</Button>
               </Space>,
               <div>
                 {(path.steps && path.steps.length) ? (
@@ -826,7 +910,7 @@
               <Space>
                 {bom.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {bom.confirmed_at}</Tag>}
                 <Button size="small" disabled={!(bom.items && bom.items.length)}
-                  onClick={() => window.open(`/api/projects/${projectId}/manufacturing/bom.csv`, '_blank')}>导出 CSV</Button>
+                  onClick={() => window.open(resourceUrl(`/api/projects/${projectId}/manufacturing/bom.csv`), '_blank')}>导出 CSV</Button>
                 <Button type="primary" size="small" disabled={!(bom.items && bom.items.length)}
                   onClick={() => confirmSection('bom')}>确认 BOM</Button>
               </Space>,
@@ -1008,7 +1092,7 @@
               <Select showSearch optionFilterProp="label" style={{ width: 360 }}
                 placeholder="选择「图纸解析」步骤产生的项目"
                 value={projectId || undefined} options={projOptions} onChange={onPickProject} />
-              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 生成方案(联网)</Button>
+              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 生成方案</Button>
               {p.confirmed && <Tag color="success"><CheckCircleOutlined /> 已确认 {p.confirmed_at}</Tag>}
               <Button type="primary"
                 disabled={!((p.chemical_steps && p.chemical_steps.length) || (p.rinse_steps && p.rinse_steps.length))}
@@ -1211,7 +1295,7 @@
               <Select showSearch optionFilterProp="label" style={{ width: 360 }}
                 placeholder="选择「图纸解析」步骤产生的项目"
                 value={projectId || undefined} options={projOptions} onChange={onPickProject} />
-              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 生成方案(联网)</Button>
+              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 生成方案</Button>
             </Space>
 
             {/* ① 组装/键合工艺 */}
@@ -1473,7 +1557,7 @@
               <Select showSearch optionFilterProp="label" style={{ width: 360 }}
                 placeholder="选择「图纸解析」步骤产生的项目"
                 value={projectId || undefined} options={projOptions} onChange={onPickProject} />
-              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 评估(联网)</Button>
+              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 评估</Button>
               <Button onClick={() => setEquipOpen(true)}>维护设备台账</Button>
             </Space>
 
@@ -1688,8 +1772,8 @@
                 placeholder="选择「图纸解析」步骤产生的项目"
                 value={projectId || undefined} options={projOptions} onChange={onPickProject} />
               <Button icon={<RobotOutlined />} loading={busy === 'ai'} onClick={aiSummary}>AI 生成摘要</Button>
-              <Button onClick={() => window.open(`/api/projects/${projectId}/summary.html`, '_blank')}>导出文档(HTML/打印PDF)</Button>
-              <Button onClick={() => window.open(`/api/projects/${projectId}/summary.md`, '_blank')}>导出 Markdown</Button>
+              <Button onClick={() => window.open(resourceUrl(`/api/projects/${projectId}/summary.html`), '_blank')}>导出文档(HTML/打印PDF)</Button>
+              <Button onClick={() => window.open(resourceUrl(`/api/projects/${projectId}/summary.md`), '_blank')}>导出 Markdown</Button>
             </Space>
 
             {/* 执行摘要(可编辑) */}
@@ -1745,14 +1829,19 @@
               <StepEditorModal projectId={projectId} stepKey={editor.key} title={editor.title}
                 open={!!editor} onClose={() => setEditor(null)} onSaved={() => load(projectId)} />
             )}
+
+            <Divider />
+            <div className="tp-section-title">最终确认并录入</div>
+            <EndStep initialProjectId={projectId} />
           </Spin>
         );
       }
 
-      // ===================== 结束:最终确认并录入到管理列表 =====================
-      function EndStep() {
+      // ===================== 最终确认并录入到管理列表（技术总结末尾 / 报价流程结束页复用） =====================
+      function EndStep({ initialProjectId = '' }) {
         const [projects, setProjects] = useState([]);
         const [projectId, setProjectId] = useState(() => {
+          if (initialProjectId) return initialProjectId;
           try { return localStorage.getItem('techprocess:projectId') || ''; } catch (e) { return ''; }
         });
         const [name, setName] = useState('');
@@ -1764,6 +1853,8 @@
             .then((d) => setProjects(Array.isArray(d) ? d : (d.projects || [])))
             .catch((e) => message.error('加载项目失败: ' + e.message));
         }, []);
+
+        useEffect(() => { if (initialProjectId) setProjectId(initialProjectId); }, [initialProjectId]);
 
         // 选定项目后:带出器件名作为默认名称,并查已有录入记录
         useEffect(() => {
@@ -2012,9 +2103,9 @@
               <Select showSearch optionFilterProp="label" style={{ width: 360 }}
                 placeholder="选择图纸项目(关联其材料/制造工艺与 BOM)"
                 value={projectId || undefined} options={projOptions} onChange={onPickProject} />
-              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 成本测算(联网)</Button>
+              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 成本测算</Button>
               <Button type="primary" ghost onClick={save}>保存修改</Button>
-              <Button onClick={() => window.open(`/api/projects/${projectId}/costest.csv`, '_blank')}>导出 CSV</Button>
+              <Button onClick={() => window.open(resourceUrl(`/api/projects/${projectId}/costest.csv`), '_blank')}>导出 CSV</Button>
               {d.confirmed && <Tag color="success"><CheckCircleOutlined /> 已定稿 {d.confirmed_at}</Tag>}
               <Button type="primary"
                 disabled={!((d.material_costs && d.material_costs.length) || (d.manufacturing_costs && d.manufacturing_costs.length))}
@@ -2250,7 +2341,7 @@
               <Select showSearch optionFilterProp="label" style={{ width: 360 }}
                 placeholder="选择图纸项目(沿用其成本测算结果)"
                 value={projectId || undefined} options={projOptions} onChange={onPickProject} />
-              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 定价建议(联网)</Button>
+              <Button icon={<RobotOutlined />} loading={busy === 'recommend'} onClick={doRecommend}>AI 定价建议</Button>
               <Button type="primary" onClick={save}>保存并重算</Button>
             </Space>
 
@@ -3005,72 +3096,28 @@
         );
       }
 
-      // ===================== 详情页(新增技术工艺) =====================
-      function DetailPage({ mode, onBack }) {
-        const [current, setCurrent] = useState(0);
-
-        const baseInfoForm = (
-          <div>
-            <div className="tp-section-title">基本信息</div>
-            <Form layout="vertical">
-              <Row gutter={32}>
-                <Col span={8}>
-                  <Form.Item label="工艺名称" required>
-                    <Input placeholder="请输入" />
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item label="关联图纸/线索">
-                    <Input placeholder="请选择" suffix={<icons.SearchOutlined />} />
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item label="工艺类型" required>
-                    <Radio.Group defaultValue="quote">
-                      <Radio value="rnd">内部研发</Radio>
-                      <Radio value="bid">投标</Radio>
-                      <Radio value="quote">报价</Radio>
-                    </Radio.Group>
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item label="制造场景" required>
-                    <Select defaultValue="2B">
-                      <Option value="2B">2B</Option>
-                      <Option value="2C">2C</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item label="工艺负责人" required>
-                    <Select defaultValue="t1">
-                      <Option value="t1">田***</Option>
-                      <Option value="t2">王***</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item label="把握度">
-                    <Select placeholder="请选择">
-                      <Option value="high">高</Option>
-                      <Option value="mid">中</Option>
-                      <Option value="low">低</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item label="截止日期" required>
-                    <DatePicker style={{ width: '100%' }} defaultValue={moment()} />
-                  </Form.Item>
-                </Col>
-              </Row>
-            </Form>
-          </div>
-        );
+      // ===================== 详情页(绑定真实项目) =====================
+      function DetailPage({ mode, row, onBack }) {
+        // 报告页通过 ?step=1 进入 2.2；其他入口仍默认从 2.1 开始。
+        const [current, setCurrent] = useState(() => {
+          const requested = Number.parseInt(new URLSearchParams(location.search).get('step'), 10);
+          return Number.isInteger(requested) && requested >= 0 && requested < TASK_STEPS.length ? requested : 0;
+        });
+        const projectId = (row && row.project_id) || INITIAL_PROJECT_ID || '';
+        const drawingUrl = projectId
+          ? `${PROCESS_DRAWING_URL}${PROCESS_DRAWING_URL.includes('?') ? '&' : '?'}project=${encodeURIComponent(projectId)}`
+          : PROCESS_DRAWING_URL;
+        useEffect(() => { if (projectId) rememberProject(projectId); }, [projectId]);
+        // 首页再次打开该项目时，恢复到用户上次停留的 2.1–2.6 步骤。
+        useEffect(() => {
+          if (!projectId || BIZ !== 'tech') return;
+          const url = `/apps/tech-process/?biz=tech&project=${encodeURIComponent(projectId)}&step=${current}`;
+          try { localStorage.setItem(`cad_engine:last_page:${projectId}`, url); } catch (_) {}
+        }, [projectId, current]);
 
         // 每个进度步骤对应的内容:
         //  - 「图纸解析与设计工艺转化」步骤:直接内嵌 process_drawing(需单独运行);
-        //  - 首个步骤:基本信息表单;
+          //  - 首个步骤:真实项目概览;
         //  - 其余步骤:占位。
         const stepContent = (i, name) => {
           if (CFG.materialStep && name === CFG.materialStep) {
@@ -3113,10 +3160,12 @@
             return (
               <div style={{ padding: '8px 0' }}>
                 <div className="tp-section-title">{name}</div>
+                <ProjectOverview projectId={projectId} />
+                <Divider />
                 <div style={{ marginBottom: 8, color: '#8a9099', fontSize: 12 }}>
-                  本步骤直接嵌入「AI 图纸拆解平台」(process_drawing),需先单独启动该服务(默认 {PROCESS_DRAWING_URL})。
+                  本步骤直接嵌入同一服务中的图纸工作台，并带入当前项目。
                   <a
-                    href={PROCESS_DRAWING_URL}
+                    href={drawingUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ marginLeft: 8 }}
@@ -3126,7 +3175,7 @@
                 </div>
                 <iframe
                   title={name}
-                  src={PROCESS_DRAWING_URL}
+                  src={drawingUrl}
                   style={{
                     width: '100%',
                     height: '70vh',
@@ -3138,9 +3187,6 @@
               </div>
             );
           }
-          if (i === 0) {
-            return baseInfoForm;
-          }
           return (
             <div style={{ padding: '24px 0' }}>
               <div className="tp-section-title">{name}</div>
@@ -3148,27 +3194,27 @@
             </div>
           );
         };
+        const processSubCurrent = current < 6 ? current : -1;
+        const processSubsteps = ['2.1 图纸解析', '2.2 材料定性', '2.3 工艺路径', '2.4 洁净管控', '2.5 组装检测', '2.6 产能评估'];
+        const outputUrl = projectId ? `/summary.html?project=${encodeURIComponent(projectId)}` : '/summary.html';
 
         return (
           <div className="tp-page">
+            {BIZ === 'tech' && (
+              <div className="tp-top-workflow" aria-label="工艺评估主流程">
+                <div className="tp-flow-wrapper"><div className="tp-flow-step done"><b>1</b><span>接受工艺评估需求</span></div></div>
+                <i className="tp-flow-line done"></i>
+                <div className="tp-flow-wrapper"><div className="tp-flow-step active"><b>2</b><span>解析技术工艺过程</span></div><div className="tp-flow-substeps">{processSubsteps.map((step, index) => <React.Fragment key={step}><span className={`tp-flow-substep ${index < processSubCurrent || processSubCurrent === -1 ? 'done' : index === processSubCurrent ? 'active' : ''}`}>{step}</span>{index < processSubsteps.length - 1 && <span className="tp-flow-subarrow">→</span>}</React.Fragment>)}</div></div>
+                <i className="tp-flow-line"></i>
+                <div className="tp-flow-wrapper"><div className="tp-flow-step"><b>3</b><span>输出工艺评估结果</span></div></div>
+              </div>
+            )}
             <div className="tp-card">
               <div className="tp-detail-title">
-                <LeftCircleOutlined onClick={onBack} />
-                {mode === 'edit' ? CFG.editTitle : CFG.createBtn}
+                {row && row.name ? row.name : CFG.pageTitle}
               </div>
 
-              {/* 上面部分:任务进度步骤导航,点击某个步骤跳转到对应内容 */}
-              <Tabs
-                activeKey={String(current)}
-                onChange={(k) => setCurrent(Number(k))}
-                tabBarGutter={16}
-              >
-                {TASK_STEPS.map((t, i) => (
-                  <TabPane tab={t} key={String(i)} />
-                ))}
-              </Tabs>
-
-              {/* 任务进度可视化:与上方步骤导航联动,点击节点也可跳转 */}
+              {/* 单一任务进度条：点击节点切换内容，避免与顶部 Tab 重复。 */}
               <div className="tp-section-title">任务进度</div>
               <Steps
                 current={current}
@@ -3198,8 +3244,10 @@
               <div style={{ minHeight: 220 }}>{stepContent(current, TASK_STEPS[current])}</div>
 
               <div className="tp-detail-footer">
-                <Button type="primary" ghost onClick={() => message.success('已提交审批')}>提交审批</Button>
-                <Button type="primary" onClick={() => message.success('已保存')}>保 存</Button>
+                <Button onClick={onBack}>← 回到上一步</Button>
+                {projectId && BIZ === 'tech' && current === TASK_STEPS.length - 1
+                  ? <Button type="primary" href={outputUrl}>输出工艺评估结果</Button>
+                  : projectId && <Button type="primary" href={drawingUrl}>打开图纸工作台</Button>}
               </div>
             </div>
           </div>
@@ -3208,16 +3256,18 @@
 
       // ===================== 应用入口 =====================
       function App() {
-        const [view, setView] = useState({ name: 'list' });
+        const [view, setView] = useState(() => INITIAL_PROJECT_ID
+          ? { name: 'detail', mode: 'view', row: { project_id: INITIAL_PROJECT_ID } }
+          : { name: 'list' });
         return (
           <ConfigProvider>
             {view.name === 'list' ? (
               <ListPage
-                onCreate={() => setView({ name: 'detail', mode: 'create' })}
+                onCreate={() => { window.location.href = '/'; }}
                 onOpen={(row, mode) => setView({ name: 'detail', mode, row })}
               />
             ) : (
-              <DetailPage mode={view.mode} onBack={() => setView({ name: 'list' })} />
+              <DetailPage mode={view.mode} row={view.row} onBack={() => setView({ name: 'list' })} />
             )}
           </ConfigProvider>
         );
@@ -3226,13 +3276,10 @@
       ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 
-    <!-- ============ 报价助手悬浮入口（仅商机报价管理 biz=quote） ============
-         右下角可点开，内嵌 open-claude 的报价 Agent（默认 http://127.0.0.1:47292/?embed=1）。
-         换地址：localStorage.setItem('techprocess:quoteAgentUrl','http://<host>:<port>/?embed=1') -->
+    <!-- 外部报价 Agent 不属于本项目已实现的后端能力，暂不向客户暴露。 -->
     <script>
       (function () {
-        var biz = new URLSearchParams(location.search).get('biz') || 'tech';
-        if (biz !== 'quote') return; // 只在报价业务出现
+        return;
 
         var AGENT_URL =
           (function () { try { return localStorage.getItem('techprocess:quoteAgentUrl'); } catch (e) { return null; } })() ||
@@ -3294,5 +3341,9 @@
         panel.querySelector('#qa-full').onclick = function () { panel.classList.toggle('full'); };
       })();
     </script>
+    <link rel="stylesheet" href="/workflow-navigation.css?v=workflow-nav4" />
+    <script src="/session-guard.js?v=session1"></script>
+    <script src="/workflow-navigation.js?v=workflow-nav4"></script>
+    <script src="/home-link.js?v=home2"></script>
   </body>
 </html>

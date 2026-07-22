@@ -11,7 +11,7 @@ from typing import List, Optional
 from ..models.cost import WebSource
 from ..models.ir import DesignIR
 from ..models.pricing import PricingRecommendation
-from . import claude_client
+from . import llm_client as claude_client
 
 FACTORS = ["订单规模", "技术难度与工艺复杂度", "客户战略价值", "行业竞争态势", "原材料价格联动"]
 

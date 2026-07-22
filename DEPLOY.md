@@ -1,7 +1,22 @@
 # 私有化部署指南
 
+## 公司内网当前部署：增量演示模式
+
+服务器 `172.16.10.34:8000` 的 `cad-engine` 已将 `backend/`、`frontend/`、`apps/` 以只读方式挂载到容器中，服务器 `data/` 与 `.env` 独立保留，不会被日常源码同步覆盖。
+
+日常修改后，在本机项目根目录执行：
+
+```bash
+bash scripts/sync_intranet_source.sh
+```
+
+- 前端 HTML/CSS/JS：同步后刷新浏览器即可生效；
+- 后端 Python：脚本仅重启 `cad-engine` 容器，不重建 Docker 镜像；
+- 仅在修改 `requirements.txt` 或 `Dockerfile` 时，才需要本机构建新镜像并导入服务器。
+
 一条命令拉起完整后端栈:**应用 + Postgres(元数据) + MinIO(对象存储)**。
-应用本身无状态(元数据进库、二进制进对象存储),可水平扩容多副本共享同库同桶。
+元数据进入 Postgres、二进制进入 MinIO；但当前 AI/CAD 任务队列在 app 进程内，
+因此部署时应保持单个 app 实例。接入共享任务队列后再做水平扩容。
 
 ```
         ┌─────────┐      ┌──────────────┐
@@ -47,7 +62,7 @@ docker compose logs -f app        # 跟踪应用日志
 
 ## 四、首次使用
 
-1. 用 `admin` 登录,在右上角「+用户」按角色建号(工程师/校核审签/只读)。
+1. 用 `admin` 登录，在右上角账户菜单中创建或审核用户，并按角色授予工艺工程师、工艺技术经理、工艺技术总监或只读权限。
 2. 上传设备需求原图 → 解析 → 校验 → 拆解 → 生成几何/2D → 审签。
 3. 所有耗时步骤为异步任务,前端自动轮询进度。
 
@@ -64,8 +79,8 @@ docker compose pull && docker compose up -d --build   # 升级
 
 ## 六、扩容 / 接入既有设施
 
-- **多副本**:`docker compose up -d --scale app=3` 并在前面挂个反向代理(Nginx/Traefik)。
-  因状态都在 Postgres + MinIO,副本间天然共享。
+- **当前版本请保持单个 app 实例**。耗时 AI/CAD 任务仍由进程内队列执行；在未接入 Redis/Celery、RQ 或数据库任务租约前，多副本会带来重复执行和任务恢复误判风险。
+  需要横向扩容时，应先把 `backend/services/tasks.py` 替换为共享任务队列，再在前面挂 Nginx/Traefik。
 - **用现成的库/对象存储**:不想跑自带的 db/minio,删掉这两个 service,把 `app` 的
   `DATABASE_URL` / `S3_*` 指向你已有的 Postgres 与 S3/MinIO 即可。
 - **纯本地轻量模式**:不想用容器,直接 `pip install -r requirements.txt` 后

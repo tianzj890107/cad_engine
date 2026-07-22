@@ -33,6 +33,75 @@ class GeometryUnavailable(RuntimeError):
     """CadQuery 未安装时抛出。"""
 
 
+def preflight_parts(parts: List[Part]) -> List[str]:
+    """在 CAD 调用前检查模型无法安全补齐的几何必填项。
+
+    这是纯本地校验，不会调用 LLM；让用户在生成前看到精确缺失字段，
+    避免因模型格式问题重复付费解析。
+    """
+    issues: List[str] = []
+    seen_ids: set[str] = set()
+    base_required = {
+        FeatureType.plate: ("length", "width", "thickness"),
+        FeatureType.box: ("length", "width", "height"),
+        FeatureType.cylinder: ("diameter", "height"),
+    }
+    feature_required = {
+        FeatureType.hole: ("diameter",),
+        FeatureType.hole_pattern: ("diameter",),
+        FeatureType.fillet: ("radius",),
+        FeatureType.chamfer: ("distance",),
+    }
+
+    for part in parts:
+        label = f"零件 {part.part_id}（{part.name}）"
+        if part.part_id in seen_ids:
+            issues.append(f"{label}: part_id 重复")
+        seen_ids.add(part.part_id)
+        if part.quantity < 1:
+            issues.append(f"{label}: quantity 必须至少为 1")
+        if not part.features:
+            issues.append(f"{label}: 缺少基体特征（plate / box / cylinder）")
+            continue
+
+        base = part.features[0]
+        required = base_required.get(base.type)
+        if required is None:
+            issues.append(
+                f"{label}: 第 1 个特征必须是 plate / box / cylinder，当前为 {base.type.value}"
+            )
+        else:
+            for field_name in required:
+                value = getattr(base, field_name)
+                if value is None:
+                    issues.append(f"{label}: 基体缺少 {base.type.value}.{field_name}")
+                elif value <= 0:
+                    issues.append(f"{label}: 基体 {base.type.value}.{field_name} 必须大于 0")
+
+        for index, feature in enumerate(part.features[1:], start=2):
+            for field_name in feature_required.get(feature.type, ()):
+                value = getattr(feature, field_name)
+                if value is None:
+                    issues.append(
+                        f"{label}: 第 {index} 个特征 {feature.type.value} 缺少 {field_name}"
+                    )
+                elif value <= 0:
+                    issues.append(
+                        f"{label}: 第 {index} 个特征 {feature.type.value}.{field_name} 必须大于 0"
+                    )
+            if feature.type == FeatureType.hole_pattern:
+                for count_name, spacing_name in (("count_x", "spacing_x"), ("count_y", "spacing_y")):
+                    count = getattr(feature, count_name) or 1
+                    spacing = getattr(feature, spacing_name)
+                    if count < 1:
+                        issues.append(f"{label}: {count_name} 必须至少为 1")
+                    if count > 1 and (spacing is None or spacing <= 0):
+                        issues.append(
+                            f"{label}: {count_name} 大于 1 时必须提供正数 {spacing_name}"
+                        )
+    return issues
+
+
 @dataclass
 class PartGeometryResult:
     part_id: str

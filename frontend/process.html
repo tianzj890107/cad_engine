@@ -5,17 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>工艺拆解 · 硕磐智能图纸解析与生成</title>
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="detail-pages.css?v=20260716-unified3" />
+  <link rel="stylesheet" href="workflow-navigation.css?v=workflow-nav4" />
 </head>
-<body>
-  <header>
+<body class="detail-page">
+  <header class="detail-header">
     <h1>工艺拆解</h1>
     <span class="subtitle">零件 → 结构化工艺路线(工序 / 设备 / 工装 / 刀具 / 参数 / 工时 / 依赖)· 可校验/可编辑/可追溯</span>
     <span id="health" class="health"></span>
   </header>
 
-  <main class="proc-main">
-    <a class="proc-back" id="backLink" href="index.html">← 返回工作台</a>
+  <div class="detail-page-container">
+    <section class="detail-workflow-section" aria-label="工艺评估流程">
+      <div class="detail-main-workflow">
+        <div class="detail-step completed"><span class="detail-step-number">1</span><span>接受工艺评估需求</span></div>
+        <i class="detail-connector active"></i>
+        <div class="detail-step active"><span class="detail-step-number">2</span><span>解析技术工艺过程</span></div>
+        <i class="detail-connector"></i>
+        <div class="detail-step pending"><span class="detail-step-number">3</span><span>输出工艺评估结果</span></div>
+      </div>
+    </section>
 
+    <main class="proc-main">
     <div class="proc-head">
       <span class="pid" id="partId"></span>
       <h2 id="partName">加载中…</h2>
@@ -26,21 +37,24 @@
       <div class="card-h">附加信息(可选,用于生成 / 重新生成)</div>
       <textarea id="extraNote" rows="2"
         placeholder="补充工艺相关说明,如:材料按45钢调质、批量500、关键面Ra1.6、需做去应力退火…"></textarea>
-      <input type="file" id="extraFiles" multiple
+      <input class="detail-file-input" type="file" id="extraFiles" multiple
         accept="image/*,.txt,.md,.csv,.json,.pdf,.yaml,.yml" />
+      <label class="detail-file-picker" for="extraFiles"><span class="detail-file-button">选择补充文件</span><span class="detail-file-name" id="extraFilesName">未选择文件</span></label>
     </div>
 
     <div id="status" class="status"></div>
     <div id="planArea"></div>
-  </main>
+    </main>
+  </div>
 
   <!-- 固定在底部的小尺寸操作条 -->
   <div class="proc-actions">
+    <a class="proc-back" id="backLink" href="index.html">← 回到上一步</a>
     <button id="btnGen" class="act-sm">⚙️ 生成工艺拆解</button>
     <button id="btnEdit" class="act-sm" disabled>✏️ 编辑</button>
     <button id="btnSave" class="act-sm save" style="display:none">💾 保存</button>
   </div>
 
-  <script type="module" src="process.js"></script>
+  <script src="session-guard.js?v=session1"></script><script src="workflow-navigation.js?v=workflow-nav4"></script><script type="module" src="process.js?v=20260716-ui3"></script><script src="home-link.js?v=home2"></script>
 </body>
 </html>

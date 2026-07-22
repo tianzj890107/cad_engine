@@ -14,13 +14,15 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
-import time
+import tempfile
 import uuid
 from pathlib import Path
 from typing import List, Optional
 
 from ..config import DATA_DIR
+from ..time_utils import now_cst_str
 from .blob_backend import get_blob_backend
 from .meta_backend import get_backend
 
@@ -29,7 +31,23 @@ _task_lock = threading.Lock()
 
 
 def _now() -> str:
-    return time.strftime("%Y-%m-%d %H:%M:%S")
+    return now_cst_str()
+
+
+def _write_json_atomic(path: Path, data) -> None:
+    """原子写全局 JSON 台账，避免写入中断导致设备/供应商目录丢失。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(data, ensure_ascii=False, indent=2)
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(payload)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporary_name, path)
+    finally:
+        if os.path.exists(temporary_name):
+            os.unlink(temporary_name)
 
 
 def _meta():
@@ -89,7 +107,8 @@ def list_audit(project_id: str) -> List[dict]:
 # 项目 / 资料
 # --------------------------------------------------------------------------- #
 def create_project(
-    source_filename: str, source_bytes: bytes, note: str = "", owner: str = "system"
+    source_filename: str, source_bytes: bytes, note: str = "", owner: str = "system",
+    owner_display_name: str = "",
 ) -> str:
     project_id = uuid.uuid4().hex[:12]
 
@@ -103,6 +122,7 @@ def create_project(
         "source_path": src_name,
         "note": note or "",
         "owner": owner or "system",
+        "owner_display_name": owner_display_name or owner or "system",
         "attachments": [],
         "created_at": _now(),
         "stages": {"uploaded": _now()},
@@ -110,6 +130,44 @@ def create_project(
     _meta().put_meta(project_id, meta)
     audit(project_id, "create_project", {"source": source_filename, "owner": owner})
     return project_id
+
+
+def rename_project(project_id: str, name: str, author: str = "system") -> dict:
+    """更新业务侧项目名称，不改动原图文件名和既有解析证据。"""
+    meta = load_meta(project_id)
+    if not meta:
+        raise ValueError("项目不存在")
+    meta["project_name"] = name.strip()
+    meta["updated_at"] = _now()
+    _meta().put_meta(project_id, meta)
+    audit(project_id, "rename_project", {"by": author, "name": meta["project_name"]})
+    return meta
+
+
+def archive_project(project_id: str, author: str = "system") -> None:
+    """软删除项目，列表不再展示，但保留审计与工程数据以满足企业追溯要求。"""
+    meta = load_meta(project_id)
+    if not meta:
+        raise ValueError("项目不存在")
+    meta["deleted_at"] = _now()
+    meta["deleted_by"] = author
+    _meta().put_meta(project_id, meta)
+    audit(project_id, "archive_project", {"by": author})
+
+
+def replace_source(project_id: str, source_filename: str, source_bytes: bytes, author: str = "system") -> None:
+    """替换项目的原始图纸，同时保留一次可追溯审计记录。"""
+    meta = load_meta(project_id)
+    if not meta:
+        raise ValueError("项目不存在")
+    ext = Path(source_filename).suffix or ".png"
+    src_name = f"source{ext}"
+    _blob().put_bytes(f"{project_id}/{src_name}", source_bytes)
+    old_name = meta.get("source_filename")
+    meta["source_filename"] = source_filename
+    meta["source_path"] = src_name
+    _meta().put_meta(project_id, meta)
+    audit(project_id, "replace_source", {"by": author, "from": old_name, "to": source_filename})
 
 
 # --------------------------------------------------------------------------- #
@@ -181,6 +239,15 @@ def load_attachments(project_id: str) -> list[tuple[str, bytes]]:
     return out
 
 
+def attachment_file(project_id: str, filename: str) -> Optional[Path]:
+    """取得一个佐证附件的本地可读路径（必要时由 blob 后端回源）。"""
+    safe = Path(filename).name
+    meta = load_meta(project_id) or {}
+    if safe not in meta.get("attachments", []):
+        return None
+    return _blob().local_path(f"{project_id}/attachments/{safe}")
+
+
 def get_note(project_id: str) -> str:
     meta = load_meta(project_id) or {}
     return meta.get("note", "") or ""
@@ -190,9 +257,15 @@ def load_meta(project_id: str) -> Optional[dict]:
     return _meta().get_meta(project_id)
 
 
-def list_projects() -> List[dict]:
+def list_projects(include_archived: bool = False) -> List[dict]:
     out = []
     for meta in _meta().list_metas():
+        if meta.get("deleted_at") and not include_archived:
+            continue
+        owner = meta.get("owner") or "system"
+        owner_user = _meta().get_user(owner)
+        # 展示名每次从账户资料解析，用户修改个人显示名后无需回写历史项目。
+        meta["owner_display_name"] = (owner_user or {}).get("display_name") or meta.get("owner_display_name") or owner
         pid = meta.get("project_id")
         ir = _meta().get_doc(pid, "ir") if pid else None
         meta["has_ir"] = ir is not None
@@ -201,15 +274,38 @@ def list_projects() -> List[dict]:
     return out
 
 
+def backfill_legacy_mine_owner(owner: str) -> int:
+    """把认证上线前原“我的清单”中的项目归属给默认管理员。
+
+    历史数据未记录真实用户；旧首页规则将“已有需求单”及指定时间的图纸
+    视为我的清单，这里按同一规则仅回填一次。其余历史数据继续归属 system。
+    """
+    count = 0
+    for meta in _meta().list_metas():
+        project_id = meta.get("project_id")
+        if not project_id or meta.get("owner") != "system":
+            continue
+        is_legacy_mine = bool(_meta().get_doc(project_id, "requirement")) or meta.get("created_at") == "2026-07-14 11:08:35"
+        if not is_legacy_mine:
+            continue
+        meta["owner"] = owner
+        meta.pop("owner_display_name", None)  # 列表读取时使用管理员当前显示名
+        meta["owner_backfilled_at"] = _now()
+        _meta().put_meta(project_id, meta)
+        audit(project_id, "backfill_legacy_owner", {"owner": owner})
+        count += 1
+    return count
+
+
 # --------------------------------------------------------------------------- #
 # IR / 几何 / 2D 图纸 结果
 # --------------------------------------------------------------------------- #
-def save_ir(project_id: str, ir_dict: dict, stage: str = "parsed", author: str = "system") -> None:
+def save_ir(project_id: str, ir_dict: dict, stage: str = "parsed", author: str = "system", note: str = "") -> None:
     _meta().put_doc(project_id, "ir", ir_dict)
     _touch_stage(project_id, stage)
-    audit(project_id, f"save_ir:{stage}", {"parts": len(ir_dict.get("parts", []))})
+    audit(project_id, f"save_ir:{stage}", {"parts": len(ir_dict.get("parts", [])), "note": note})
     # 每次保存 IR 自动留一个版本快照(可追溯/可回溯/可审签)
-    record_version(project_id, ir_dict, stage, author=author)
+    record_version(project_id, ir_dict, stage, author=author, note=note)
 
 
 def load_ir(project_id: str) -> Optional[dict]:
@@ -273,6 +369,23 @@ def save_cost(project_id: str, part_id: str, analysis: dict, author: str = "syst
 def load_cost(project_id: str, part_id: str) -> Optional[dict]:
     doc = _meta().get_doc(project_id, "cost") or {}
     return (doc.get("analyses") or {}).get(part_id)
+
+
+# --------------------------------------------------------------------------- #
+# 型号联网核验（项目级、独立于 CAD IR；人工确认前不得覆盖 BOM/零件）
+# --------------------------------------------------------------------------- #
+def save_model_lookup(project_id: str, result: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "model_lookup", result)
+    audit(project_id, "save_model_lookup", {
+        "by": author,
+        "items": len(result.get("identifications", [])),
+        "search_count": result.get("search_count", 0),
+        "model": result.get("model", ""),
+    })
+
+
+def load_model_lookup(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "model_lookup")
 
 
 # --------------------------------------------------------------------------- #
@@ -351,6 +464,43 @@ def save_summary(project_id: str, doc: dict, author: str = "system") -> None:
 
 def load_summary(project_id: str) -> Optional[dict]:
     return _meta().get_doc(project_id, "summary")
+
+
+# --------------------------------------------------------------------------- #
+# 企业工艺评估流程(需求受理 / 报告审核发布)。与既有技术工艺、报价文档并存。
+# --------------------------------------------------------------------------- #
+def save_requirement(project_id: str, doc: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "requirement", doc)
+    _touch_stage(project_id, "requirement")
+    audit(project_id, "save_requirement", {"by": author, "status": doc.get("status")})
+
+
+def load_requirement(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "requirement")
+
+
+def list_requirements() -> List[dict]:
+    rows: List[dict] = []
+    for meta in _meta().list_metas():
+        if meta.get("deleted_at"):
+            continue
+        pid = meta.get("project_id")
+        if not pid:
+            continue
+        doc = _meta().get_doc(pid, "requirement")
+        if doc:
+            rows.append({"requirement": doc, "project": meta})
+    return rows
+
+
+def save_process_report(project_id: str, doc: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "process_report", doc)
+    _touch_stage(project_id, "process_report")
+    audit(project_id, "save_process_report", {"by": author, "status": doc.get("status")})
+
+
+def load_process_report(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "process_report")
 
 
 # --------------------------------------------------------------------------- #
@@ -443,6 +593,14 @@ def list_records() -> List[dict]:
         return _read_records()
 
 
+def get_record(rid: str) -> Optional[dict]:
+    with _record_lock:
+        for item in _read_records():
+            if item.get("id") == rid:
+                return dict(item)
+    return None
+
+
 def save_record(rec: dict) -> dict:
     with _record_lock:
         items = _read_records()
@@ -454,16 +612,14 @@ def save_record(rec: dict) -> dict:
                 break
         else:
             items.append(rec)
-        _records_file().write_text(
-            json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_json_atomic(_records_file(), items)
         return rec
 
 
 def delete_record(rid: str) -> None:
     with _record_lock:
         items = [it for it in _read_records() if it.get("id") != rid]
-        _records_file().write_text(
-            json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_json_atomic(_records_file(), items)
 
 
 # --------------------------------------------------------------------------- #
@@ -494,7 +650,7 @@ def _equipment_file() -> Path:
 def _read_equipment() -> List[dict]:
     f = _equipment_file()
     if not f.exists():
-        f.write_text(json.dumps(_EQUIPMENT_SEED, ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_json_atomic(f, _EQUIPMENT_SEED)
         return [dict(x) for x in _EQUIPMENT_SEED]
     try:
         return json.loads(f.read_text(encoding="utf-8"))
@@ -518,16 +674,14 @@ def save_equipment(rec: dict) -> dict:
                 break
         else:
             items.append(rec)
-        _equipment_file().write_text(
-            json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_json_atomic(_equipment_file(), items)
         return rec
 
 
 def delete_equipment(eid: str) -> None:
     with _equipment_lock:
         items = [it for it in _read_equipment() if it.get("id") != eid]
-        _equipment_file().write_text(
-            json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_json_atomic(_equipment_file(), items)
 
 
 # --------------------------------------------------------------------------- #
@@ -558,7 +712,7 @@ def _suppliers_file() -> Path:
 def _read_suppliers() -> List[dict]:
     f = _suppliers_file()
     if not f.exists():
-        f.write_text(json.dumps(_SUPPLIER_SEED, ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_json_atomic(f, _SUPPLIER_SEED)
         return [dict(x) for x in _SUPPLIER_SEED]
     try:
         return json.loads(f.read_text(encoding="utf-8"))
@@ -582,16 +736,14 @@ def save_supplier(rec: dict) -> dict:
                 break
         else:
             items.append(rec)
-        _suppliers_file().write_text(
-            json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_json_atomic(_suppliers_file(), items)
         return rec
 
 
 def delete_supplier(sid: str) -> None:
     with _supplier_lock:
         items = [it for it in _read_suppliers() if it.get("id") != sid]
-        _suppliers_file().write_text(
-            json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_json_atomic(_suppliers_file(), items)
 
 
 # --------------------------------------------------------------------------- #
@@ -627,11 +779,17 @@ def list_versions(project_id: str) -> List[dict]:
     """版本元信息列表(不含完整 IR),供前端列表/审签面板。"""
     from ..services import versioning
     out: List[dict] = []
+    previous_ir = None
     for r in _versions(project_id)["items"]:
         row = {k: r.get(k) for k in ("version", "ts", "stage", "author", "note", "status")}
         row["review"] = r.get("review", [])
         row.update(versioning.summarize(r.get("ir")))
+        row["change_summary"] = (
+            "初始解析结果，作为后续校核与修改的基准版本。"
+            if previous_ir is None else versioning.change_summary(previous_ir, r.get("ir"))
+        )
         out.append(row)
+        previous_ir = r.get("ir")
     return out
 
 

@@ -6,6 +6,8 @@ pydantic==2.10.4
 
 
 anthropic>=0.69.0
+# Responses API 后台任务、JSON 输出与取消支持。
+openai>=2.45.0
 
 
 cadquery==2.5.2
@@ -13,4 +15,5 @@ cadquery==2.5.2
 python-dotenv==1.0.1
 
 sqlalchemy==2.0.36
-
+# 技术文档中的 PDF 纯文本提取；扫描件仍需走视觉/OCR 能力。
+pypdf>=5.0,<7

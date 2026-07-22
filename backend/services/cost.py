@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple
 
 from ..models.cost import CostAnalysis, WebSource
 from ..models.ir import DesignIR, Part
-from . import claude_client
+from . import llm_client as claude_client
 
 SYSTEM_PROMPT = """你是资深机械零件成本工程师(应成本/报价)。给定一个零件的结构化设计意图
 (特征、材料、尺寸、公差、工艺角色)与可选的几何属性(体积/质量),请做**专业的成本拆解**。
@@ -75,13 +75,14 @@ def analyze_cost(
     quantity: int = 1, web: bool = True, note: str = "",
     attachments: Optional[List[Tuple[str, bytes]]] = None,
 ) -> CostAnalysis:
+    use_web = web and claude_client.WEB_SEARCH_AVAILABLE
     prompt = _part_prompt(part, overall, geom, quantity)
-    content = [claude_client.text_block(prompt)]
+    content = [claude_client.text_block(prompt), claude_client.text_block(claude_client.web_search_notice(use_web))]
     if note and note.strip():
         content.append(claude_client.text_block(f"【用户补充说明(请优先采用)】\n{note.strip()}"))
     content.extend(claude_client.attachment_blocks(attachments))
 
-    extra_tools = [claude_client.WEB_SEARCH_TOOL] if web else None
+    extra_tools = claude_client.web_search_tools(use_web)
     sources: list = []
     analysis = claude_client.run(
         SYSTEM_PROMPT, content, CostAnalysis, extra_tools=extra_tools, sources_out=sources,

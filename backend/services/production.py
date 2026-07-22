@@ -12,7 +12,7 @@ from typing import List, Optional
 from ..models.cost import WebSource
 from ..models.ir import DesignIR
 from ..models.production import ProductionRecommendation
-from . import claude_client
+from . import llm_client as claude_client
 
 SYSTEM_PROMPT = """你是资深生产工艺与产能规划工程师。给定器件设计意图、已规划的制造工艺路径,
 以及**当前可用的设备台账**(自有产线设备 + 外协厂商设备),请完成「产线匹配与产能评估」:
@@ -58,7 +58,7 @@ def _equipment_brief(equipment: List[dict]) -> str:
 
 
 def _context(ir: Optional[DesignIR], manufacturing_plan: Optional[dict],
-             equipment: List[dict], note: str) -> str:
+             equipment: List[dict], note: str, use_web: bool) -> str:
     lines: List[str] = []
     if ir and ir.device_name:
         lines.append(f"器件/设备名称: {ir.device_name}")
@@ -81,8 +81,11 @@ def _context(ir: Optional[DesignIR], manufacturing_plan: Optional[dict],
 
     if note and note.strip():
         lines.append(f"\n【用户补充说明(请优先采用)】\n{note.strip()}")
-    lines.append("\n请基于上面的设备台账做匹配与外协建议(只引用台账真实设备),"
-                 "必要时联网检索设备能力参数,输出结构化 ProductionRecommendation。")
+    lines.append(
+        "\n请基于上面的设备台账做匹配与外协建议(只引用台账真实设备),"
+        + ("必要时联网检索设备能力参数," if use_web else "不得虚构外部设备资料,")
+        + "输出结构化 ProductionRecommendation。"
+    )
     return "\n".join(lines)
 
 
@@ -90,8 +93,12 @@ def recommend(
     ir: Optional[DesignIR] = None, manufacturing_plan: Optional[dict] = None,
     equipment: Optional[List[dict]] = None, note: str = "", web: bool = True,
 ) -> ProductionRecommendation:
-    content = [claude_client.text_block(_context(ir, manufacturing_plan, equipment or [], note))]
-    extra_tools = [claude_client.WEB_SEARCH_TOOL] if web else None
+    use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    content = [
+        claude_client.text_block(_context(ir, manufacturing_plan, equipment or [], note, use_web)),
+        claude_client.text_block(claude_client.web_search_notice(use_web)),
+    ]
+    extra_tools = claude_client.web_search_tools(use_web)
     sources: list = []
     rec = claude_client.run(
         SYSTEM_PROMPT, content, ProductionRecommendation,

@@ -9,12 +9,12 @@
 from __future__ import annotations
 
 import html as _html
-import time
 from typing import Any, Dict, List, Optional
 
 from ..models.summary import SummaryRecommendation
-from . import claude_client
+from . import llm_client as claude_client
 from ..storage import store
+from ..time_utils import now_cst_str
 
 # 每一步: (doc 键, 标题, 标量字段[(点路径,标签)], 表格[(标签,列表点路径,列[(键,表头)])])
 SECTIONS: List[dict] = [
@@ -149,7 +149,7 @@ def render_markdown(agg: Dict[str, Any]) -> str:
     out.append(f"# {s.get('title') or '技术工艺总结报告'}")
     out.append(f"- 器件/设备: {agg.get('device_name') or '—'}")
     out.append(f"- 项目编号: {agg.get('project_id')}")
-    out.append(f"- 生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    out.append(f"- 生成时间: {now_cst_str()}\n")
 
     out.append("## 执行摘要")
     if s.get("overview"):
@@ -203,7 +203,7 @@ def render_html(agg: Dict[str, Any]) -> str:
     parts.append(f"<h1>{e(s.get('title') or '技术工艺总结报告')}</h1>")
     parts.append("<p class='meta'>器件/设备: " + e(_fmt(agg.get("device_name"))) +
                  " ｜ 项目编号: " + e(_fmt(agg.get("project_id"))) +
-                 " ｜ 生成时间: " + time.strftime("%Y-%m-%d %H:%M:%S") + "</p>")
+                 " ｜ 生成时间: " + now_cst_str() + "</p>")
 
     parts.append("<h2>执行摘要</h2>")
     if s.get("overview"):
@@ -263,6 +263,7 @@ def recommend(agg: Dict[str, Any], web: bool = False) -> SummaryRecommendation:
         "steps": {k: v for k, v in (agg.get("steps") or {}).items()},
     }
     text = "各阶段结论汇总(JSON):\n" + json.dumps(brief, ensure_ascii=False)[:18000]
-    content = [claude_client.text_block(text)]
-    extra_tools = [claude_client.WEB_SEARCH_TOOL] if web else None
+    use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    content = [claude_client.text_block(text), claude_client.text_block(claude_client.web_search_notice(use_web))]
+    extra_tools = claude_client.web_search_tools(use_web)
     return claude_client.run(SYSTEM_PROMPT, content, SummaryRecommendation, extra_tools=extra_tools)

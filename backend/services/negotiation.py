@@ -11,7 +11,7 @@ from typing import List, Optional
 from ..models.cost import WebSource
 from ..models.ir import DesignIR
 from ..models.negotiation import NegotiationRecommendation
-from . import claude_client
+from . import llm_client as claude_client
 
 TERMS = ["价格条款", "交付条款", "付款条款", "质量保证条款", "知识产权条款", "违约责任"]
 CUSTOMERS = ["战略客户", "新客户", "海外客户"]
