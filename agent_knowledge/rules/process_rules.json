@@ -1,0 +1,31 @@
+{
+  "version": "process-rules-1.0",
+  "class_keywords": {
+    "standard_part": ["标准件", "外购", "螺栓", "螺母", "轴承", "压缩机", "电机", "阀"],
+    "welded": ["焊接", "焊缝", "框架", "焊合"],
+    "sheet_metal": ["钣金", "板金", "面板", "盖板", "壳体", "支架", "折弯", "冲压"]
+  },
+  "thin_plate_max_mm": 6.0,
+  "required_final_types": ["inspection"],
+  "feature_operations": {
+    "plate": ["blank", "sheet_metal", "milling"],
+    "box": ["blank", "milling"],
+    "cylinder": ["blank", "turning"],
+    "hole": ["drilling", "boring"],
+    "hole_pattern": ["drilling"],
+    "fillet": ["milling", "bench"],
+    "chamfer": ["milling", "turning", "bench"]
+  },
+  "material_process_compatibility": {
+    "aluminum": {"markers": ["铝", "6061", "6063", "7075"], "avoid": ["强碱长时间清洗"], "preferred_surface": ["阳极氧化", "化学转化"]},
+    "stainless_steel": {"markers": ["不锈钢", "sus304", "sus316", "304", "316"], "avoid": ["普通碳钢刀具交叉污染"], "preferred_surface": ["钝化", "电解抛光"]},
+    "carbon_steel": {"markers": ["q235", "45钢", "碳钢"], "avoid": ["无防护长期暴露"], "preferred_surface": ["发黑", "磷化", "喷涂", "镀锌"]},
+    "plastic": {"markers": ["abs", "pc", "pa", "塑料"], "avoid": ["未验证溶剂清洗", "高温热处理"], "preferred_surface": []}
+  },
+  "class_allowed_operations": {
+    "machining": ["blank", "turning", "milling", "drilling", "boring", "grinding", "bench", "heat_treat", "surface", "inspection", "other"],
+    "sheet_metal": ["blank", "sheet_metal", "drilling", "bench", "welding", "surface", "assembly", "inspection", "other"],
+    "welded": ["blank", "sheet_metal", "milling", "drilling", "bench", "welding", "heat_treat", "surface", "assembly", "inspection", "other"],
+    "standard_part": ["inspection", "assembly", "surface", "other"]
+  }
+}

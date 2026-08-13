@@ -165,7 +165,7 @@ def attachment_blocks(attachments) -> List[Dict[str, Any]]:
     blocks: List[Dict[str, Any]] = []
     attachments = list(attachments or [])
     for index, (name, data) in enumerate(attachments):
-        if index >= LLM_MAX_ATTACHMENTS:
+        if LLM_MAX_ATTACHMENTS > 0 and index >= LLM_MAX_ATTACHMENTS:
             blocks.append(text_block(
                 f"【其余 {len(attachments) - index} 个佐证附件因上下文预算未发送给模型】"
             ))

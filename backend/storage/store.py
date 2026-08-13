@@ -28,6 +28,9 @@ from .meta_backend import get_backend
 
 # 任务记录是多线程(worker)读改写同一文档,需串行化避免丢更新
 _task_lock = threading.Lock()
+# 复合 JSON 文档采用“读取-修改-整体写回”，必须在同一临界区内完成；否则两个
+# 零件并发保存时会发生最后写入覆盖。RLock 允许保存过程中调用其它存储助手。
+_document_lock = threading.RLock()
 
 
 def _now() -> str:
@@ -124,6 +127,7 @@ def create_project(
         "owner": owner or "system",
         "owner_display_name": owner_display_name or owner or "system",
         "attachments": [],
+        "input_revision": 1,
         "created_at": _now(),
         "stages": {"uploaded": _now()},
     }
@@ -166,7 +170,17 @@ def replace_source(project_id: str, source_filename: str, source_bytes: bytes, a
     old_name = meta.get("source_filename")
     meta["source_filename"] = source_filename
     meta["source_path"] = src_name
+    meta["input_revision"] = int(meta.get("input_revision") or 0) + 1
+    meta["derived_results_stale"] = True
+    meta["derived_results_stale_reason"] = "原始图纸已替换，请重新解析并生成下游结果"
     _meta().put_meta(project_id, meta)
+    invalidate_confirmations(
+        project_id,
+        ["material", "manufacturing", "cleaning", "assembly", "production", "summary",
+         "costest", "pricing", "negotiation", "pricenego", "approval"],
+        "原始图纸已替换",
+        author,
+    )
     audit(project_id, "replace_source", {"by": author, "from": old_name, "to": source_filename})
 
 
@@ -201,6 +215,19 @@ def save_task(project_id: str, rec: dict) -> None:
         _meta().put_doc(project_id, "tasks", data)
 
 
+def update_task(project_id: str, task_id: str, **fields) -> Optional[dict]:
+    """在同一把锁内读改写任务，避免并发 worker 覆盖彼此的状态/结果。"""
+    with _task_lock:
+        data = _meta().get_doc(project_id, "tasks") or {"items": []}
+        for task in data.get("items", []):
+            if task.get("task_id") != task_id:
+                continue
+            task.update(fields)
+            _meta().put_doc(project_id, "tasks", data)
+            return task.copy()
+    return None
+
+
 def get_task(project_id: str, task_id: str) -> Optional[dict]:
     with _task_lock:
         data = _meta().get_doc(project_id, "tasks") or {"items": []}
@@ -216,7 +243,7 @@ def list_tasks(project_id: str) -> List[dict]:
     return data["items"]
 
 
-def add_attachment(project_id: str, filename: str, data: bytes) -> None:
+def add_attachment(project_id: str, filename: str, data: bytes, author: str = "system") -> None:
     """保存一个佐证文件，并登记到 meta(可追溯)。"""
     safe = Path(filename).name
     _blob().put_bytes(f"{project_id}/attachments/{safe}", data)
@@ -224,8 +251,19 @@ def add_attachment(project_id: str, filename: str, data: bytes) -> None:
     atts = meta.setdefault("attachments", [])
     if safe not in atts:
         atts.append(safe)
+    # 同名附件也可能替换了内容，不能仅根据文件名判断输入是否变化。
+    meta["input_revision"] = int(meta.get("input_revision") or 0) + 1
+    meta["derived_results_stale"] = True
+    meta["derived_results_stale_reason"] = "输入附件已变化，请重新解析相关结果"
     _meta().put_meta(project_id, meta)
-    audit(project_id, "add_attachment", {"file": safe})
+    invalidate_confirmations(
+        project_id,
+        ["material", "manufacturing", "cleaning", "assembly", "production", "summary",
+         "costest", "pricing", "negotiation", "pricenego", "approval"],
+        f"输入附件已变化：{safe}",
+        author,
+    )
+    audit(project_id, "add_attachment", {"file": safe, "by": author})
 
 
 def load_attachments(project_id: str) -> list[tuple[str, bytes]]:
@@ -301,15 +339,68 @@ def backfill_legacy_mine_owner(owner: str) -> int:
 # IR / 几何 / 2D 图纸 结果
 # --------------------------------------------------------------------------- #
 def save_ir(project_id: str, ir_dict: dict, stage: str = "parsed", author: str = "system", note: str = "") -> None:
-    _meta().put_doc(project_id, "ir", ir_dict)
-    _touch_stage(project_id, stage)
-    audit(project_id, f"save_ir:{stage}", {"parts": len(ir_dict.get("parts", [])), "note": note})
-    # 每次保存 IR 自动留一个版本快照(可追溯/可回溯/可审签)
-    record_version(project_id, ir_dict, stage, author=author, note=note)
+    with _document_lock:
+        _meta().put_doc(project_id, "ir", ir_dict)
+        meta = load_meta(project_id) or {}
+        meta["ir_revision"] = int(meta.get("ir_revision") or 0) + 1
+        meta["ir_input_revision"] = int(meta.get("input_revision") or 1)
+        meta["derived_results_stale"] = True
+        meta["derived_results_stale_reason"] = "设计 IR 已变化，请重新生成下游工艺或几何结果"
+        meta.setdefault("stages", {})[stage] = _now()
+        _meta().put_meta(project_id, meta)
+        audit(project_id, f"save_ir:{stage}", {"parts": len(ir_dict.get("parts", [])), "note": note})
+        # 每次保存 IR 自动留一个版本快照(可追溯/可回溯/可审签)
+        record_version(project_id, ir_dict, stage, author=author, note=note)
+        invalidate_confirmations(
+            project_id,
+            ["material", "manufacturing", "cleaning", "assembly", "production", "summary",
+             "costest", "pricing", "negotiation", "pricenego", "approval"],
+            f"设计 IR 已更新（{stage}）",
+            author=author,
+        )
 
 
 def load_ir(project_id: str) -> Optional[dict]:
     return _meta().get_doc(project_id, "ir")
+
+
+def save_ai_result_metadata(project_id: str, task_id: str, kind: str, metadata: dict) -> None:
+    """旁路保存 AI 治理信息，不改变已有业务响应和历史业务文档。"""
+    doc = _meta().get_doc(project_id, "ai_results") or {"items": {}}
+    doc.setdefault("items", {})[task_id] = {"kind": kind, "at": _now(), **metadata}
+    doc["latest"] = task_id
+    _meta().put_doc(project_id, "ai_results", doc)
+    audit(project_id, "save_ai_result_metadata", {
+        "task_id": task_id, "kind": kind, "status": metadata.get("status"),
+        "model": metadata.get("model"), "sop_version": metadata.get("sop_version"),
+    })
+
+
+def load_ai_result_metadata(project_id: str) -> dict:
+    return _meta().get_doc(project_id, "ai_results") or {"items": {}}
+
+
+def save_drawing_analysis(project_id: str, analysis: dict) -> None:
+    _meta().put_doc(project_id, "drawing_analysis", analysis)
+    audit(project_id, "save_drawing_analysis", {
+        "status": analysis.get("status"), "sop_version": analysis.get("sop_version"),
+    })
+
+
+def load_drawing_analysis(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "drawing_analysis")
+
+
+def save_verification_report(project_id: str, report: dict, author: str = "system") -> None:
+    _meta().put_doc(project_id, "verification_report", report)
+    audit(project_id, "save_verification_report", {
+        "by": author, "applied": len(report.get("applied_changes", [])),
+        "pending": len(report.get("pending_changes", [])),
+    })
+
+
+def load_verification_report(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "verification_report")
 
 
 def save_geometry_result(project_id: str, result: dict) -> None:
@@ -336,9 +427,10 @@ def load_drawings_result(project_id: str) -> Optional[dict]:
 # 工艺拆解(按零件存): doc kind "process" = {"plans": {part_id: plan_dict}}
 # --------------------------------------------------------------------------- #
 def save_process(project_id: str, part_id: str, plan: dict, author: str = "system") -> None:
-    doc = _meta().get_doc(project_id, "process") or {"plans": {}}
-    doc.setdefault("plans", {})[part_id] = plan
-    _meta().put_doc(project_id, "process", doc)
+    with _document_lock:
+        doc = _meta().get_doc(project_id, "process") or {"plans": {}}
+        doc.setdefault("plans", {})[part_id] = plan
+        _meta().put_doc(project_id, "process", doc)
     _touch_stage(project_id, "process")
     audit(project_id, "save_process", {"part_id": part_id, "by": author,
                                        "steps": len(plan.get("steps", []))})
@@ -358,9 +450,10 @@ def load_all_process(project_id: str) -> dict:
 # 成本分析(按零件存): doc kind "cost" = {"analyses": {part_id: analysis_dict}}
 # --------------------------------------------------------------------------- #
 def save_cost(project_id: str, part_id: str, analysis: dict, author: str = "system") -> None:
-    doc = _meta().get_doc(project_id, "cost") or {"analyses": {}}
-    doc.setdefault("analyses", {})[part_id] = analysis
-    _meta().put_doc(project_id, "cost", doc)
+    with _document_lock:
+        doc = _meta().get_doc(project_id, "cost") or {"analyses": {}}
+        doc.setdefault("analyses", {})[part_id] = analysis
+        _meta().put_doc(project_id, "cost", doc)
     _touch_stage(project_id, "cost")
     audit(project_id, "save_cost", {"part_id": part_id, "by": author,
                                     "items": len(analysis.get("items", []))})
@@ -466,6 +559,60 @@ def load_summary(project_id: str) -> Optional[dict]:
     return _meta().get_doc(project_id, "summary")
 
 
+_CONFIRMATION_PATHS = {
+    "material": (("body",), ("metallization",)),
+    "manufacturing": (("path",), ("bom",)),
+    "cleaning": ((),),
+    "assembly": (("assembly",), ("inspection",)),
+    "production": (("inhouse",), ("outsourcing",)),
+    "summary": ((),),
+    "costest": ((),),
+    "negotiation": ((),),
+    "pricenego": ((),),
+}
+
+
+def invalidate_confirmations(project_id: str, kinds: List[str], reason: str, author: str = "system") -> None:
+    """上游业务输入变化时撤销下游人工确认/审批，不删除历史正文。"""
+    with _document_lock:
+        changed: List[str] = []
+        for kind in kinds:
+            doc = _meta().get_doc(project_id, kind)
+            if not isinstance(doc, dict):
+                continue
+            touched = False
+            for path in _CONFIRMATION_PATHS.get(kind, ()):
+                target = doc
+                for segment in path:
+                    target = target.get(segment) if isinstance(target, dict) else None
+                if not isinstance(target, dict):
+                    continue
+                if target.get("confirmed") or target.get("confirmed_by") or target.get("confirmed_at"):
+                    target["confirmed"] = False
+                    target["confirmed_by"] = None
+                    target["confirmed_at"] = None
+                    touched = True
+            if kind == "pricing":
+                approval = doc.get("approval") or {}
+                if approval.get("status") != "draft":
+                    doc["approval"] = {"status": "draft"}
+                    touched = True
+            if kind == "approval" and doc.get("status") != "draft":
+                doc["status"] = "draft"
+                doc["chain"] = []
+                doc["decision_note"] = f"上游内容变化，原审批自动失效：{reason}"
+                touched = True
+            if not touched:
+                continue
+            doc["updated_at"] = _now()
+            _meta().put_doc(project_id, kind, doc)
+            changed.append(kind)
+        if changed:
+            audit(project_id, "invalidate_downstream_confirmations", {
+                "by": author, "reason": reason, "documents": changed,
+            })
+
+
 # --------------------------------------------------------------------------- #
 # 企业工艺评估流程(需求受理 / 报告审核发布)。与既有技术工艺、报价文档并存。
 # --------------------------------------------------------------------------- #
@@ -494,13 +641,48 @@ def list_requirements() -> List[dict]:
 
 
 def save_process_report(project_id: str, doc: dict, author: str = "system") -> None:
-    _meta().put_doc(project_id, "process_report", doc)
-    _touch_stage(project_id, "process_report")
-    audit(project_id, "save_process_report", {"by": author, "status": doc.get("status")})
+    with _document_lock:
+        _meta().put_doc(project_id, "process_report", doc)
+        # 已发布版本是正式业务凭证，另存不可变快照；后续创建草稿不能覆盖它。
+        if doc.get("status") == "published":
+            versions = _meta().get_doc(project_id, "process_report_versions") or {"items": {}}
+            key = str(int(doc.get("version") or 1))
+            versions.setdefault("items", {}).setdefault(key, doc)
+            _meta().put_doc(project_id, "process_report_versions", versions)
+        _touch_stage(project_id, "process_report")
+        audit(project_id, "save_process_report", {"by": author, "status": doc.get("status")})
 
 
 def load_process_report(project_id: str) -> Optional[dict]:
     return _meta().get_doc(project_id, "process_report")
+
+
+def list_process_report_versions(project_id: str) -> List[dict]:
+    data = _meta().get_doc(project_id, "process_report_versions") or {"items": {}}
+    rows = list((data.get("items") or {}).values())
+    return sorted(rows, key=lambda row: int(row.get("version") or 0))
+
+
+def get_process_report_version(project_id: str, version: int) -> Optional[dict]:
+    data = _meta().get_doc(project_id, "process_report_versions") or {"items": {}}
+    return (data.get("items") or {}).get(str(version))
+
+
+# --------------------------------------------------------------------------- #
+# 项目级 AI 对话（所有流程页面共用）
+# --------------------------------------------------------------------------- #
+def load_project_chat(project_id: str) -> dict:
+    """读取项目统一 AI 对话；历史项目没有该文档时返回空会话。"""
+    doc = _meta().get_doc(project_id, "project_chat") or {}
+    messages = doc.get("messages") if isinstance(doc, dict) else []
+    return {"messages": messages if isinstance(messages, list) else []}
+
+
+def save_project_chat(project_id: str, messages: List[dict], author: str = "system") -> None:
+    """保存有限长度的项目对话，作为业务留痕而非浏览器临时状态。"""
+    safe_messages = messages[-40:] if isinstance(messages, list) else []
+    _meta().put_doc(project_id, "project_chat", {"messages": safe_messages, "updated_at": _now()})
+    audit(project_id, "save_project_chat", {"by": author, "messages": len(safe_messages)})
 
 
 # --------------------------------------------------------------------------- #
@@ -623,24 +805,22 @@ def delete_record(rid: str) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# 设备资源台账(全局,JSON 文件,带种子;自有产线 + 外协厂商)
+# 设备资源台账(全局,JSON 文件)。没有企业数据时保持为空，不注入示例能力。
 # --------------------------------------------------------------------------- #
 _equipment_lock = threading.Lock()
 
-_EQUIPMENT_SEED: List[dict] = [
-    {"id": "eq_kiln01", "name": "高温烧结炉 GSL-1800X", "type": "烧结炉", "owner": "自有",
-     "capability": "最高 1800℃,可控气氛(N2/真空)", "capacity": "600 件/月", "note": "适合氧化铝/氮化铝共烧"},
-    {"id": "eq_pol01", "name": "双面研磨抛光机 9B-AC", "type": "环抛机", "owner": "自有",
-     "capability": "面型精度 ≤1µm,Φ300 盘", "capacity": "1000 件/月", "note": "精密研磨/抛光"},
-    {"id": "eq_laser01", "name": "紫外激光打孔机 UV-355", "type": "激光打孔机", "owner": "自有",
-     "capability": "最小孔径 50µm", "capacity": "—", "note": ""},
-    {"id": "eq_out_kiln", "name": "外协-超高温气氛炉", "type": "烧结炉", "owner": "外协",
-     "vendor": "示例-外协陶瓷厂E", "capability": "最高 2000℃,氢气气氛", "cost": "8 元/件",
-     "lead_time": "1-2 周", "note": "自有炉温不足时外协"},
-    {"id": "eq_out_pol", "name": "外协-超精密环抛", "type": "环抛机", "owner": "外协",
-     "vendor": "示例-外协精密加工厂F", "capability": "面型 ≤0.3µm", "cost": "15 元/件",
-     "lead_time": "1 周", "note": "高面型要求外协"},
-]
+_EQUIPMENT_SEED: List[dict] = []
+_LEGACY_EXAMPLE_EQUIPMENT = {
+    ("eq_kiln01", "高温烧结炉 GSL-1800X"),
+    ("eq_pol01", "双面研磨抛光机 9B-AC"),
+    ("eq_laser01", "紫外激光打孔机 UV-355"),
+    ("eq_out_kiln", "外协-超高温气氛炉"),
+    ("eq_out_pol", "外协-超精密环抛"),
+}
+
+
+def _is_legacy_example_equipment(item: dict) -> bool:
+    return (str(item.get("id") or ""), str(item.get("name") or "")) in _LEGACY_EXAMPLE_EQUIPMENT
 
 
 def _equipment_file() -> Path:
@@ -660,7 +840,9 @@ def _read_equipment() -> List[dict]:
 
 def list_equipment() -> List[dict]:
     with _equipment_lock:
-        return _read_equipment()
+        # 旧部署可能已经把内置演示行落盘；保留原文件以避免破坏性迁移，但绝不再
+        # 把这些行作为真实企业能力返回给产能评估。
+        return [item for item in _read_equipment() if not _is_legacy_example_equipment(item)]
 
 
 def save_equipment(rec: dict) -> dict:
@@ -685,24 +867,21 @@ def delete_equipment(eid: str) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# 供应商能力目录(全局,JSON 文件,带种子)
+# 供应商能力目录(全局,JSON 文件)。没有企业数据时保持为空。
 # --------------------------------------------------------------------------- #
 _supplier_lock = threading.Lock()
 
-_SUPPLIER_SEED: List[dict] = [
-    {"id": "sup_al01", "name": "示例-高纯氧化铝粉厂A", "material": "氧化铝粉",
-     "max_purity_pct": 99.99, "d50_min_um": 0.3, "d50_max_um": 1.0,
-     "moq": "100kg", "lead_time": "2-3 周", "contact": "—", "note": "亚微米高纯,适合流延"},
-    {"id": "sup_al02", "name": "示例-氧化铝粉厂B", "material": "氧化铝粉",
-     "max_purity_pct": 99.5, "d50_min_um": 1.0, "d50_max_um": 3.0,
-     "moq": "50kg", "lead_time": "1-2 周", "contact": "—", "note": "性价比型"},
-    {"id": "sup_aln01", "name": "示例-氮化铝粉厂C", "material": "氮化铝粉",
-     "max_purity_pct": 99.9, "d50_min_um": 0.8, "d50_max_um": 2.0,
-     "moq": "20kg", "lead_time": "4-6 周", "contact": "—", "note": "高热导,含氧量低"},
-    {"id": "sup_pst01", "name": "示例-电子浆料厂D", "material": "Ag-Pd 浆料",
-     "max_purity_pct": 99.9, "d50_min_um": 0.5, "d50_max_um": 2.5,
-     "moq": "5kg", "lead_time": "1 周", "contact": "—", "note": "厚膜导体浆料"},
-]
+_SUPPLIER_SEED: List[dict] = []
+_LEGACY_EXAMPLE_SUPPLIERS = {
+    ("sup_al01", "示例-高纯氧化铝粉厂A"),
+    ("sup_al02", "示例-氧化铝粉厂B"),
+    ("sup_aln01", "示例-氮化铝粉厂C"),
+    ("sup_pst01", "示例-电子浆料厂D"),
+}
+
+
+def _is_legacy_example_supplier(item: dict) -> bool:
+    return (str(item.get("id") or ""), str(item.get("name") or "")) in _LEGACY_EXAMPLE_SUPPLIERS
 
 
 def _suppliers_file() -> Path:
@@ -722,7 +901,7 @@ def _read_suppliers() -> List[dict]:
 
 def list_suppliers() -> List[dict]:
     with _supplier_lock:
-        return _read_suppliers()
+        return [item for item in _read_suppliers() if not _is_legacy_example_supplier(item)]
 
 
 def save_supplier(rec: dict) -> dict:
@@ -758,20 +937,21 @@ def _versions(project_id: str) -> dict:
 def record_version(
     project_id: str, ir_dict: dict, stage: str, author: str = "system", note: str = ""
 ) -> int:
-    data = _versions(project_id)
-    items = data["items"]
-    version = len(items) + 1
-    items.append({
-        "version": version,
-        "ts": _now(),
-        "stage": stage,
-        "author": author,
-        "note": note,
-        "status": "draft",
-        "review": [],
-        "ir": ir_dict,
-    })
-    _meta().put_doc(project_id, "versions", data)
+    with _document_lock:
+        data = _versions(project_id)
+        items = data["items"]
+        version = max((int(item.get("version") or 0) for item in items), default=0) + 1
+        items.append({
+            "version": version,
+            "ts": _now(),
+            "stage": stage,
+            "author": author,
+            "note": note,
+            "status": "draft",
+            "review": [],
+            "ir": ir_dict,
+        })
+        _meta().put_doc(project_id, "versions", data)
     return version
 
 

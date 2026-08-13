@@ -33,27 +33,26 @@ OPENAI_TIMEOUT_SECONDS = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "180"))
 OPENAI_BACKGROUND_TIMEOUT_SECONDS = float(
     os.getenv("OPENAI_BACKGROUND_TIMEOUT_SECONDS", "600")
 )
-# 成本保护：默认不在网络失败后重复提交同一份图纸；最多允许一次 SDK 级重试。
-OPENAI_MAX_RETRIES = min(1, max(0, int(os.getenv("OPENAI_MAX_RETRIES", "0"))))
-# 限制单次输出上限，避免结构化 IR 因异常冗长输出而失控。复杂图纸可按需提高。
-OPENAI_MAX_OUTPUT_TOKENS = max(512, int(os.getenv("OPENAI_MAX_OUTPUT_TOKENS", "8000")))
-# JSON/Pydantic 校验失败时默认不自动再次调用模型；即使用户开启，也最多一次文本修复。
-OPENAI_SCHEMA_REPAIR_RETRIES = min(
-    1, max(0, int(os.getenv("OPENAI_SCHEMA_REPAIR_RETRIES", "0")))
+# 团队 API 模式不再按个人费用做单次调用保护；重试次数仍可配置，避免网络异常时无限循环。
+OPENAI_MAX_RETRIES = max(0, min(5, int(os.getenv("OPENAI_MAX_RETRIES", "3"))))
+# 复杂工程图需要足够空间输出完整 IR；真正的上下文上限由服务端决定。
+OPENAI_MAX_OUTPUT_TOKENS = max(4096, int(os.getenv("OPENAI_MAX_OUTPUT_TOKENS", "32768")))
+# 结构化校验失败时自动在同一模型上请求修复，减少人工重复上传图纸。
+OPENAI_SCHEMA_REPAIR_RETRIES = max(
+    0, min(3, int(os.getenv("OPENAI_SCHEMA_REPAIR_RETRIES", "2")))
 )
 # 视觉图纸与后续纯文本分析可独立限额/换模型。默认不改变模型选择，先保证兼容。
 OPENAI_TEXT_MODEL = os.getenv("OPENAI_TEXT_MODEL", OPENAI_MODEL)
 OPENAI_VISION_MAX_OUTPUT_TOKENS = min(
     OPENAI_MAX_OUTPUT_TOKENS,
-    max(512, int(os.getenv("OPENAI_VISION_MAX_OUTPUT_TOKENS", "6000"))),
+    max(4096, int(os.getenv("OPENAI_VISION_MAX_OUTPUT_TOKENS", "32768"))),
 )
 OPENAI_TEXT_MAX_OUTPUT_TOKENS = min(
     OPENAI_MAX_OUTPUT_TOKENS,
-    max(512, int(os.getenv("OPENAI_TEXT_MAX_OUTPUT_TOKENS", "3000"))),
+    max(4096, int(os.getenv("OPENAI_TEXT_MAX_OUTPUT_TOKENS", "12000"))),
 )
 OPENAI_MAX_TOOL_CALLS = max(0, int(os.getenv("OPENAI_MAX_TOOL_CALLS", "1")))
-# GPT-5 / o 系列的推理 token 也会计入 max_output_tokens。默认 low，优先保证
-# 图纸解析能在预算内完成；设为空字符串可完全交给模型默认值。
+# GPT-5 / o 系列的推理 token 也会计入 max_output_tokens；设为空字符串可完全交给模型默认值。
 _DEFAULT_REASONING_EFFORT = (
     "low" if OPENAI_MODEL.lower().startswith(("gpt-5", "o1", "o3", "o4")) else ""
 )
@@ -62,13 +61,13 @@ OPENAI_REASONING_EFFORT = os.getenv(
 ).strip().lower()
 
 # 阿里云百炼 Qwen（OpenAI Chat Completions 兼容接口）。视觉解析默认使用
-# qwen3-vl-flash：它支持图片输入和 JSON 输出，且价格远低于 plus / thinking 系列。
+# qwen3-vl-plus；它是工程图场景的高质量视觉模型，flash 作为快速故障转移。
 # 建议将 QWEN_BASE_URL 配成业务空间专属域名；旧的 dashscope 域名仍可作为默认兼容地址。
 QWEN_API_KEY = os.getenv("QWEN_API_KEY", "")
 QWEN_BASE_URL = os.getenv(
     "QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"
 ).rstrip("/")
-QWEN_MODEL = os.getenv("QWEN_MODEL", "qwen3-vl-flash")
+QWEN_MODEL = os.getenv("QWEN_MODEL", "qwen3-vl-plus")
 # 文本任务（技术文档提取、工艺推荐、汇总等）可单独选择非视觉模型，避免不必要
 # 地消耗 VL 模型额度。未配置时仍向后兼容地使用 QWEN_MODEL。
 QWEN_TEXT_MODEL = os.getenv("QWEN_TEXT_MODEL", QWEN_MODEL)
@@ -85,8 +84,8 @@ def _model_pool(env_name: str, primary: str) -> tuple[str, ...]:
     return tuple(unique)
 
 
-# 视觉与纯文本模型分别维护候选池。首个永远是上述主模型，后续项只会在
-# 百炼明确返回模型不可用/额度耗尽/限流（403、429）时才被调用。
+# 视觉与纯文本模型分别维护候选池。首个是上述主模型；遇到模型不可用、限流、
+# 网络失败或多轮结构化修复仍失败时，才按顺序切换同能力候选。
 QWEN_VISION_MODELS = _model_pool("QWEN_VISION_MODELS", QWEN_MODEL)
 QWEN_TEXT_MODELS = _model_pool("QWEN_TEXT_MODELS", QWEN_TEXT_MODEL)
 # 型号联网核验使用百炼原生 DashScope 协议，以便取得可追溯的搜索来源。
@@ -103,30 +102,44 @@ QWEN_DASHSCOPE_BASE_URL = os.getenv(
 # 百炼中国地域通常直连可达；绝不自动继承为 OpenAI 配置的 VPN/Clash 代理。
 # 如业务环境确实必须经代理访问，再显式设置 QWEN_PROXY_URL。
 QWEN_PROXY_URL = os.getenv("QWEN_PROXY_URL", "")
-QWEN_TIMEOUT_SECONDS = float(os.getenv("QWEN_TIMEOUT_SECONDS", "180"))
-QWEN_MAX_RETRIES = min(1, max(0, int(os.getenv("QWEN_MAX_RETRIES", "0"))))
-QWEN_MAX_OUTPUT_TOKENS = max(512, int(os.getenv("QWEN_MAX_OUTPUT_TOKENS", "6000")))
+QWEN_TIMEOUT_SECONDS = max(30.0, float(os.getenv("QWEN_TIMEOUT_SECONDS", "300")))
+# 团队 API 不再按个人成本限制重试；保留可配置上限，避免网络抖动造成无限重试。
+QWEN_MAX_RETRIES = max(0, min(5, int(os.getenv("QWEN_MAX_RETRIES", "3"))))
+QWEN_SCHEMA_REPAIR_RETRIES = max(0, min(3, int(os.getenv("QWEN_SCHEMA_REPAIR_RETRIES", "2"))))
+QWEN_MAX_OUTPUT_TOKENS = max(4096, int(os.getenv("QWEN_MAX_OUTPUT_TOKENS", "32768")))
 QWEN_VISION_MAX_OUTPUT_TOKENS = min(
     QWEN_MAX_OUTPUT_TOKENS,
-    max(512, int(os.getenv("QWEN_VISION_MAX_OUTPUT_TOKENS", "6000"))),
+    max(4096, int(os.getenv("QWEN_VISION_MAX_OUTPUT_TOKENS", "24000"))),
 )
 QWEN_TEXT_MAX_OUTPUT_TOKENS = min(
     QWEN_MAX_OUTPUT_TOKENS,
-    max(512, int(os.getenv("QWEN_TEXT_MAX_OUTPUT_TOKENS", "3000"))),
+    max(4096, int(os.getenv("QWEN_TEXT_MAX_OUTPUT_TOKENS", "12000"))),
 )
-# Qwen3-VL 默认不思考；显式关闭可避免思维链占用输出 token 和费用。
-QWEN_ENABLE_THINKING = os.getenv("QWEN_ENABLE_THINKING", "false").strip().lower() in (
+# 视觉 JSON 任务默认关闭思考：部分兼容网关在开启思考时只返回 reasoning_content，
+# 没有可解析的 JSON 正文；文本推理任务则默认开启思考以提高方案质量。
+QWEN_ENABLE_THINKING = os.getenv("QWEN_ENABLE_THINKING", "true").strip().lower() in (
+    "1", "true", "yes", "on"
+)
+QWEN_VISION_ENABLE_THINKING = os.getenv("QWEN_VISION_ENABLE_THINKING", "false").strip().lower() in (
+    "1", "true", "yes", "on"
+)
+QWEN_TEXT_ENABLE_THINKING = os.getenv("QWEN_TEXT_ENABLE_THINKING", "true").strip().lower() in (
     "1", "true", "yes", "on"
 )
 
 # 送给模型的佐证附件预算；原始文件仍完整保存，本限制只作用于模型上下文。
-LLM_MAX_ATTACHMENTS = max(0, int(os.getenv("LLM_MAX_ATTACHMENTS", "3")))
+LLM_MAX_ATTACHMENTS = max(0, int(os.getenv("LLM_MAX_ATTACHMENTS", "20")))
 LLM_MAX_ATTACHMENT_TEXT_CHARS = max(
-    0, int(os.getenv("LLM_MAX_ATTACHMENT_TEXT_CHARS", "12000"))
+    0, int(os.getenv("LLM_MAX_ATTACHMENT_TEXT_CHARS", "100000"))
 )
 LLM_MAX_ATTACHMENT_IMAGE_BYTES = max(
-    0, int(os.getenv("LLM_MAX_ATTACHMENT_IMAGE_BYTES", str(5 * 1024 * 1024)))
+    0, int(os.getenv("LLM_MAX_ATTACHMENT_IMAGE_BYTES", str(20 * 1024 * 1024)))
 )
+# 技术文档本地抽取预算。它们只防止一次请求把整个磁盘/内存读入模型，
+# 不再使用早期个人 API 的 8 文件、12k/文件、50k 总文本限制。
+LLM_MAX_DOCUMENTS = max(1, int(os.getenv("LLM_MAX_DOCUMENTS", "32")))
+LLM_MAX_DOCUMENT_CHARS = max(0, int(os.getenv("LLM_MAX_DOCUMENT_CHARS", "100000")))
+LLM_MAX_TOTAL_DOCUMENT_CHARS = max(0, int(os.getenv("LLM_MAX_TOTAL_DOCUMENT_CHARS", "500000")))
 # HTTP 上传上限与模型上下文预算是两回事：原文件仍会完整保存，因此需要单独
 # 限制，避免服务把超大 multipart 文件一次性读入内存。默认 50 MiB，部署时可调。
 MAX_UPLOAD_BYTES = max(1, int(os.getenv("MAX_UPLOAD_BYTES", str(50 * 1024 * 1024))))
@@ -180,6 +193,9 @@ S3_REGION = os.getenv("S3_REGION", "")
 S3_PREFIX = os.getenv("S3_PREFIX", "")               # 对象 key 前缀(多租户/多环境隔离)
 
 AUTH_ENABLED = _bool(os.getenv("AUTH_ENABLED", "false"))
+# 临时演示模式：开启后跳过登录，所有请求使用默认管理员身份。
+# 保留完整 RBAC 与登录接口，关闭此开关即可恢复正常登录流程。
+AUTH_AUTO_ADMIN = _bool(os.getenv("AUTH_AUTO_ADMIN", "false"))
 # 令牌签名密钥(开启鉴权时务必在 .env 设置为随机长串)
 AUTH_SECRET = os.getenv("AUTH_SECRET", "dev-insecure-secret-change-me")
 TOKEN_TTL_HOURS = int(os.getenv("TOKEN_TTL_HOURS", "12"))

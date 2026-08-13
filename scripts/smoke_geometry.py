@@ -1,4 +1,4 @@
-"""
+r"""
 离线烟雾测试: 不需要 API Key，直接用一个内置示例 IR 验证几何内核。
 
 运行: python scripts\smoke_geometry.py

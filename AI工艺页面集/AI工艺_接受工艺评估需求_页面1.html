@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 工艺 - 接受工艺评估需求</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --color-primary: #3B82F6;
+      --color-primary-hover: #2563EB;
+      --color-primary-light: #EFF6FF;
+      --color-purple: #7C3AED;
+      --color-purple-light: #F5F3FF;
+      --color-green: #10B981;
+      --color-green-light: #ECFDF5;
+      --color-warning: #F59E0B;
+      --color-warning-light: #FFFBEB;
+      --color-red: #EF4444;
+
+      --bg-page: #F5F5F5;
+      --bg-card: #FFFFFF;
+      --bg-hover: #F9FAFB;
+
+      --text-primary: #1F2937;
+      --text-secondary: #6B7280;
+      --text-tertiary: #9CA3AF;
+
+      --border-color: #E5E7EB;
+      --border-light: #F3F4F6;
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 12px;
+      --space-lg: 16px;
+      --space-xl: 20px;
+      --space-2xl: 24px;
+
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+
+      --transition-fast: 150ms ease;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', 'PingFang SC', -apple-system, sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    .page-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: var(--space-xl);
+    }
+
+    /* ===== Workflow Section ===== */
+    .workflow-section {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: var(--space-lg);
+      margin-bottom: var(--space-xl);
+    }
+
+    /* Main Workflow - With Inline Sub-steps */
+    .main-workflow {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: var(--space-sm);
+    }
+
+    .main-step-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 120px;
+    }
+
+    .main-step {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      font-size: 12px;
+      padding: var(--space-xs) var(--space-md);
+      border-radius: var(--radius-full);
+      transition: all var(--transition-fast);
+    }
+
+    .main-step.active {
+      color: var(--color-primary);
+      background-color: var(--color-primary-light);
+      font-weight: 500;
+    }
+
+    .main-step.completed {
+      color: var(--color-green);
+    }
+
+    .main-step.pending {
+      color: var(--text-tertiary);
+    }
+
+    .main-step-number {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background-color: var(--bg-page);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .main-step.active .main-step-number {
+      background-color: var(--color-primary);
+      color: white;
+    }
+
+    .main-step.completed .main-step-number {
+      background-color: var(--color-green);
+      color: white;
+    }
+
+    .main-step.pending .main-step-number {
+      background-color: var(--bg-hover);
+      color: var(--text-tertiary);
+    }
+
+    .main-connector {
+      width: 30px;
+      height: 2px;
+      background-color: var(--border-color);
+      margin-top: 11px;
+    }
+
+    .main-connector.active {
+      background-color: var(--color-primary);
+    }
+
+    /* Sub-step inline under main step */
+    .sub-labels-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+      padding-left: 26px;
+    }
+
+    .sub-label {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .sub-label.active {
+      color: var(--color-primary);
+      background-color: var(--color-primary-light);
+    }
+
+    .sub-label.completed {
+      color: var(--color-green);
+    }
+
+    .sub-label-arrow {
+      color: var(--text-tertiary);
+      font-size: 10px;
+    }
+
+    /* ===== Title Section ===== */
+    .title-section {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: var(--space-xl);
+      margin-bottom: var(--space-xl);
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-lg);
+      margin-bottom: var(--space-lg);
+    }
+
+    .form-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .status-badge {
+      padding: var(--space-xs) var(--space-md);
+      background-color: var(--color-primary-light);
+      color: var(--color-primary);
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .ai-hint {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      padding: var(--space-md) var(--space-lg);
+      background-color: var(--color-primary-light);
+      border: 1px solid var(--color-primary);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      color: var(--color-primary);
+    }
+
+    .ai-hint svg {
+      flex-shrink: 0;
+    }
+
+    /* ===== Form Section ===== */
+    .form-section {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      margin-bottom: var(--space-xl);
+    }
+
+    .form-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-lg) var(--space-xl);
+      border-bottom: 1px solid var(--border-light);
+      cursor: pointer;
+    }
+
+    .form-section-header:hover {
+      background-color: var(--bg-hover);
+    }
+
+    .form-section-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .form-section-title svg {
+      color: var(--color-primary);
+    }
+
+    .section-toggle {
+      color: var(--text-tertiary);
+      transition: transform var(--transition-fast);
+    }
+
+    .section-toggle.collapsed {
+      transform: rotate(-90deg);
+    }
+
+    .form-section-content {
+      padding: var(--space-xl);
+    }
+
+    .form-section-content.collapsed {
+      display: none;
+    }
+
+    /* Form Grid */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-lg);
+    }
+
+    .form-grid.cols-2 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .form-grid.cols-full {
+      grid-template-columns: 1fr;
+    }
+
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .form-field.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .form-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+    }
+
+    .required-mark {
+      color: var(--color-red);
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+      padding: var(--space-sm) var(--space-md);
+      background-color: var(--bg-page);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      color: var(--text-primary);
+      font-family: inherit;
+      outline: none;
+      transition: border-color var(--transition-fast);
+    }
+
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+      border-color: var(--color-primary);
+      background-color: var(--bg-card);
+    }
+
+    .form-input:disabled,
+    .form-select:disabled {
+      background-color: var(--bg-hover);
+      color: var(--text-secondary);
+      cursor: not-allowed;
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .form-hint {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    /* File Upload */
+    .file-upload-area {
+      border: 2px dashed var(--border-color);
+      border-radius: var(--radius-md);
+      padding: var(--space-xl);
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .file-upload-area:hover {
+      border-color: var(--color-primary);
+      background-color: var(--color-primary-light);
+    }
+
+    .file-upload-area svg {
+      color: var(--text-tertiary);
+      margin-bottom: var(--space-sm);
+    }
+
+    .file-upload-area p {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .file-upload-area .hint {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-top: var(--space-xs);
+    }
+
+    .file-list {
+      margin-top: var(--space-md);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      padding: var(--space-sm) var(--space-md);
+      background-color: var(--bg-page);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+    }
+
+    .file-item svg {
+      color: var(--color-primary);
+    }
+
+    .file-item-name {
+      flex: 1;
+      color: var(--text-primary);
+    }
+
+    .file-item-size {
+      color: var(--text-tertiary);
+    }
+
+    .file-item-remove {
+      color: var(--text-tertiary);
+      cursor: pointer;
+    }
+
+    .file-item-remove:hover {
+      color: var(--color-red);
+    }
+
+    /* Multi-select tags */
+    .tag-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-xs);
+      padding: var(--space-xs) var(--space-sm);
+      background-color: var(--bg-page);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .tag:hover {
+      border-color: var(--color-primary);
+    }
+
+    .tag.selected {
+      background-color: var(--color-primary-light);
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+
+    /* ===== Footer Bar ===== */
+    .footer-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: var(--bg-card);
+      border-top: 1px solid var(--border-color);
+      padding: var(--space-lg) var(--space-xl);
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: var(--space-md);
+      z-index: 100;
+      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .btn {
+      padding: var(--space-md) var(--space-2xl);
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-sm);
+      border: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--color-purple), var(--color-primary));
+      color: white;
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--bg-hover);
+      border-color: var(--color-primary);
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .form-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .main-workflow {
+        flex-wrap: wrap;
+        gap: var(--space-md);
+      }
+
+      .main-connector {
+        display: none;
+      }
+
+      .sub-workflow {
+        flex-direction: column;
+      }
+
+      .sub-step:first-child,
+      .sub-step:last-child {
+        border-radius: var(--radius-md);
+      }
+
+      .sub-arrow {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-container">
+    <!-- Workflow Section -->
+    <div class="workflow-section">
+      <!-- Main Workflow -->
+      <div class="main-workflow">
+        <div class="main-step-wrapper">
+          <div class="main-step active">
+            <div class="main-step-number">1</div>
+            <span>接受工艺评估需求</span>
+          </div>
+          <!-- Sub Labels Row - All under step 1 -->
+          <div class="sub-labels-row">
+            <span class="sub-label active">1.1 创建</span>
+            <span class="sub-label-arrow">→</span>
+            <span class="sub-label">1.2 确认</span>
+            <span class="sub-label-arrow">→</span>
+            <span class="sub-label">1.3 审核</span>
+          </div>
+        </div>
+        <div class="main-connector"></div>
+        <div class="main-step-wrapper">
+          <div class="main-step pending">
+            <div class="main-step-number">2</div>
+            <span>解析技术工艺过程</span>
+          </div>
+        </div>
+        <div class="main-connector"></div>
+        <div class="main-step-wrapper">
+          <div class="main-step pending">
+            <div class="main-step-number">3</div>
+            <span>输出工艺评估结果</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Title Section -->
+    <div class="title-section">
+      <div class="title-row">
+        <h1 class="form-title">江丰半导体工艺评估需求单</h1>
+        <span class="status-badge">创建中</span>
+      </div>
+      <div class="ai-hint">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <span>AI 识别内容展示出来，可以进行修改</span>
+      </div>
+    </div>
+
+    <!-- Section A: 需求基本信息 -->
+    <div class="form-section">
+      <div class="form-section-header" onclick="toggleSection('sectionA')">
+        <div class="form-section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          一、需求基本信息
+        </div>
+        <svg class="section-toggle" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="toggleSectionA">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+      <div class="form-section-content" id="sectionA">
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label">需求编号 <span class="required-mark">*</span></label>
+            <input type="text" class="form-input" value="REQ01234520260630001" disabled>
+            <span class="form-hint">系统自动生成</span>
+          </div>
+          <div class="form-field">
+            <label class="form-label">创建人 <span class="required-mark">*</span></label>
+            <input type="text" class="form-input" value="张三" disabled>
+            <span class="form-hint">系统自动填充</span>
+          </div>
+          <div class="form-field">
+            <label class="form-label">创建时间 <span class="required-mark">*</span></label>
+            <input type="text" class="form-input" value="2026-06-30 10:30:00" disabled>
+            <span class="form-hint">系统自动填充</span>
+          </div>
+          <div class="form-field full-width">
+            <label class="form-label">需求名称 <span class="required-mark">*</span></label>
+            <input type="text" class="form-input" placeholder="请输入需求名称，如：XX客户12英寸氮化铝静电吸盘工艺评估">
+          </div>
+          <div class="form-field">
+            <label class="form-label">需求类型 <span class="required-mark">*</span></label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="new">全新评估</option>
+              <option value="iteration">迭代评估</option>
+              <option value="change">技术变更评估</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">优先级 <span class="required-mark">*</span></label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="urgent">紧急</option>
+              <option value="high">高</option>
+              <option value="medium" selected>中</option>
+              <option value="low">低</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">状态 <span class="required-mark">*</span></label>
+            <select class="form-select" disabled>
+              <option value="draft" selected>草稿</option>
+              <option value="pending">待确认</option>
+              <option value="confirmed">已确认</option>
+              <option value="evaluating">评估中</option>
+              <option value="completed">已完成</option>
+              <option value="returned">已退回</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">BU <span class="required-mark">*</span></label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="bu1">半导体精密零部件事业部</option>
+              <option value="bu2">精密装备事业部</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">披露口径 <span class="required-mark">*</span></label>
+            <select class="form-select">
+              <option value="secret">客户保密</option>
+              <option value="public">公开</option>
+              <option value="internal">公司机密</option>
+            </select>
+          </div>
+          <div class="form-field full-width">
+            <label class="form-label">需求描述 <span class="required-mark">*</span></label>
+            <textarea class="form-textarea" placeholder="详细描述客户需求背景、产品用途、期望交付时间等（500字以内）"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section B: 客户与项目信息 -->
+    <div class="form-section">
+      <div class="form-section-header" onclick="toggleSection('sectionB')">
+        <div class="form-section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          二、客户与项目信息
+        </div>
+        <svg class="section-toggle" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="toggleSectionB">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+      <div class="form-section-content" id="sectionB">
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label">新旧客户 <span class="required-mark">*</span></label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="new">新客户</option>
+              <option value="old">老客户</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">客户行业分类 <span class="required-mark">*</span></label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="foundry">晶圆代工</option>
+              <option value="idm">IDM</option>
+              <option value="equipment">半导体设备制造</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">客户经理 <span class="required-mark">*</span></label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="1">李四</option>
+              <option value="2">王五</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">最终客户名称 <span class="required-mark">*</span></label>
+            <input type="text" class="form-input" placeholder="请输入或选择">
+          </div>
+          <div class="form-field">
+            <label class="form-label">交易客户名称</label>
+            <input type="text" class="form-input" disabled placeholder="系统自动填充">
+          </div>
+          <div class="form-field">
+            <label class="form-label">客户信用等级</label>
+            <input type="text" class="form-input" disabled placeholder="系统自动填充">
+          </div>
+          <div class="form-field">
+            <label class="form-label">项目名称 <span class="required-mark">*</span></label>
+            <input type="text" class="form-input" placeholder="系统自动填充">
+          </div>
+          <div class="form-field">
+            <label class="form-label">项目编码 <span class="required-mark">*</span></label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="P001">P001</option>
+              <option value="P002">P002</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">项目状态</label>
+            <select class="form-select" disabled>
+              <option value="">系统自动</option>
+              <option value="start">立项</option>
+              <option value="dev">开发中</option>
+              <option value="verify">验证中</option>
+              <option value="production">量产</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">全新or迭代 <span class="required-mark">*</span></label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="new">全新</option>
+              <option value="iteration">迭代</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">项目经理</label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="1">赵六</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">技术对接人</label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="1">钱七</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section C: 产品技术规格 -->
+    <div class="form-section">
+      <div class="form-section-header" onclick="toggleSection('sectionC')">
+        <div class="form-section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          </svg>
+          三、产品技术规格
+        </div>
+        <svg class="section-toggle" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="toggleSectionC">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+      <div class="form-section-content" id="sectionC">
+        <!-- 3.1 基础参数 -->
+        <div style="margin-bottom: var(--space-xl);">
+          <h4 style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-md);">3.1 基础参数</h4>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">产品名称 <span class="required-mark">*</span></label>
+              <input type="text" class="form-input" placeholder="如：静电吸盘（E-CHUCK）">
+            </div>
+            <div class="form-field">
+              <label class="form-label">产品型号</label>
+              <input type="text" class="form-input" placeholder="客户指定型号或内部编号">
+            </div>
+            <div class="form-field">
+              <label class="form-label">晶圆尺寸 <span class="required-mark">*</span></label>
+              <select class="form-select">
+                <option value="">请选择</option>
+                <option value="6">6英寸</option>
+                <option value="8">8英寸</option>
+                <option value="12" selected>12英寸</option>
+                <option value="custom">定制</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">静电吸盘类型 <span class="required-mark">*</span></label>
+              <select class="form-select">
+                <option value="">请选择</option>
+                <option value="coulomb">Coulomb型</option>
+                <option value="jr">Johnsen-Rahbek（JR）型</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">温区数量 <span class="required-mark">*</span></label>
+              <select class="form-select">
+                <option value="">请选择</option>
+                <option value="1">单温区</option>
+                <option value="2">2温区</option>
+                <option value="4">4温区</option>
+                <option value="multi">多温区</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">陶瓷基体材料 <span class="required-mark">*</span></label>
+              <select class="form-select">
+                <option value="">请选择</option>
+                <option value="al2o3">氧化铝（Al₂O₃）</option>
+                <option value="aln" selected>氮化铝（AlN）</option>
+                <option value="other">其他</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">电极材料</label>
+              <input type="text" class="form-input" placeholder="如：钨（W）/ 钼（Mo）">
+            </div>
+            <div class="form-field">
+              <label class="form-label">金属基座材质 <span class="required-mark">*</span></label>
+              <select class="form-select">
+                <option value="">请选择</option>
+                <option value="al">铝（Al）</option>
+                <option value="alalloy" selected>铝合金</option>
+                <option value="other">其他</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">产品重量</label>
+              <input type="text" class="form-input" placeholder="单位：kg">
+            </div>
+            <div class="form-field">
+              <label class="form-label">外形尺寸</label>
+              <input type="text" class="form-input" placeholder="长×宽×高（mm）">
+            </div>
+          </div>
+        </div>
+
+        <!-- 3.2 精度与性能参数 -->
+        <div style="margin-bottom: var(--space-xl);">
+          <h4 style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-md);">3.2 精度与性能参数</h4>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">平面度（TTV）要求 <span class="required-mark">*</span></label>
+              <input type="text" class="form-input" placeholder="单位：μm">
+            </div>
+            <div class="form-field">
+              <label class="form-label">表面粗糙度（Ra）要求 <span class="required-mark">*</span></label>
+              <input type="text" class="form-input" placeholder="单位：μm">
+            </div>
+            <div class="form-field">
+              <label class="form-label">微孔孔径 <span class="required-mark">*</span></label>
+              <input type="text" class="form-input" placeholder="单位：μm，50~200μm">
+            </div>
+            <div class="form-field">
+              <label class="form-label">微孔孔径公差</label>
+              <input type="text" class="form-input" placeholder="通常±5μm以内">
+            </div>
+            <div class="form-field">
+              <label class="form-label">微孔深度公差</label>
+              <input type="text" class="form-input" placeholder="通常±10μm以内">
+            </div>
+            <div class="form-field">
+              <label class="form-label">微凸台（mesa）高度</label>
+              <input type="text" class="form-input" placeholder="单位：μm，10~50μm">
+            </div>
+            <div class="form-field">
+              <label class="form-label">吸附力均匀性 <span class="required-mark">*</span></label>
+              <input type="text" class="form-input" placeholder="单位：% 或具体数值">
+            </div>
+            <div class="form-field">
+              <label class="form-label">工作温度范围</label>
+              <input type="text" class="form-input" placeholder="单位：℃">
+            </div>
+            <div class="form-field">
+              <label class="form-label">最高使用电压</label>
+              <input type="text" class="form-input" placeholder="单位：V / kV">
+            </div>
+            <div class="form-field">
+              <label class="form-label">漏电流要求</label>
+              <input type="text" class="form-input" placeholder="单位：μA">
+            </div>
+            <div class="form-field">
+              <label class="form-label">氦气漏率要求 <span class="required-mark">*</span></label>
+              <input type="text" class="form-input" placeholder="单位：Pa·m³/s">
+            </div>
+            <div class="form-field">
+              <label class="form-label">洁净度等级 <span class="required-mark">*</span></label>
+              <select class="form-select">
+                <option value="">请选择</option>
+                <option value="1">Class 1</option>
+                <option value="10">Class 10</option>
+                <option value="100">Class 100</option>
+                <option value="custom">定制</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">使用寿命要求</label>
+              <input type="text" class="form-input" placeholder="单位：年，通常不超过2年">
+            </div>
+          </div>
+        </div>
+
+        <!-- 3.3 应用场景 -->
+        <div style="margin-bottom: var(--space-xl);">
+          <h4 style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-md);">3.3 应用场景</h4>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">目标设备类型 <span class="required-mark">*</span></label>
+              <div class="tag-container">
+                <span class="tag">刻蚀机</span>
+                <span class="tag selected">PVD设备</span>
+                <span class="tag">CVD设备</span>
+                <span class="tag">离子注入机</span>
+                <span class="tag">光刻机</span>
+                <span class="tag">量测设备</span>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">适用工艺环节 <span class="required-mark">*</span></label>
+              <div class="tag-container">
+                <span class="tag selected">刻蚀</span>
+                <span class="tag selected">薄膜沉积</span>
+                <span class="tag">离子注入</span>
+                <span class="tag">光刻</span>
+                <span class="tag">量测</span>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">真空环境要求</label>
+              <select class="form-select">
+                <option value="">请选择</option>
+                <option value="hv">高真空</option>
+                <option value="uhv">超高真空</option>
+                <option value="plasma">等离子体环境</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">是否含加热功能</label>
+              <select class="form-select">
+                <option value="">请选择</option>
+                <option value="yes">是</option>
+                <option value="no">否</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3.4 图纸与技术资料 -->
+        <div>
+          <h4 style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-md);">3.4 图纸与技术资料</h4>
+          <div class="form-grid cols-2">
+            <div class="form-field">
+              <label class="form-label">2D工程图 <span class="required-mark">*</span></label>
+              <div class="file-upload-area">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p>点击或拖拽上传文件</p>
+                <span class="hint">支持 DWG/PDF 格式</span>
+              </div>
+              <div class="file-list">
+                <div class="file-item">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                  </svg>
+                  <span class="file-item-name">产品工程图_V1.pdf</span>
+                  <span class="file-item-size">2.3MB</span>
+                  <span class="file-item-remove">×</span>
+                </div>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">3D模型</label>
+              <div class="file-upload-area">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p>点击或拖拽上传文件</p>
+                <span class="hint">支持 STEP/IGES/SLDPRT 格式</span>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">BOM装配图 <span class="required-mark">*</span></label>
+              <div class="file-upload-area">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p>点击或拖拽上传文件</p>
+                <span class="hint">支持 Excel/PDF 格式</span>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">技术规格说明书 <span class="required-mark">*</span></label>
+              <div class="file-upload-area">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p>点击或拖拽上传文件</p>
+                <span class="hint">支持 PDF/Word 格式</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section D: 市场与商务信息 -->
+    <div class="form-section">
+      <div class="form-section-header" onclick="toggleSection('sectionD')">
+        <div class="form-section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="1" x2="12" y2="23"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+          四、市场与商务信息
+        </div>
+        <svg class="section-toggle" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="toggleSectionD">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+      <div class="form-section-content" id="sectionD">
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label">年预测量 <span class="required-mark">*</span></label>
+            <input type="text" class="form-input" placeholder="单位：只/年">
+          </div>
+          <div class="form-field">
+            <label class="form-label">生命周期总预测</label>
+            <input type="text" class="form-input" placeholder="单位：只">
+          </div>
+          <div class="form-field">
+            <label class="form-label">期望首样交付时间 <span class="required-mark">*</span></label>
+            <input type="date" class="form-input">
+          </div>
+          <div class="form-field">
+            <label class="form-label">期望量产时间 <span class="required-mark">*</span></label>
+            <input type="date" class="form-input">
+          </div>
+          <div class="form-field">
+            <label class="form-label">目标售价</label>
+            <input type="text" class="form-input" placeholder="元/只 或 美元/只">
+          </div>
+          <div class="form-field">
+            <label class="form-label">竞争对手情况</label>
+            <input type="text" class="form-input" placeholder="目前供应商情况">
+          </div>
+          <div class="form-field full-width">
+            <label class="form-label">目前状况说明</label>
+            <textarea class="form-textarea" placeholder="客户当前供应商、使用情况等"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section E: 项目时间计划 -->
+    <div class="form-section">
+      <div class="form-section-header" onclick="toggleSection('sectionE')">
+        <div class="form-section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          五、项目时间计划
+        </div>
+        <svg class="section-toggle" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="toggleSectionE">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+      <div class="form-section-content" id="sectionE">
+        <div class="form-grid cols-2">
+          <div class="form-field">
+            <label class="form-label">预估项目K0时间</label>
+            <input type="date" class="form-input">
+          </div>
+          <div class="form-field">
+            <label class="form-label">需求提出日期 <span class="required-mark">*</span></label>
+            <input type="text" class="form-input" value="2026-06-30" disabled>
+          </div>
+          <div class="form-field">
+            <label class="form-label">期望工艺评估完成日期 <span class="required-mark">*</span></label>
+            <input type="date" class="form-input">
+          </div>
+          <div class="form-field">
+            <label class="form-label">项目启动预计时间</label>
+            <input type="date" class="form-input">
+          </div>
+          <div class="form-field full-width">
+            <label class="form-label">关键里程碑节点</label>
+            <textarea class="form-textarea" placeholder="例：图纸解析完成 / 材料确认 / 工艺评审通过"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section F: 分类与标签 -->
+    <div class="form-section">
+      <div class="form-section-header" onclick="toggleSection('sectionF')">
+        <div class="form-section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+            <line x1="7" y1="7" x2="7.01" y2="7"></line>
+          </svg>
+          六、分类与标签
+        </div>
+        <svg class="section-toggle" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="toggleSectionF">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+      <div class="form-section-content" id="sectionF">
+        <div class="form-grid cols-2">
+          <div class="form-field">
+            <label class="form-label">类型A <span class="required-mark">*</span></label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="A1">A1</option>
+              <option value="A2">A2</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">类型B</label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="B1">B1</option>
+              <option value="B2">B2</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">产品类型 <span class="required-mark">*</span></label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="esc">静电吸盘</option>
+              <option value="target">靶材</option>
+              <option value="other">其他零部件</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">工艺复杂度等级</label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="simple">简单</option>
+              <option value="medium">中等</option>
+              <option value="complex">复杂</option>
+              <option value="verycomplex">极复杂</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">是否涉及新技术</label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="yes">是</option>
+              <option value="no">否</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">技术来源</label>
+            <select class="form-select">
+              <option value="">请选择</option>
+              <option value="self">自主研发</option>
+              <option value="kste">KSTE引进</option>
+              <option value="customer">客户指定</option>
+              <option value="joint">联合开发</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section G: 备注与附件 -->
+    <div class="form-section">
+      <div class="form-section-header" onclick="toggleSection('sectionG')">
+        <div class="form-section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          七、备注与附件
+        </div>
+        <svg class="section-toggle" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="toggleSectionG">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+      <div class="form-section-content" id="sectionG">
+        <div class="form-grid">
+          <div class="form-field full-width">
+            <label class="form-label">备注</label>
+            <textarea class="form-textarea" placeholder="补充说明（不限字数）"></textarea>
+          </div>
+          <div class="form-field">
+            <label class="form-label">关联需求单号</label>
+            <input type="text" class="form-input" placeholder="如有前置或关联需求">
+          </div>
+          <div class="form-field">
+            <label class="form-label">附件清单</label>
+            <input type="text" class="form-input" disabled placeholder="系统自动汇总">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section H: 审批信息 -->
+    <div class="form-section">
+      <div class="form-section-header" onclick="toggleSection('sectionH')">
+        <div class="form-section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          八、审批信息（系统自动生成）
+        </div>
+        <svg class="section-toggle" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="toggleSectionH">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+      <div class="form-section-content" id="sectionH">
+        <div class="form-grid cols-2">
+          <div class="form-field">
+            <label class="form-label">创建人签字</label>
+            <input type="text" class="form-input" disabled placeholder="系统自动">
+          </div>
+          <div class="form-field">
+            <label class="form-label">工艺技术经理确认</label>
+            <input type="text" class="form-input" disabled placeholder="电子签名+日期">
+          </div>
+          <div class="form-field">
+            <label class="form-label">工艺技术总监审批</label>
+            <input type="text" class="form-input" disabled placeholder="电子签名+日期">
+          </div>
+          <div class="form-field">
+            <label class="form-label">是否涉及关联交易</label>
+            <input type="text" class="form-input" disabled placeholder="系统判断">
+          </div>
+          <div class="form-field full-width">
+            <label class="form-label">审批意见</label>
+            <textarea class="form-textarea" placeholder="通过 / 退回及原因" disabled></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer Bar -->
+  <div class="footer-bar">
+    <button class="btn btn-secondary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+        <polyline points="7 3 7 8 15 8"></polyline>
+      </svg>
+      保存草稿
+    </button>
+    <button class="btn btn-primary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+      </svg>
+      提交
+    </button>
+  </div>
+
+  <script>
+    function toggleSection(sectionId) {
+      const content = document.getElementById(sectionId);
+      const toggle = document.getElementById('toggle' + sectionId.charAt(0).toUpperCase() + sectionId.slice(1));
+
+      if (content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+        toggle.classList.remove('collapsed');
+      } else {
+        content.classList.add('collapsed');
+        toggle.classList.add('collapsed');
+      }
+    }
+
+    // Tag selection
+    document.querySelectorAll('.tag').forEach(tag => {
+      tag.addEventListener('click', function() {
+        this.classList.toggle('selected');
+      });
+    });
+  </script>
+</body>
+</html>

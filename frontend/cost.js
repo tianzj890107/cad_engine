@@ -78,7 +78,7 @@ async function loadCost() {
 $("btnGen").onclick = async () => {
   const qty = Math.max(1, parseInt($("qtyInput").value) || 1);
   $("btnGen").disabled = true;
-  status("已提交成本分析任务，AI 正在联网检索行情并拆解成本（较耗时）…", true);
+  status("已提交成本分析任务，AI 正在拆解成本；仅在当前模型支持时检索公开行情（较耗时）…", true);
   try {
     const fd = new FormData();
     fd.append("note", $("extraNote").value || "");

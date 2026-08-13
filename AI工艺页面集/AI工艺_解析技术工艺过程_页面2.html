@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 工艺 - 解析技术工艺过程</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --color-primary: #3B82F6;
+      --color-primary-hover: #2563EB;
+      --color-primary-light: #EFF6FF;
+      --color-purple: #7C3AED;
+      --color-purple-light: #F5F3FF;
+      --color-green: #10B981;
+      --color-green-light: #ECFDF5;
+      --color-warning: #F59E0B;
+      --color-warning-light: #FFFBEB;
+      --color-red: #EF4444;
+
+      --bg-page: #F5F5F5;
+      --bg-card: #FFFFFF;
+      --bg-hover: #F9FAFB;
+
+      --text-primary: #1F2937;
+      --text-secondary: #6B7280;
+      --text-tertiary: #9CA3AF;
+
+      --border-color: #E5E7EB;
+      --border-light: #F3F4F6;
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 12px;
+      --space-lg: 16px;
+      --space-xl: 20px;
+      --space-2xl: 24px;
+
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+
+      --transition-fast: 150ms ease;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', 'PingFang SC', -apple-system, sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    .page-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: var(--space-xl);
+      padding-bottom: 80px;
+    }
+
+    /* ===== Workflow Section ===== */
+    .workflow-section {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: var(--space-lg);
+      margin-bottom: var(--space-xl);
+    }
+
+    .main-workflow {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: var(--space-sm);
+    }
+
+    .main-step-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 120px;
+    }
+
+    .main-step {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      font-size: 12px;
+      padding: var(--space-xs) var(--space-md);
+      border-radius: var(--radius-full);
+      transition: all var(--transition-fast);
+    }
+
+    .main-step.active {
+      color: var(--color-primary);
+      background-color: var(--color-primary-light);
+      font-weight: 500;
+    }
+
+    .main-step.completed {
+      color: var(--color-green);
+    }
+
+    .main-step.pending {
+      color: var(--text-tertiary);
+    }
+
+    .main-step-number {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background-color: var(--bg-page);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .main-step.active .main-step-number {
+      background-color: var(--color-primary);
+      color: white;
+    }
+
+    .main-step.completed .main-step-number {
+      background-color: var(--color-green);
+      color: white;
+    }
+
+    .main-step.pending .main-step-number {
+      background-color: var(--bg-hover);
+      color: var(--text-tertiary);
+    }
+
+    .main-connector {
+      width: 30px;
+      height: 2px;
+      background-color: var(--border-color);
+      margin-top: 11px;
+    }
+
+    .main-connector.active {
+      background-color: var(--color-primary);
+    }
+
+    /* Sub-step under main step */
+    .sub-labels-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+      padding-left: 26px;
+    }
+
+    .sub-label {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .sub-label.active {
+      color: var(--color-primary);
+      background-color: var(--color-primary-light);
+    }
+
+    .sub-label.completed {
+      color: var(--color-green);
+    }
+
+    .sub-label-arrow {
+      color: var(--text-tertiary);
+    }
+
+    /* ===== Main Content Grid ===== */
+    .main-content {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: var(--space-lg);
+      min-height: 600px;
+      align-items: stretch;
+    }
+
+    /* ===== Left Panel ===== */
+    .left-panel {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      overflow-y: auto;
+      max-height: calc(100vh - 180px);
+    }
+
+    .panel-section {
+      padding: var(--space-lg);
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: var(--space-md);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .section-title svg {
+      color: var(--color-purple);
+    }
+
+    .section-title.warning svg {
+      color: var(--color-warning);
+    }
+
+    /* Report Button */
+    .report-btn {
+      margin-left: auto;
+      padding: 4px 12px;
+      background-color: white;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      color: var(--color-primary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+    }
+
+    .report-btn:hover {
+      background-color: var(--color-primary-light);
+      border-color: var(--color-primary);
+    }
+
+    /* Start Parse Button */
+    .start-parse-btn {
+      padding: var(--space-md) var(--space-xl);
+      background-color: white;
+      color: transparent;
+      background-image: linear-gradient(135deg, var(--color-purple), var(--color-primary));
+      -webkit-background-clip: text;
+      background-clip: text;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .start-parse-btn:hover {
+      border-color: var(--color-primary);
+      background-color: var(--bg-page);
+    }
+
+    .start-parse-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Footer Bar */
+    .footer-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: var(--bg-card);
+      border-top: 1px solid var(--border-color);
+      padding: var(--space-lg) var(--space-xl);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .footer-left {
+      display: flex;
+      gap: var(--space-md);
+    }
+
+    .footer-right {
+      display: flex;
+      gap: var(--space-md);
+    }
+
+    .btn {
+      padding: var(--space-md) var(--space-2xl);
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-sm);
+      border: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--color-purple), var(--color-primary));
+      color: white;
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--bg-hover);
+      border-color: var(--color-primary);
+    }
+
+    .report-btn-large {
+      padding: var(--space-md) var(--space-xl);
+      background: linear-gradient(135deg, var(--color-purple), var(--color-primary));
+      color: white;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      box-shadow: var(--shadow-md);
+    }
+
+    .report-btn-large:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+
+    .report-btn-large svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Design Intent */
+    .design-intent-box {
+      background-color: var(--bg-page);
+      border-radius: var(--radius-md);
+      padding: var(--space-md);
+    }
+
+    .design-intent-text {
+      font-size: 12px;
+      color: var(--text-primary);
+      margin-bottom: var(--space-sm);
+    }
+
+    .design-intent-dimensions {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: monospace;
+    }
+
+    /* Uploaded Files List */
+    .uploaded-files-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .uploaded-file-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      padding: var(--space-md);
+      background-color: var(--bg-page);
+      border-radius: var(--radius-md);
+      transition: all var(--transition-fast);
+    }
+
+    .uploaded-file-item:hover {
+      background-color: var(--color-primary-light);
+    }
+
+    .file-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background-color: white;
+    }
+
+    .file-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .file-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-meta {
+      font-size: 10px;
+      color: var(--text-tertiary);
+    }
+
+    .file-view-btn {
+      padding: 4px 12px;
+      background-color: white;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      color: var(--color-primary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      flex-shrink: 0;
+    }
+
+    .file-view-btn:hover {
+      background-color: var(--color-primary-light);
+      border-color: var(--color-primary);
+    }
+
+    .blueprint-preview {
+      margin-top: var(--space-md);
+      height: 140px;
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .blueprint-preview:hover {
+      border-color: var(--color-primary);
+      box-shadow: var(--shadow-md);
+    }
+
+    .blueprint-preview svg {
+      color: var(--color-primary);
+      margin-bottom: var(--space-xs);
+    }
+
+    .blueprint-preview span {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    /* Parts List */
+    .parts-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .part-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      padding: var(--space-md);
+      background-color: var(--color-primary-light);
+      border-radius: var(--radius-md);
+    }
+
+    .part-item.confirmed {
+      background-color: var(--color-primary-light);
+    }
+
+    .part-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .part-icon.square {
+      background-color: var(--color-purple-light);
+    }
+
+    .part-icon.circle {
+      background-color: white;
+    }
+
+    .part-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .part-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .part-code {
+      color: var(--text-tertiary);
+      font-weight: 400;
+    }
+
+    .part-type {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .part-confidence {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      background-color: var(--color-green-light);
+      color: var(--color-green);
+    }
+
+    /* Pending Issues */
+    .issue-item {
+      background-color: var(--bg-page);
+      border-radius: var(--radius-md);
+      padding: var(--space-md);
+      margin-bottom: var(--space-sm);
+    }
+
+    .issue-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: var(--space-xs);
+    }
+
+    .issue-desc {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-sm);
+    }
+
+    .issue-action {
+      display: flex;
+      gap: var(--space-sm);
+    }
+
+    .issue-input {
+      flex: 1;
+      padding: var(--space-xs) var(--space-sm);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      outline: none;
+    }
+
+    .issue-input:focus {
+      border-color: var(--color-primary);
+    }
+
+    .issue-btn {
+      padding: var(--space-xs) var(--space-md);
+      background-color: var(--color-primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .issue-btn:hover {
+      background-color: var(--color-primary-hover);
+    }
+
+    /* Version Info */
+    .version-info {
+      background-color: var(--bg-page);
+      border-radius: var(--radius-md);
+      padding: var(--space-md);
+    }
+
+    .version-status {
+      font-size: 12px;
+      color: var(--text-primary);
+      margin-bottom: var(--space-xs);
+    }
+
+    .version-time {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-bottom: var(--space-md);
+    }
+
+    .version-actions {
+      display: flex;
+      gap: var(--space-sm);
+    }
+
+    .version-btn {
+      flex: 1;
+      padding: var(--space-sm) var(--space-md);
+      border: 1px solid var(--color-primary);
+      background-color: white;
+      color: var(--color-primary);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .version-btn:hover {
+      background-color: var(--color-primary-light);
+    }
+
+    .version-btn.primary {
+      background-color: var(--color-primary);
+      color: white;
+    }
+
+    .version-btn.primary:hover {
+      background-color: var(--color-primary-hover);
+    }
+
+    /* ===== Center Panel ===== */
+    .center-panel {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100vh - 180px);
+      overflow-y: auto;
+    }
+
+    .center-header {
+      padding: var(--space-md) var(--space-lg);
+      border-bottom: 1px solid var(--border-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .center-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .view-3d-content {
+      flex: 1;
+      background-color: var(--bg-dark);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      min-height: 300px;
+    }
+
+    .view-3d-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #6B7280;
+    }
+
+    .view-3d-placeholder svg {
+      margin-bottom: var(--space-sm);
+      opacity: 0.5;
+    }
+
+    .view-3d-placeholder span {
+      font-size: 12px;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: var(--space-md);
+      padding: var(--space-lg);
+      background-color: var(--bg-page);
+      border-top: 1px solid var(--border-light);
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: var(--space-md) var(--space-lg);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-sm);
+      border: 1px solid var(--border-color);
+      background-color: white;
+    }
+
+    .action-btn.process {
+      color: var(--color-orange);
+    }
+
+    .action-btn.process:hover {
+      background-color: #FFF7ED;
+      border-color: var(--color-orange);
+    }
+
+    .action-btn.cost {
+      color: var(--color-green);
+    }
+
+    .action-btn.cost:hover {
+      background-color: var(--color-green-light);
+      border-color: var(--color-green);
+    }
+
+    .part-details {
+      padding: var(--space-lg);
+      border-top: 1px solid var(--border-light);
+    }
+
+    .part-details-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: var(--space-md);
+    }
+
+    .part-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-sm);
+    }
+
+    .part-detail-item {
+      display: flex;
+      gap: var(--space-sm);
+      font-size: 11px;
+    }
+
+    .part-detail-label {
+      color: var(--text-tertiary);
+    }
+
+    .part-detail-value {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    /* ===== Title Section ===== */
+    .title-section {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: var(--space-lg);
+      margin-bottom: var(--space-lg);
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-lg);
+    }
+
+    .form-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .status-badge {
+      padding: var(--space-xs) var(--space-md);
+      background-color: var(--color-primary-light);
+      color: var(--color-primary);
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .main-content {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+
+      .left-panel, .center-panel {
+        max-height: none;
+        overflow: visible;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-container">
+    <!-- Workflow Section -->
+    <div class="workflow-section">
+      <div class="main-workflow">
+        <div class="main-step-wrapper">
+          <div class="main-step completed">
+            <div class="main-step-number">1</div>
+            <span>接受工艺评估需求</span>
+          </div>
+        </div>
+        <div class="main-connector active"></div>
+        <div class="main-step-wrapper">
+          <div class="main-step active">
+            <div class="main-step-number">2</div>
+            <span>解析技术工艺过程</span>
+          </div>
+          <!-- Sub Labels Row - All under step 2 -->
+          <div class="sub-labels-row">
+            <span class="sub-label active">2.1 图纸解析</span>
+            <span class="sub-label-arrow">→</span>
+            <span class="sub-label">2.2 材料定性</span>
+            <span class="sub-label-arrow">→</span>
+            <span class="sub-label">2.3 工艺路径</span>
+            <span class="sub-label-arrow">→</span>
+            <span class="sub-label">2.4 洁净管控</span>
+            <span class="sub-label-arrow">→</span>
+            <span class="sub-label">2.5 组装检测</span>
+            <span class="sub-label-arrow">→</span>
+            <span class="sub-label">2.6 产能评估</span>
+          </div>
+        </div>
+        <div class="main-connector"></div>
+        <div class="main-step-wrapper">
+          <div class="main-step pending">
+            <div class="main-step-number">3</div>
+            <span>输出工艺评估结果</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Title Section -->
+    <div class="title-section">
+      <div class="title-row">
+        <h1 class="form-title">江丰半导体工艺评估需求单</h1>
+        <span class="status-badge">解析中</span>
+      </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="main-content">
+      <!-- Left Panel -->
+      <div class="left-panel">
+        <div class="panel-section">
+          <div class="section-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            设计意图
+          </div>
+          <div class="design-intent-box">
+            <div class="design-intent-text">用于固定电机</div>
+            <div class="design-intent-dimensions">320 × 180 × 95 mm</div>
+            <div class="design-intent-text" style="margin-top: 8px; font-size: 11px; color: var(--text-secondary);">
+              角落螺纹孔用于安装定位<br>
+              4×M8×25螺栓, 2×Φ20销钉定位<br>
+              ISO 2768-m 公差等级
+            </div>
+            
+            <!-- 3D Files Section -->
+            <div style="margin-top: 16px;">
+              <div style="font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">3D</div>
+              <div class="uploaded-files-list">
+                <div class="uploaded-file-item">
+                  <div class="file-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2">
+                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                      <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                      <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                  </div>
+                  <div class="file-info">
+                    <div class="file-name">传动支架总成.STEP</div>
+                    <div class="file-meta">3D 模型 · 2.4 MB</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2D Files Section -->
+            <div style="margin-top: 16px;">
+              <div style="font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">2D</div>
+              <div class="uploaded-files-list">
+                <div class="uploaded-file-item">
+                  <div class="file-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                      <line x1="3" y1="9" x2="21" y2="9"></line>
+                      <line x1="9" y1="21" x2="9" y2="9"></line>
+                    </svg>
+                  </div>
+                  <div class="file-info">
+                    <div class="file-name">底板加工图.DWG</div>
+                    <div class="file-meta">2D 图纸 · 856 KB</div>
+                  </div>
+                </div>
+                <div class="uploaded-file-item">
+                  <div class="file-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                  </div>
+                  <div class="file-info">
+                    <div class="file-name">技术要求说明.pdf</div>
+                    <div class="file-meta">技术文档 · 1.2 MB</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Start Parse Button -->
+            <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
+              <button class="start-parse-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                开始解析
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="section-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            </svg>
+            零件清单
+          </div>
+          <div class="parts-list">
+            <div class="part-item confirmed">
+              <div class="part-icon square">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                </svg>
+              </div>
+              <div class="part-info">
+                <div class="part-name">
+                  P-001 底板
+                  <span class="part-confidence">95%</span>
+                </div>
+                <div class="part-type">plate, hole_pattern · Q235 · 1件</div>
+              </div>
+            </div>
+            <div class="part-item confirmed">
+              <div class="part-icon circle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                </svg>
+              </div>
+              <div class="part-info">
+                <div class="part-name">
+                  P-002 导向衬套
+                  <span class="part-confidence">92%</span>
+                </div>
+                <div class="part-type">cylinder, hole · 45#钢 · 2件</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="section-title warning">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            待澄清问题
+          </div>
+          <div class="issue-item">
+            <div class="issue-title">P-002 孔径尺寸</div>
+            <div class="issue-desc">Φ20孔径是否正确？建议H7公差</div>
+            <div class="issue-action">
+              <input type="text" class="issue-input" placeholder="输入确认说明...">
+              <button class="issue-btn">确认</button>
+            </div>
+          </div>
+          <div class="issue-item">
+            <div class="issue-title">P-001 孔位标注</div>
+            <div class="issue-desc">孔组位置仅标注距中心280×140，缺少边缘基准</div>
+            <div class="issue-action">
+              <input type="text" class="issue-input" placeholder="输入确认说明...">
+              <button class="issue-btn">确认</button>
+            </div>
+          </div>
+          <div class="issue-item">
+            <div class="issue-title">总体高度问题</div>
+            <div class="issue-desc">标注总高95mm，但底板+衬套仅30mm，可能与电机不匹配</div>
+            <div class="issue-action">
+              <input type="text" class="issue-input" placeholder="输入确认说明...">
+              <button class="issue-btn">确认</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="section-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            版本与校核审签
+          </div>
+          <div class="version-info">
+            <div class="version-status">解析完成 · 2个零件 · 置信度 93%</div>
+            <div class="version-time">2026-06-17 09:38:49</div>
+            <div class="version-actions">
+              <button class="version-btn">选作对比</button>
+              <button class="version-btn primary">送审</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center Panel -->
+      <div class="center-panel">
+        <div class="center-header">
+          <div class="center-title">3D 视图 · P-001 底板</div>
+        </div>
+        <div class="view-3d-content" id="threejs-container">
+          <!-- Three.js will render here -->
+        </div>
+        <div class="action-buttons">
+          <button class="action-btn process">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <line x1="3" y1="6" x2="3.01" y2="6"></line>
+              <line x1="3" y1="12" x2="3.01" y2="12"></line>
+              <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+            工艺拆解
+          </button>
+          <button class="action-btn cost">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+            成本分析
+          </button>
+        </div>
+        <div class="part-details">
+          <div class="part-details-title">零件信息</div>
+          <div class="part-detail-grid">
+            <div class="part-detail-item">
+              <span class="part-detail-label">名称：</span>
+              <span class="part-detail-value">底板</span>
+            </div>
+            <div class="part-detail-item">
+              <span class="part-detail-label">数量：</span>
+              <span class="part-detail-value">1</span>
+            </div>
+            <div class="part-detail-item">
+              <span class="part-detail-label">材料：</span>
+              <span class="part-detail-value">Q235</span>
+            </div>
+            <div class="part-detail-item">
+              <span class="part-detail-label">特征：</span>
+              <span class="part-detail-value">plate · 底板基体</span>
+            </div>
+            <div class="part-detail-item" style="grid-column: span 2;">
+              <span class="part-detail-label">尺寸：</span>
+              <span class="part-detail-value">320 × 180 mm</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer Bar -->
+  <div class="footer-bar">
+    <div class="footer-left">
+      <button class="btn btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        上一步
+      </button>
+    </div>
+    <div class="footer-right">
+      <button class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        工艺解析报告
+      </button>
+    </div>
+  </div>
+
+  <!-- Blueprint Modal -->
+  <div class="modal-overlay" id="blueprintModal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">图纸详情</span>
+        <span class="modal-close" onclick="closeBlueprintModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </span>
+      </div>
+      <div class="modal-content">
+        <div class="pdf-embed">
+          <p>图纸预览区域</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      width: 90%;
+      max-width: 900px;
+      max-height: 90vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-lg) var(--space-xl);
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition-fast);
+    }
+
+    .modal-close:hover {
+      background-color: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .modal-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--space-xl);
+    }
+
+    .pdf-embed {
+      width: 100%;
+      height: 500px;
+      background-color: var(--bg-page);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-tertiary);
+    }
+  </style>
+
+  <!-- Three.js from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <script>
+    // Initialize Three.js scene
+    function initThreeJS() {
+      const container = document.getElementById('threejs-container');
+      if (!container) return;
+
+      // Scene
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x1f2937);
+
+      // Camera
+      const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+      camera.position.z = 5;
+
+      // Renderer
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      container.appendChild(renderer.domElement);
+
+      // Controls
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+
+      // Geometry - Box (representing the base plate)
+      const geometry = new THREE.BoxGeometry(3, 1.8, 0.3);
+      const material = new THREE.MeshPhongMaterial({ 
+        color: 0x3B82F6,
+        wireframe: false,
+        shininess: 100
+      });
+      const cube = new THREE.Mesh(geometry, material);
+      scene.add(cube);
+
+      // Add wireframe overlay
+      const wireframeGeometry = new THREE.WireframeGeometry(geometry);
+      const wireframeMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.3, transparent: true });
+      const wireframe = new THREE.LineSegments(wireframeGeometry, wireframeMaterial);
+      cube.add(wireframe);
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(5, 5, 5);
+      scene.add(directionalLight);
+
+      const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+      directionalLight2.position.set(-5, -5, -5);
+      scene.add(directionalLight2);
+
+      // Animation loop
+      function animate() {
+        requestAnimationFrame(animate);
+        
+        cube.rotation.x += 0.005;
+        cube.rotation.y += 0.01;
+        
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      // Handle window resize
+      window.addEventListener('resize', () => {
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+      });
+    }
+
+    // Initialize when DOM is loaded
+    document.addEventListener('DOMContentLoaded', initThreeJS);
+
+    function openBlueprintModal() {
+      document.getElementById('blueprintModal').classList.add('active');
+    }
+
+    function closeBlueprintModal() {
+      document.getElementById('blueprintModal').classList.remove('active');
+    }
+
+    document.getElementById('blueprintModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeBlueprintModal();
+      }
+    });
+  </script>
+</body>
+</html>

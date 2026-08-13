@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 工艺 - 需求详情</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --color-primary: #3B82F6;
+      --color-green: #10B981;
+      --color-green-light: #ECFDF5;
+      --color-orange: #F59E0B;
+      --color-orange-light: #FFFBEB;
+      --color-red: #EF4444;
+      --color-red-light: #FEF2F2;
+      --color-gray: #6B7280;
+      --color-gray-light: #F3F4F6;
+
+      --bg-page: #F5F5F5;
+      --bg-card: #FFFFFF;
+      --bg-header: #F9FAFB;
+
+      --text-primary: #1F2937;
+      --text-secondary: #6B7280;
+      --text-white: #FFFFFF;
+
+      --border-color: #E5E7EB;
+
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 12px;
+      --space-lg: 16px;
+      --space-xl: 20px;
+      --space-2xl: 24px;
+
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', 'PingFang SC', -apple-system, sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    .page-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: var(--space-xl);
+      position: relative;
+    }
+
+    /* Back Button */
+    .back-button {
+      position: fixed;
+      top: var(--space-xl);
+      left: var(--space-xl);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: var(--space-sm) var(--space-md);
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--color-primary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      z-index: 100;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .back-button:hover {
+      background-color: var(--color-primary-light);
+      border-color: var(--color-primary);
+      box-shadow: var(--shadow-md);
+    }
+
+    .back-button svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Page Title */
+    .page-title {
+      text-align: center;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: var(--space-xl);
+      padding: var(--space-lg) 0;
+    }
+
+    /* Header Info Bar */
+    .header-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-md);
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      padding: var(--space-lg);
+      margin-bottom: var(--space-xl);
+      border: 1px solid var(--border-color);
+    }
+
+    .header-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .header-label {
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .header-value {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* Main Content - Single Column */
+    .main-content {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: var(--space-xl);
+    }
+
+    /* Process Timeline */
+    .process-timeline {
+      position: relative;
+      padding-left: 40px;
+    }
+
+    .process-timeline::before {
+      content: '';
+      position: absolute;
+      left: 17px;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background-color: var(--color-primary);
+      border-radius: 2px;
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: var(--space-xl);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .timeline-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .timeline-item:hover {
+      transform: translateX(4px);
+    }
+
+    .timeline-node {
+      position: absolute;
+      left: -32px;
+      top: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .timeline-node.completed {
+      background-color: var(--color-green);
+      color: white;
+    }
+
+    .timeline-node.pending {
+      background-color: var(--color-gray-light);
+      color: var(--color-gray);
+    }
+
+    .timeline-node svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .timeline-card {
+      background-color: var(--bg-header);
+      border-radius: var(--radius-md);
+      padding: var(--space-lg);
+      border: 2px solid transparent;
+      transition: all var(--transition-fast);
+    }
+
+    .timeline-item:hover .timeline-card {
+      border-color: var(--color-primary);
+      background-color: var(--bg-card);
+      box-shadow: var(--shadow-md);
+    }
+
+    .timeline-card.active {
+      border-color: var(--color-primary);
+      background-color: var(--bg-card);
+    }
+
+    .timeline-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-sm);
+    }
+
+    .timeline-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .timeline-status {
+      font-size: 12px;
+      padding: 4px 12px;
+      border-radius: var(--radius-full);
+      font-weight: 500;
+    }
+
+    .timeline-status.completed {
+      background-color: var(--color-green-light);
+      color: var(--color-green);
+    }
+
+    .timeline-status.pending {
+      background-color: var(--color-gray-light);
+      color: var(--color-gray);
+    }
+
+    .timeline-meta {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-md);
+      margin-top: var(--space-md);
+      padding-top: var(--space-md);
+      border-top: 1px solid var(--border-color);
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .meta-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .meta-value {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .timeline-detail {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+
+    .timeline-item.expanded .timeline-detail {
+      max-height: 200px;
+      margin-top: var(--space-md);
+      padding-top: var(--space-md);
+      border-top: 1px dashed var(--border-color);
+    }
+
+    .detail-text {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .toggle-icon {
+      width: 20px;
+      height: 20px;
+      color: var(--text-tertiary);
+      transition: transform var(--transition-fast);
+    }
+
+    .timeline-item.expanded .toggle-icon {
+      transform: rotate(180deg);
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+
+      .process-sidebar {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .header-bar {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .header-bar {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Back Button -->
+  <button class="back-button" onclick="history.back()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="19" y1="12" x2="5" y2="12"></line>
+      <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    返回
+  </button>
+
+  <div class="page-container">
+    <!-- Page Title -->
+    <h1 class="page-title">江丰半导体工艺评估需求单流程展示</h1>
+
+    <!-- Header Info Bar -->
+    <div class="header-bar">
+      <div class="header-item">
+        <span class="header-label">需求单号：</span>
+        <span class="header-value">65544</span>
+      </div>
+      <div class="header-item">
+        <span class="header-label">客户名称：</span>
+        <span class="header-value">兰溪泛翌陶瓷</span>
+      </div>
+      <div class="header-item">
+        <span class="header-label">提交人：</span>
+        <span class="header-value">王五</span>
+      </div>
+      <div class="header-item">
+        <span class="header-label">提交日期：</span>
+        <span class="header-value">2026-06-20</span>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="process-timeline">
+        <!-- 需求提交 -->
+        <div class="timeline-item" onclick="toggleDetail(this)">
+          <div class="timeline-node completed">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <div class="timeline-card">
+            <div class="timeline-header">
+              <span class="timeline-title">需求提交</span>
+              <span class="timeline-status completed">已完成</span>
+            </div>
+            <div class="timeline-meta">
+              <div class="meta-item">
+                <span class="meta-label">接口人</span>
+                <span class="meta-value">王五</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">完成日期</span>
+                <span class="meta-value">2026-06-20</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">评估结论</span>
+                <span class="meta-value">完成需求收集，提交成功</span>
+              </div>
+            </div>
+            <div class="timeline-detail">
+              <p class="detail-text">需求已完整提交，包含所有必要的技术文档和图纸资料。系统自动生成了需求编号65544，并分配给相关人员进行后续处理。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 需求确认 -->
+        <div class="timeline-item" onclick="toggleDetail(this)">
+          <div class="timeline-node completed">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <div class="timeline-card">
+            <div class="timeline-header">
+              <span class="timeline-title">需求确认</span>
+              <span class="timeline-status completed">已完成</span>
+            </div>
+            <div class="timeline-meta">
+              <div class="meta-item">
+                <span class="meta-label">接口人</span>
+                <span class="meta-value">刘正华</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">完成日期</span>
+                <span class="meta-value">2026-06-22</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">评估结论</span>
+                <span class="meta-value">需求完整准确，已确认</span>
+              </div>
+            </div>
+            <div class="timeline-detail">
+              <p class="detail-text">经审核，客户需求信息完整，技术参数明确，符合工艺评估要求。已与客户确认所有关键指标，可以进入下一阶段。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 需求审核 -->
+        <div class="timeline-item" onclick="toggleDetail(this)">
+          <div class="timeline-node completed">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <div class="timeline-card">
+            <div class="timeline-header">
+              <span class="timeline-title">需求审核</span>
+              <span class="timeline-status completed">已完成</span>
+            </div>
+            <div class="timeline-meta">
+              <div class="meta-item">
+                <span class="meta-label">接口人</span>
+                <span class="meta-value">毛小勇</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">完成日期</span>
+                <span class="meta-value">—</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">评估结论</span>
+                <span class="meta-value">待审核</span>
+              </div>
+            </div>
+            <div class="timeline-detail">
+              <p class="detail-text">等待工艺技术经理进行最终审核确认，预计需要1-2个工作日完成。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 图纸解析 -->
+        <div class="timeline-item" onclick="toggleDetail(this)">
+          <div class="timeline-node pending">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <div class="timeline-card">
+            <div class="timeline-header">
+              <span class="timeline-title">图纸解析</span>
+              <span class="timeline-status pending">等待中</span>
+            </div>
+            <div class="timeline-meta">
+              <div class="meta-item">
+                <span class="meta-label">接口人</span>
+                <span class="meta-value">郑智国</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">完成日期</span>
+                <span class="meta-value">—</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">评估结论</span>
+                <span class="meta-value">等待中</span>
+              </div>
+            </div>
+            <div class="timeline-detail">
+              <p class="detail-text">等待对上传的3D模型和2D图纸进行详细解析，提取关键尺寸、公差和技术要求。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 材料评估 -->
+        <div class="timeline-item" onclick="toggleDetail(this)">
+          <div class="timeline-node pending">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <div class="timeline-card">
+            <div class="timeline-header">
+              <span class="timeline-title">材料评估</span>
+              <span class="timeline-status pending">等待中</span>
+            </div>
+            <div class="timeline-meta">
+              <div class="meta-item">
+                <span class="meta-label">接口人</span>
+                <span class="meta-value">包正中</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">完成日期</span>
+                <span class="meta-value">—</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">评估结论</span>
+                <span class="meta-value">等待中</span>
+              </div>
+            </div>
+            <div class="timeline-detail">
+              <p class="detail-text">评估所需材料的可获得性、供应商资质和采购周期，确保材料供应满足生产需求。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- BOM编制 -->
+        <div class="timeline-item" onclick="toggleDetail(this)">
+          <div class="timeline-node pending">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <div class="timeline-card">
+            <div class="timeline-header">
+              <span class="timeline-title">BOM编制</span>
+              <span class="timeline-status pending">等待中</span>
+            </div>
+            <div class="timeline-meta">
+              <div class="meta-item">
+                <span class="meta-label">接口人</span>
+                <span class="meta-value">柴华</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">完成日期</span>
+                <span class="meta-value">—</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">评估结论</span>
+                <span class="meta-value">等待中</span>
+              </div>
+            </div>
+            <div class="timeline-detail">
+              <p class="detail-text">根据图纸解析结果编制物料清单（BOM），包括所有零部件、原材料和辅助材料的详细信息。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 汇总报告 -->
+        <div class="timeline-item" onclick="toggleDetail(this)">
+          <div class="timeline-node pending">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <div class="timeline-card">
+            <div class="timeline-header">
+              <span class="timeline-title">汇总报告</span>
+              <span class="timeline-status pending">等待中</span>
+            </div>
+            <div class="timeline-meta">
+              <div class="meta-item">
+                <span class="meta-label">接口人</span>
+                <span class="meta-value">龚兵</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">完成日期</span>
+                <span class="meta-value">—</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">评估结论</span>
+                <span class="meta-value">等待中</span>
+              </div>
+            </div>
+            <div class="timeline-detail">
+              <p class="detail-text">汇总所有前期评估结果，形成完整的工艺评估报告初稿，包括技术可行性、产能匹配和经济性分析。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 审核报告 -->
+        <div class="timeline-item" onclick="toggleDetail(this)">
+          <div class="timeline-node pending">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <div class="timeline-card">
+            <div class="timeline-header">
+              <span class="timeline-title">审核报告</span>
+              <span class="timeline-status pending">等待中</span>
+            </div>
+            <div class="timeline-meta">
+              <div class="meta-item">
+                <span class="meta-label">接口人</span>
+                <span class="meta-value">龚兵</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">完成日期</span>
+                <span class="meta-value">—</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">评估结论</span>
+                <span class="meta-value">等待中</span>
+              </div>
+            </div>
+            <div class="timeline-detail">
+              <p class="detail-text">工艺技术总监对汇总报告进行审核，确认评估结论的准确性和完整性。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 发布报告 -->
+        <div class="timeline-item" onclick="toggleDetail(this)">
+          <div class="timeline-node pending">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <div class="timeline-card">
+            <div class="timeline-header">
+              <span class="timeline-title">发布报告</span>
+              <span class="timeline-status pending">等待中</span>
+            </div>
+            <div class="timeline-meta">
+              <div class="meta-item">
+                <span class="meta-label">接口人</span>
+                <span class="meta-value">—</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">完成日期</span>
+                <span class="meta-value">—</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">评估结论</span>
+                <span class="meta-value">等待中</span>
+              </div>
+            </div>
+            <div class="timeline-detail">
+              <p class="detail-text">将审核通过的工艺评估报告正式发布，发送给相关部门和客户，作为后续生产的依据。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleDetail(element) {
+      element.classList.toggle('expanded');
+    }
+  </script>
+</body>
+</html>

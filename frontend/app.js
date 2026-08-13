@@ -22,6 +22,11 @@ window.fetch = (url, opts = {}) => {
 const mediaUrl = (u) =>
   authToken ? u + (u.indexOf("?") >= 0 ? "&" : "?") + "token=" + encodeURIComponent(authToken) : u;
 
+const processNavIcon = '<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 0h16v16H0z"/><path fill-rule="evenodd" fill="#8F9299" d="M2.667 3.833H5.5v-.5c0-.253.045-.487.134-.703.09-.216.224-.414.403-.593.179-.179.376-.313.592-.403.217-.09.451-.134.704-.134h1.334c.253 0 .487.045.703.134.216.09.414.224.593.403.179.179.313.377.403.593.09.216.134.45.134.703v.5h2.833c.253 0 .488.045.704.135.216.089.414.223.593.402.179.18.313.377.402.593.09.216.135.45.135.704v1c0 .253-.045.487-.135.703a1.82 1.82 0 0 1-.402.593 1.82 1.82 0 0 1-.797.472v4.232c0 .253-.044.487-.134.703-.09.216-.224.414-.403.593a1.82 1.82 0 0 1-.592.403c-.216.09-.451.134-.704.134H4a1.82 1.82 0 0 1-.704-.134 1.82 1.82 0 0 1-.592-.403 1.821 1.821 0 0 1-.403-.593 1.82 1.82 0 0 1-.134-.703V8.435a1.821 1.821 0 0 1-.796-.472 1.821 1.821 0 0 1-.403-.593 1.82 1.82 0 0 1-.135-.703v-1c0-.253.045-.488.135-.704.089-.216.223-.414.402-.593a1.82 1.82 0 0 1 .593-.402c.216-.09.45-.135.704-.135Zm0 3.667H13.335c.277 0 .485-.07.623-.208.14-.14.209-.348.209-.625v-1c0-.278-.07-.486-.209-.625-.139-.14-.347-.209-.625-.209H10a.481.481 0 0 1-.354-.146.481.481 0 0 1-.146-.354v-1c0-.277-.07-.486-.208-.625-.14-.139-.348-.208-.625-.208H7.333c-.278 0-.486.07-.625.208-.139.14-.208.348-.208.625v1a.481.481 0 0 1-.147.354.481.481 0 0 1-.353.146H2.667c-.278 0-.487.07-.625.209-.14.139-.209.347-.209.625v1c0 .277.07.486.209.625.138.139.347.208.625.208Z" data-follow-fill="#8F9299"/></svg>';
+const costNavIcon = '<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 0h16v16H0z"/><path fill="#8F9299" d="m2.53 9.074.467.92c-.32.315-.497.658-.497 1.006 0 1.286 2.427 2.5 5.5 2.5s5.5-1.214 5.5-2.5c0-.348-.178-.69-.497-1.005l.476-.913c.645.54 1.021 1.194 1.021 1.918 0 2.027-2.946 3.5-6.5 3.5S1.5 13.027 1.5 11c0-.728.38-1.384 1.03-1.926Z" data-follow-fill="#8F9299"/><path fill="#8F9299" d="m2.53 6.074.467.92C2.677 7.31 2.5 7.653 2.5 8c0 1.286 2.427 2.5 5.5 2.5s5.5-1.214 5.5-2.5c0-.348-.178-.69-.497-1.005l.476-.913C14.124 6.622 14.5 7.276 14.5 8c0 2.027-2.946 3.5-6.5 3.5S1.5 10.027 1.5 8c0-.728.38-1.384 1.03-1.926Z" data-follow-fill="#8F9299"/><path fill="#8F9299" d="M8 8.5C4.446 8.5 1.5 7.027 1.5 5S4.446 1.5 8 1.5s6.5 1.473 6.5 3.5S11.554 8.5 8 8.5Zm0-1c3.073 0 5.5-1.214 5.5-2.5S11.073 2.5 8 2.5 2.5 3.714 2.5 5 4.927 7.5 8 7.5Z" data-follow-fill="#8F9299"/></svg>';
+const processWrenchNavIcon = '<svg width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M30.4417 5C32.406 5 34.265 5.44776 35.9207 6.24607L32.7172 9.42668C30.8706 11.2601 30.8706 14.2327 32.7172 16.0661C34.5638 17.8995 37.5578 17.8995 39.4044 16.0661L42.2571 13.2337C42.7379 14.5558 43 15.9818 43 17.4685C43 24.3547 37.3775 29.937 30.4417 29.937C28.7825 29.937 27.1985 29.6176 25.7486 29.0373L13.07 41.6253C11.2238 43.4582 8.2307 43.4582 6.38459 41.6253C4.53847 39.7924 4.53847 36.8207 6.38459 34.9877L18.9523 22.5099C18.2651 20.9684 17.8834 19.2627 17.8834 17.4685C17.8834 10.5823 23.5059 5 30.4417 5Z" fill="none" stroke="#333" stroke-width="4" stroke-linejoin="round"/></svg>';
+window.cadWorkbenchIcons = { process: processWrenchNavIcon, cost: costNavIcon };
+
 let currentProject = null;
 let currentIR = null;
 let currentGeometry = null;
@@ -39,9 +44,20 @@ const status = (msg, busy = false) => {
   if (card) card.dataset.busy = String(busy);
 };
 
+function setParseDisclosure(open) {
+  const intent = document.querySelector(".intent-disclosure");
+  const evidence = document.querySelector(".evidence-disclosure");
+  if (intent) intent.open = open;
+  if (evidence) evidence.open = open;
+}
+
 function fileTypeLabel(name) {
   const suffix = String(name || "").split(".").pop().toUpperCase();
   return suffix && suffix !== String(name || "").toUpperCase() ? suffix : "文件";
+}
+
+function isImageFile(name) {
+  return /\.(png|jpe?g|webp|gif|bmp)$/i.test(String(name || ""));
 }
 
 function renderProjectEvidence(meta = {}) {
@@ -67,6 +83,29 @@ function renderProjectEvidence(meta = {}) {
   root.innerHTML = html;
 }
 
+function renderAttachmentImageGallery(meta = {}) {
+  const gallery = $("attachmentImageGallery");
+  if (!gallery) return;
+  const attachments = Array.isArray(meta.attachments) ? meta.attachments : [];
+  const imageAttachments = attachments.filter(isImageFile);
+  gallery.replaceChildren();
+  gallery.hidden = !imageAttachments.length;
+  if (!imageAttachments.length) return;
+  imageAttachments.forEach(name => {
+    const figure = document.createElement("figure");
+    const image = document.createElement("img");
+    image.src = currentProject
+      ? mediaUrl(`${API}/api/projects/${encodeURIComponent(currentProject)}/attachments/${encodeURIComponent(name)}`)
+      : "";
+    image.alt = name;
+    image.loading = "lazy";
+    const caption = document.createElement("figcaption");
+    caption.textContent = name;
+    figure.append(image, caption);
+    gallery.append(figure);
+  });
+}
+
 function safeExternalUrl(value) {
   try {
     const url = new URL(String(value || ""));
@@ -81,7 +120,7 @@ function renderModelLookup(report) {
   if (!root) return;
   root.replaceChildren();
   if (!report || !report.generated_at) {
-    root.textContent = "完成图纸解析后，可在“更多功能”中发起型号联网核验。结果只作为人工确认依据，不会自动修改 CAD/BOM。";
+    root.textContent = "完成图纸解析后，可在“更多功能”中发起型号联网核验。结果先独立保存，人工确认后才写入零件/BOM。";
     return;
   }
   const intro = document.createElement("div");
@@ -108,14 +147,15 @@ function renderModelLookup(report) {
     const body = document.createElement("div");
     body.className = "lookup-body";
     const name = [item.manufacturer, item.identified_part_name || item.category].filter(Boolean).join(" · ");
-    body.textContent = `${name || "未形成可靠零件结论"}${item.specification_summary ? `\n${item.specification_summary}` : ""}${item.evidence_summary ? `\n依据：${item.evidence_summary}` : ""}`;
+    const target = item.related_part_id ? `\n关联零件：${item.related_part_id}` : "\n关联范围：BOM/标准件候选";
+    body.textContent = `${name || "未形成可靠零件结论"}${target}${item.specification_summary ? `\n${item.specification_summary}` : ""}${item.evidence_summary ? `\n依据：${item.evidence_summary}` : ""}`;
     card.appendChild(body);
     const confidence = document.createElement("div");
     confidence.className = "lookup-confidence";
     const applied = appliedChanges.find(change => String(change.candidate_model || "").trim().toUpperCase() === String(item.candidate_model || "").trim().toUpperCase());
     confidence.textContent = applied
-      ? `联网匹配置信度：${Math.round(Number(item.confidence || 0) * 100)}% · 已自动同步至${applied.target === "part" ? "零件清单" : "BOM"}并创建新版本`
-      : `联网匹配置信度：${Math.round(Number(item.confidence || 0) * 100)}% · 未形成可自动写入的可靠匹配`;
+      ? `联网匹配置信度：${Math.round(Number(item.confidence || 0) * 100)}% · 人工确认后已同步至${applied.target === "part" ? "零件清单" : "BOM"}并创建新版本`
+      : `联网匹配置信度：${Math.round(Number(item.confidence || 0) * 100)}% · 等待人工确认，不会自动写入`;
     card.appendChild(confidence);
     const confirmation = confirmations[item.candidate_model] || confirmations[String(item.candidate_model || "").trim()] || null;
     const actions = document.createElement("div");
@@ -123,7 +163,7 @@ function renderModelLookup(report) {
     if (applied) {
       const confirmed = document.createElement("span");
       confirmed.className = "lookup-confirmed confirmed";
-      confirmed.textContent = "已自动同步（可在版本记录中回溯）";
+      confirmed.textContent = "已确认并同步（可在版本记录中回溯）";
       actions.appendChild(confirmed);
     } else if (confirmation) {
       const confirmed = document.createElement("span");
@@ -162,7 +202,7 @@ function renderModelLookup(report) {
     if ((report.proposed_components || []).length) {
       const componentTitle = document.createElement("div");
       componentTitle.className = "lookup-research-heading";
-      componentTitle.textContent = "联网推演候选部件（已作为待图纸确认项同步至 BOM）";
+      componentTitle.textContent = "联网推演候选部件（仅供参考，尚未写入 BOM）";
       research.appendChild(componentTitle);
       report.proposed_components.forEach(item => {
         const line = document.createElement("div");
@@ -214,11 +254,6 @@ async function loadModelLookup(projectId) {
     const response = await fetch(`${API}/api/projects/${projectId}/model-lookup`);
     if (!response.ok) return renderModelLookup(null);
     let report = await response.json();
-    // 兼容上线前已经完成的旧核验：只同步已保存结果，不会再发起联网/模型调用。
-    if ((report.identifications || []).some(item => item.status === "matched") && !report.auto_sync_attempted_at) {
-      const applied = await fetch(`${API}/api/projects/${projectId}/model-lookup/apply`, { method: "POST" });
-      if (applied.ok) report = await applied.json();
-    }
     if ((report.applied_changes || []).length && currentProject === projectId) {
       const project = await fetch(`${API}/api/projects/${projectId}`).then(r => r.ok ? r.json() : null);
       if (project?.ir) { currentIR = project.ir; renderIR(currentIR); }
@@ -238,8 +273,71 @@ async function confirmModelLookup(candidateModel, decision) {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.detail || response.status);
     renderModelLookup(payload);
-    status(decision === "confirmed" ? `已记录型号 ${candidateModel} 的人工复核意见` : `已驳回型号 ${candidateModel} 的联网结论`);
+    if (decision === "confirmed" && (payload.applied_changes || []).length) {
+      const project = await fetch(`${API}/api/projects/${currentProject}`).then(r => r.ok ? r.json() : null);
+      if (project?.ir) { currentIR = project.ir; renderIR(currentIR); loadVersions(); }
+    }
+    const applied = (payload.applied_changes || []).some(change =>
+      String(change.candidate_model || "").trim().toUpperCase() === String(candidateModel || "").trim().toUpperCase()
+    );
+    status(decision === "rejected"
+      ? `已驳回型号 ${candidateModel} 的联网结论`
+      : applied
+        ? `已确认型号 ${candidateModel}，可靠结论已同步至零件清单/BOM`
+        : `已记录型号 ${candidateModel} 的人工复核；该结论未达到写入条件，零件/BOM 保持不变`);
   } catch (error) { status("记录确认失败: " + error.message); }
+}
+
+function renderVerification(report) {
+  const root = $("verificationResult");
+  if (!root) return;
+  root.replaceChildren();
+  const pending = report?.pending_changes || [];
+  if (!pending.length) {
+    root.textContent = report?.applied_changes?.length
+      ? `本次校核的 ${report.applied_changes.length} 项强证据修改已应用，没有待确认项。`
+      : "当前没有待确认的字段级校核修改。";
+    return;
+  }
+  pending.forEach(change => {
+    const card = document.createElement("div"); card.className = "verification-item";
+    const path = document.createElement("div"); path.className = "verification-path"; path.textContent = change.field;
+    const values = document.createElement("div"); values.className = "verification-change";
+    values.textContent = `${change.old_value || "null"} → ${change.new_value || "null"}`;
+    const reason = document.createElement("div"); reason.className = "verification-reason";
+    reason.textContent = `${change.reason || "AI 校核建议"} · 置信度 ${Math.round(Number(change.confidence || 0) * 100)}%`;
+    const actions = document.createElement("div"); actions.className = "verification-actions";
+    [["confirmed", "确认修改", "lookup-confirm"], ["rejected", "保留原值", "lookup-reject"]].forEach(([decision, label, cls]) => {
+      const button = document.createElement("button"); button.type = "button"; button.className = cls; button.textContent = label;
+      button.onclick = () => decideVerification(change.field, decision); actions.appendChild(button);
+    });
+    card.append(path, values, reason, actions); root.appendChild(card);
+  });
+}
+
+async function loadVerification(projectId) {
+  try {
+    const response = await fetch(`${API}/api/projects/${projectId}/verification`);
+    renderVerification(response.ok ? await response.json() : null);
+  } catch { renderVerification(null); }
+}
+
+async function decideVerification(field, decision) {
+  if (!currentProject) return;
+  try {
+    const response = await fetch(`${API}/api/projects/${currentProject}/verification/decide`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ field, decision, note: "" }),
+    });
+    const report = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(report.detail || response.status);
+    renderVerification(report);
+    if (decision === "confirmed") {
+      const project = await fetch(`${API}/api/projects/${currentProject}`).then(r => r.json());
+      if (project.ir) { currentIR = project.ir; renderIR(currentIR); }
+    }
+    status(decision === "confirmed" ? "已应用并留版该字段修改" : "已保留原值并记录驳回");
+  } catch (error) { status("处理校核修改失败: " + error.message); }
 }
 
 const WORKFLOW = ["upload", "parse", "generate"];
@@ -252,8 +350,9 @@ function setWorkflow(stage, hint) {
     const index = WORKFLOW.indexOf(wrapper.dataset.step);
     const step = wrapper.querySelector(".main-step");
     if (!step) return;
-    step.classList.toggle("active", index === current);
-    step.classList.toggle("completed", index < current);
+    const parseStageCompleted = normalized === "parse" && index === current;
+    step.classList.toggle("active", index === current && !parseStageCompleted);
+    step.classList.toggle("completed", index < current || parseStageCompleted);
     step.classList.toggle("pending", index > current);
   });
   document.querySelectorAll(".main-connector").forEach((line, index) =>
@@ -423,7 +522,6 @@ async function refreshMe() {
 
 function afterAuth() {
   renderUserBox();
-  loadProjects();
   // 深链/恢复: 从 URL ?project=&part= 或上次打开的项目自动重开,避免从工艺页返回后丢内容
   const q = new URLSearchParams(location.search);
   const pid = q.get("project") || localStorage.getItem("lastProject");
@@ -479,6 +577,7 @@ function chatPartLabel(part) {
 
 function renderChat() {
   const box = $("chatMessages");
+  if (!box) return;
   const messages = activeChatSession();
   box.innerHTML = "";
   if (!messages.length) {
@@ -502,6 +601,7 @@ function renderChat() {
 
 function renderChatTyping() {
   const box = $("chatMessages");
+  if (!box) return;
   const row = document.createElement("div");
   row.className = "chat-message assistant";
   row.id = "chatTyping";
@@ -514,6 +614,7 @@ function updateChatContext(part = null) {
   const context = $("chatContext");
   const reference = $("chatReference");
   const badge = $("chatModelBadge");
+  if (!context || !reference || !badge) return;
   if (!currentProject) {
     context.textContent = "选择项目后可结合图纸和零件信息提问";
     reference.textContent = "当前未引用图纸";
@@ -558,8 +659,18 @@ async function refreshAfterChatEdit(edit) {
   }
 }
 
+// 右下角统一对话入口在 2.1 会读取当前选择的零件，并在 AI 受控改参后通知本页刷新。
+window.cadWorkbenchContext = {
+  get projectId() { return currentProject || ""; },
+  get selectedPartId() { return currentSelectedId || ""; },
+};
+window.addEventListener("cad-engine:workbench-chat-edit", event => {
+  refreshAfterChatEdit(event.detail || null);
+});
+
 async function sendWorkbenchChat() {
   const input = $("chatInput");
+  if (!input) return;
   const message = input.value.trim();
   if (!message || chatBusy) return;
   if (!currentProject) {
@@ -601,29 +712,32 @@ async function sendWorkbenchChat() {
 $("btnTechProcess").onclick = () => openBusinessWorkbench("tech");
 $("btnQuoteManagement").onclick = () => openBusinessWorkbench("quote");
 
-$("chatForm").onsubmit = (event) => {
-  event.preventDefault();
-  sendWorkbenchChat();
-};
-$("chatInput").addEventListener("keydown", event => {
-  if (event.key === "Enter" && !event.shiftKey) {
+// 旧三栏对话已收起；保留这段绑定的兼容分支，避免历史页面引用时报错。
+if ($("chatForm")) {
+  $("chatForm").onsubmit = (event) => {
     event.preventDefault();
     sendWorkbenchChat();
-  }
-});
-$("chatInput").addEventListener("input", event => {
-  event.target.style.height = "auto";
-  event.target.style.height = `${Math.min(event.target.scrollHeight, 96)}px`;
-});
-$("btnChatUseDrawing").onclick = () => {
-  const selected = (currentIR && currentIR.parts || []).find(p => p.part_id === currentSelectedId);
-  const input = $("chatInput");
-  input.value = selected
-    ? `请结合当前图纸，分析 ${chatPartLabel(selected)} 的制造工艺与风险。`
-    : "请结合当前图纸，概述零件结构、关键工艺和待澄清风险。";
-  input.focus();
-  input.dispatchEvent(new Event("input"));
-};
+  };
+  $("chatInput").addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendWorkbenchChat();
+    }
+  });
+  $("chatInput").addEventListener("input", event => {
+    event.target.style.height = "auto";
+    event.target.style.height = `${Math.min(event.target.scrollHeight, 96)}px`;
+  });
+  $("btnChatUseDrawing").onclick = () => {
+    const selected = (currentIR && currentIR.parts || []).find(p => p.part_id === currentSelectedId);
+    const input = $("chatInput");
+    input.value = selected
+      ? `请结合当前图纸，分析 ${chatPartLabel(selected)} 的制造工艺与风险。`
+      : "请结合当前图纸，概述零件结构、关键工艺和待澄清风险。";
+    input.focus();
+    input.dispatchEvent(new Event("input"));
+  };
+}
 
 function bindFilePicker(inputId, nameId) {
   const input = $(inputId);
@@ -663,17 +777,6 @@ $("loginForm").onsubmit = async (e) => {
 };
 
 
-async function loadProjects() {
-  const list = await fetch(`${API}/api/projects`).then(r => r.json());
-  $("projectList").innerHTML = "";
-  list.forEach(p => {
-    const li = document.createElement("li");
-    li.textContent = `${p.device_name || "(未解析)"} · ${p.created_at}`;
-    li.onclick = () => openProject(p.project_id);
-    $("projectList").appendChild(li);
-  });
-}
-
 // --------------------------------------------------------------------------- //
 // 流程: 上传 -> 解析 -> 拆解 -> 生成
 // --------------------------------------------------------------------------- //
@@ -689,6 +792,7 @@ $("btnUpload").onclick = async () => {
   currentProject = res.project_id;
   currentIR = null; currentGeometry = null; currentDrawings = null;
   currentIsImg = true; currentSelectedId = null;
+  setParseDisclosure(true);
   diffPick = []; $("versions").innerHTML = ""; $("diffView").innerHTML = "";
   updateChatContext();
   renderChat();
@@ -698,6 +802,9 @@ $("btnUpload").onclick = async () => {
   $("sourceImg").src = mediaUrl(`${API}/api/projects/${currentProject}/source?t=${Date.now()}`);
   renderProjectEvidence({
     source_filename: f.name,
+    attachments: Array.from($("attachInput").files).map(file => file.name),
+  });
+  renderAttachmentImageGallery({
     attachments: Array.from($("attachInput").files).map(file => file.name),
   });
   $("btnParse").disabled = false;
@@ -711,15 +818,20 @@ $("btnUpload").onclick = async () => {
   const nAtt = $("attachInput").files.length;
   status(`已创建项目 ${currentProject}（补充说明${$("noteInput").value ? "✓" : "—"}，佐证文件 ${nAtt} 个），可解析`);
   setWorkflow("parse", "图纸已保存。确认后可开始 AI 解析。");
-  loadProjects();
 };
 
 $("btnParse").onclick = async () => {
   if (!currentProject) return;
+  const parseButton = $("btnParse");
+  parseButton.disabled = true;
+  parseButton.setAttribute("aria-busy", "true");
+  parseButton.setAttribute("aria-label", "正在解析");
+  parseButton.innerHTML = '<span class="parse-spinner" aria-hidden="true"></span><span>正在解析…</span>';
   status("模型正在解析图纸与技术文档需求为结构化 IR（含视觉理解，稍候）...", true);
   try {
     currentIR = await runTask(currentProject, `/api/projects/${currentProject}/parse`, "解析");
     renderIR(currentIR);
+    setParseDisclosure(false);
     $("btnVerify").disabled = false;
     $("btnDecompose").disabled = false;
     $("btnModelLookup").disabled = false;
@@ -733,22 +845,22 @@ $("btnParse").onclick = async () => {
     status(`解析完成（已结合 ${documentCount} 份技术资料；平均置信度 ${avgConfidence(currentIR)}）`);
     setWorkflow("review", "AI 已完成解析，请确认零件、材料与待澄清项。");
   } catch (e) { status("解析失败: " + e.message); }
+  finally {
+    parseButton.disabled = false;
+    parseButton.removeAttribute("aria-busy");
+    parseButton.setAttribute("aria-label", "开始解析");
+    parseButton.textContent = "▶ 开始解析";
+  }
 };
 
 $("btnModelLookup").onclick = async () => {
   if (!currentProject || !currentIR) return;
-  status("Qwen 正在联网核验型号候选与公开零件资料（会产生联网搜索与模型 token 消耗）...", true);
+  status("AI 正在联网核验型号候选与公开零件资料（会产生联网搜索与模型 token 消耗）...", true);
   try {
     const report = await runTask(currentProject, `/api/projects/${currentProject}/model-lookup`, "型号联网核验");
     renderModelLookup(report);
     $("modelLookupDetails").open = true;
-    const applied = (report.applied_changes || []).length;
-    if (applied) {
-      const project = await fetch(`${API}/api/projects/${currentProject}`).then(r => r.ok ? r.json() : null);
-      if (project?.ir) { currentIR = project.ir; renderIR(currentIR); }
-      loadVersions();
-    }
-    status(`型号联网核验完成（${(report.identifications || []).length} 个候选，搜索 ${report.search_count || 0} 次；已同步 ${applied} 项至零件清单/BOM，并生成新版本）`);
+    status(`型号联网核验完成（${(report.identifications || []).length} 个候选，搜索 ${report.search_count || 0} 次；确认后才会同步至零件清单/BOM）`);
   } catch (error) { status("型号联网核验失败: " + error.message); }
 };
 
@@ -764,9 +876,15 @@ $("btnVerify").onclick = async () => {
       status(result.verification.message + " 详情：" + result.verification.detail);
       return;
     }
-    currentIR = result;
+    currentIR = result.ir || result;
     renderIR(currentIR);
-    status(`校验完成（平均置信度 ${before} → ${avgConfidence(currentIR)}）`);
+    const verification = result.verification || {};
+    renderVerification({
+      applied_changes: verification.applied_changes || [],
+      pending_changes: verification.pending_changes || [],
+    });
+    if ((verification.pending_changes || []).length) $("verificationDetails").open = true;
+    status(`${verification.message || "校验完成"}（平均置信度 ${before} → ${avgConfidence(currentIR)}）`);
     setWorkflow("review", "校验完成，可继续确认识别结果或生成 CAD。");
   } catch (e) { status("自校验失败: " + e.message); }
 };
@@ -821,7 +939,6 @@ $("btnImport3d").onclick = async () => {
     if (!r.ok) throw new Error(res.detail || r.status);
     const out = await pollTask(res.project_id, res.task_id, "3D 解析");
     await openProject(res.project_id);
-    loadProjects();
     status(`3D 导入完成：解析出 ${out.parts} 个零件，已生成 3D/2D/结构树/BOM`);
   } catch (e) { status("3D 导入失败: " + e.message); }
 };
@@ -891,6 +1008,7 @@ async function openProject(pid) {
   currentGeometry = data.geometry;
   currentDrawings = data.drawings;
   renderProjectEvidence(data.meta);
+  renderAttachmentImageGallery(data.meta);
 
   // 原图区: 图片项目显示原图; 3D 导入项目无 2D 原图,显示占位
   const fname = (data.meta && data.meta.source_filename) || "";
@@ -922,7 +1040,9 @@ async function openProject(pid) {
   $("btnDrawings").disabled = !isImg || !data.ir;
   $("btnBom").disabled = !data.ir;
   if (data.ir) renderIR(data.ir);
+  setParseDisclosure(!(data.ir && Array.isArray(data.ir.parts) && data.ir.parts.length));
   loadModelLookup(pid);
+  loadVerification(pid);
   updateChatContext();
   renderChat();
   loadVersions();
@@ -1013,7 +1133,7 @@ function renderNode(node, container, depth, partById) {
     `<div class="part-name">${esc(p.part_id)} ${esc(p.name)}` +
     `<span class="part-confidence">${(p.confidence * 100 | 0)}%</span></div>` +
     `<div class="part-type">${esc(feats)} · ${p.material ? esc(p.material.spec) : "材料待确认"} · ${p.quantity}件${gstat}${dstat}</div>` +
-    (p.recommendation ? `<div class="recommend">💡 ${esc(p.recommendation)}</div>` : "") +
+    (p.recommendation ? `<div class="recommend">${esc(p.recommendation)}</div>` : "") +
     `</div>`;
   div.onclick = () => selectPart(p);
   container.appendChild(div);
@@ -1118,7 +1238,7 @@ function renderVersions(versions) {
   const box = $("versions");
   box.innerHTML = "";
   if (!versions.length) {
-    box.innerHTML = `<div class="none">暂无版本(解析/编辑后自动留版)</div>`;
+    box.innerHTML = `<div class="versions-empty">暂无版本（解析/编辑后自动留版）</div>`;
     return;
   }
   versions.slice().reverse().forEach(v => {  // 最新在上
@@ -1126,6 +1246,7 @@ function renderVersions(versions) {
     div.className = "ver" + (diffPick.includes(v.version) ? " active" : "");
     const picked = diffPick.includes(v.version);
     const conf = v.avg_confidence != null ? ` · 置信${(v.avg_confidence * 100 | 0)}%` : "";
+    const changeSummary = v.change_summary || "暂无变更说明";
     const last = (v.review || []).slice(-1)[0];
     const reviewNote = last
       ? `<div class="vmeta">审签: ${esc(last.actor)} · ${STATUS_LABEL[last.status] || last.status}` +
@@ -1133,23 +1254,35 @@ function renderVersions(versions) {
       : "";
     div.innerHTML =
       `<div class="ver-top"><span class="vn">v${v.version}</span>` +
-      `<span class="st ${v.status}">${STATUS_LABEL[v.status] || v.status}</span>` +
-      `<span class="vstage">${esc(VERSION_STAGE_LABEL[v.stage] || v.stage)}</span></div>` +
+        `<span class="st ${v.status}">${STATUS_LABEL[v.status] || v.status}</span>` +
+        `<span class="vstage">${esc(VERSION_STAGE_LABEL[v.stage] || v.stage)}</span></div>` +
       `<div class="vmeta">${esc(v.ts)} · ${esc(v.author)} · ${v.parts}零件${conf}</div>` +
-      (v.note ? `<div class="vmeta">本次操作：${esc(v.note)}</div>` : "") +
-      `<div class="vmeta">相对上一版本：${esc(v.change_summary || "暂无变更说明")}</div>` +
-      reviewNote +
-      `<div class="vacts">` +
-      `<button class="pick ${picked ? "on" : ""}" data-act="pick" data-v="${v.version}">` +
-        `${picked ? "✓对比" : "选作对比"}</button>` +
-      (v.status === "draft" || v.status === "rejected"
-        ? `<button data-act="submit" data-v="${v.version}">送审</button>` : "") +
-      (v.status === "in_review"
-        ? `<button class="ok" data-act="approve" data-v="${v.version}">通过</button>` +
-          `<button class="no" data-act="reject" data-v="${v.version}">驳回</button>` : "") +
-      `<button class="rs" data-act="restore" data-v="${v.version}">恢复</button>` +
-      `</div>`;
+      `<button class="ver-summary" type="button" aria-expanded="false">` +
+        `<span>相对上一版本：${esc(changeSummary)}</span><span class="ver-toggle">展开</span></button>` +
+      `<div class="ver-details" hidden>` +
+        (v.note ? `<div class="vmeta">本次操作：${esc(v.note)}</div>` : "") +
+        reviewNote + `</div>` +
+        `<div class="vacts">` +
+        `<button class="pick ${picked ? "on" : ""}" data-act="pick" data-v="${v.version}">` +
+          `${picked ? "✓对比" : "选作对比"}</button>` +
+        (v.status === "draft" || v.status === "rejected"
+          ? `<button data-act="submit" data-v="${v.version}">送审</button>` : "") +
+        (v.status === "in_review"
+          ? `<button class="ok" data-act="approve" data-v="${v.version}">通过</button>` +
+            `<button class="no" data-act="reject" data-v="${v.version}">驳回</button>` : "") +
+        `<button class="rs" data-act="restore" data-v="${v.version}">恢复</button>` +
+        `</div>`;
     box.appendChild(div);
+  });
+  box.querySelectorAll(".ver-summary").forEach(summary => {
+    summary.onclick = () => {
+      const details = summary.nextElementSibling;
+      const expanded = !details.hidden;
+      details.hidden = expanded;
+      summary.setAttribute("aria-expanded", String(!expanded));
+      summary.querySelector(".ver-toggle").textContent = expanded ? "展开" : "收起";
+      summary.closest(".ver").classList.toggle("expanded", !expanded);
+    };
   });
   box.querySelectorAll("button[data-act]").forEach(b => {
     b.onclick = () => versionAction(b.dataset.act, +b.dataset.v);
@@ -1245,7 +1378,7 @@ function renderDiff(from, to, d) {
 // 选中零件: 详情 + 3D
 // --------------------------------------------------------------------------- //
 function markSelection(partId) {
-  document.querySelectorAll(".tree .part").forEach(d =>
+  document.querySelectorAll("#tree .part").forEach(d =>
     d.classList.toggle("active", d.dataset.partId === partId));
   document.querySelectorAll("#bboxLayer .bbox").forEach(b =>
     b.classList.toggle("active", b.dataset.partId === partId));
@@ -1264,20 +1397,17 @@ const FEAT_FIELDS = {
 
 function selectPart(part) {
   if (!part) return;
+  window.CadInlineAnalysis?.reset();
   currentSelectedId = part.part_id;
   markSelection(part.part_id);
   const g = geomFor(part.part_id);
+  const dw = drawingsFor(part.part_id);
   $("viewerPartName").textContent = `${part.part_id} ${part.name}`;
   updateChatContext(part);
 
-  // 跳转到工艺拆解 / 成本分析页
-  // 页面版本参数用于绕开浏览器对旧深色详情页的历史缓存；后端会忽略 ui 参数。
-  const pq = `ui=20260714-unified2&project=${encodeURIComponent(currentProject)}&part=${encodeURIComponent(part.part_id)}`;
-  let html = `<div class="part-nav">` +
-    `<a class="btn-process" href="process.html?${pq}">🔧 工艺拆解 →</a>` +
-    `<a class="btn-cost" href="cost.html?${pq}">💰 成本分析 →</a></div>`;
+  let summaryHtml = "";
   if (part.model_no || part.manufacturer || part.model_specification) {
-    html += `<div class="model-identity"><b>联网型号核验</b>` +
+    summaryHtml += `<div class="model-identity"><b>联网型号核验</b>` +
       `${part.model_no ? `<div>型号：${esc(part.model_no)}</div>` : ""}` +
       `${part.manufacturer ? `<div>制造商：${esc(part.manufacturer)}</div>` : ""}` +
       `${part.model_specification ? `<div>公开规格：${esc(part.model_specification)}</div>` : ""}` +
@@ -1288,11 +1418,11 @@ function selectPart(part) {
 
   // 行内可编辑特征(仅"图→IR"项目;3D 导入项目几何来自真实实体,不改参重生)
   if (currentIsImg) {
-    parameterHtml += `<div class="edit-grid">` +
+    parameterHtml += `<div class="parameter-columns"><div class="parameter-base"><div class="edit-grid">` +
       `<label>名称</label><input data-pf="name" value="${esc(part.name || "")}"/>` +
       `<label>数量</label><input data-pf="quantity" type="number" value="${part.quantity || 1}"/>` +
       `<label>材料</label><input data-pf="material" value="${esc(part.material ? part.material.spec : "")}"/>` +
-      `</div>`;
+      `</div></div><div class="parameter-features">`;
     (part.features || []).forEach((f, fi) => {
       const fields = FEAT_FIELDS[f.type] || [];
       parameterHtml += `<div class="feat-edit"><div class="feat-type">特征 #${fi + 1}: ${f.type}` +
@@ -1304,7 +1434,7 @@ function selectPart(part) {
       });
       parameterHtml += `</div></div>`;
     });
-    parameterHtml += `<button class="btn-regen" id="btnRegen">保存并重新生成该零件</button>`;
+    parameterHtml += `</div></div><div class="parameter-actions"><button class="btn-regen" id="btnSaveParams" type="button">保存零件参数</button><button class="btn-regen" id="btnRegen" type="button">重新生成零件</button></div>`;
   } else {
     parameterHtml += "<table>";
     (part.features || []).forEach(f => {
@@ -1315,46 +1445,70 @@ function selectPart(part) {
     parameterHtml += "</table>";
   }
 
+  const downloadLinks = [];
   if (g) {
-    if (g.bbox) html += `<div>包围盒: ${g.bbox.join(" × ")} mm</div>`;
-    if (g.volume_mm3) html += `<div>体积: ${g.volume_mm3} mm³</div>`;
-    if (g.mass_g) html += `<div>质量: ${g.mass_g} g</div>`;
-    (g.warnings || []).forEach(w => html += `<div class="warn">⚠ ${esc(w)}</div>`);
-    if (g.error) html += `<div class="err">✗ ${esc(g.error)}</div>`;
+    if (g.bbox) summaryHtml += `<div>包围盒: ${g.bbox.join(" × ")} mm</div>`;
+    if (g.volume_mm3) summaryHtml += `<div>体积: ${g.volume_mm3} mm³</div>`;
+    if (g.mass_g) summaryHtml += `<div>质量: ${g.mass_g} g</div>`;
+    (g.warnings || []).forEach(w => summaryHtml += `<div class="warn">⚠ ${esc(w)}</div>`);
+    if (g.error) summaryHtml += `<div class="err">✗ ${esc(g.error)}</div>`;
     if (g.ok) {
-      html += `<div class="dl"><a href="${mediaUrl(API + g.step_url)}" download>下载 STEP</a>` +
-              `<a href="${mediaUrl(API + g.stl_url)}" download>下载 STL</a></div>`;
+      downloadLinks.push(`<a href="${mediaUrl(API + g.step_url)}" download>下载 STEP</a>`);
+      downloadLinks.push(`<a href="${mediaUrl(API + g.stl_url)}" download>下载 STL</a>`);
       loadSTL(mediaUrl(`${API}${g.stl_url}`));
     }
   } else {
-    html += `<div class="warn">尚未生成几何，请使用底部的「生成 CAD 几何」。</div>`;
+    summaryHtml += `<div class="warn">尚未生成几何，请使用底部的「生成 CAD 几何」。</div>`;
     clearViewer();
   }
 
+  if (dw && dw.dxf_url) {
+    downloadLinks.push(`<a href="${mediaUrl(API + dw.dxf_url)}" download>下载 DXF(下料图)</a>`);
+  }
+
   // 2D 工程图(三视图 + 等轴测 SVG + 下料 DXF)
-  const dw = drawingsFor(part.part_id);
+  let lowerHtml = "";
   if (dw && dw.ok) {
     const labels = { front: "主视图", top: "俯视图", right: "侧视图", iso: "等轴测" };
-    html += `<h4 class="dwh">2D 工程图</h4><div class="views">`;
+    lowerHtml += `<h4 class="dwh">2D 工程图</h4><div class="views">`;
     ["front", "top", "right", "iso"].forEach(v => {
       if (dw.views[v]) {
-        html += `<figure class="view"><img src="${mediaUrl(API + dw.views[v])}" alt="${v}"/>` +
+        lowerHtml += `<figure class="view"><img src="${mediaUrl(API + dw.views[v])}" alt="${v}"/>` +
                 `<figcaption>${labels[v]}</figcaption></figure>`;
       }
     });
-    html += `</div>`;
-    if (dw.dxf_url) html += `<div class="dl"><a href="${mediaUrl(API + dw.dxf_url)}" download>下载 DXF(下料图)</a></div>`;
-    (dw.warnings || []).forEach(w => html += `<div class="warn">⚠ ${esc(w)}</div>`);
+    lowerHtml += `</div>`;
+    (dw.warnings || []).forEach(w => lowerHtml += `<div class="warn">⚠ ${esc(w)}</div>`);
   }
+  if (downloadLinks.length) lowerHtml += `<div class="dl download-actions">${downloadLinks.join("")}</div>`;
+
+  const html = `<div class="part-summary">${summaryHtml}</div>` +
+    `<div class="part-nav">` +
+      `<button class="btn-process" type="button" data-inline-analysis="process">${processWrenchNavIcon}<span>工艺拆解</span></button>` +
+      `<button class="btn-cost" type="button" data-inline-analysis="cost">${costNavIcon}<span>成本分析</span></button>` +
+    `</div>` +
+    `<div id="inlineAnalysisHost" class="inline-analysis-host">${lowerHtml}</div>`;
 
   $("partDetail").innerHTML = html;
+  document.querySelectorAll("#partDetail [data-inline-analysis]").forEach(button => {
+    button.onclick = () => window.CadInlineAnalysis?.open(button.dataset.inlineAnalysis, {
+      host: $("inlineAnalysisHost"),
+      expertPanel: document.querySelector(".parameter-panel"),
+      projectId: currentProject,
+      part,
+      status,
+      onClose: () => selectPart(part),
+    });
+  });
   $("parameterEditor").innerHTML = parameterHtml || "此零件暂无可编辑参数。";
+  const sb = document.getElementById("btnSaveParams");
+  if (sb) sb.onclick = () => savePartEdits(part.part_id, false);
   const rb = document.getElementById("btnRegen");
-  if (rb) rb.onclick = () => savePartEdits(part.part_id);
+  if (rb) rb.onclick = () => savePartEdits(part.part_id, true);
 }
 
-// 读取行内编辑 -> 更新 IR -> 保存 -> 单零件重生 -> 刷新
-async function savePartEdits(partId) {
+// 读取行内编辑 -> 更新 IR -> 保存；按需继续单零件重生并刷新
+async function savePartEdits(partId, regenerate = false) {
   if (!currentProject || !currentIR) return;
   const part = (currentIR.parts || []).find(p => p.part_id === partId);
   if (!part) return;
@@ -1378,12 +1532,17 @@ async function savePartEdits(partId) {
     part.features[fi][fk] = raw === "" ? null : (Number.isInteger(+raw) && fk.startsWith("count") ? parseInt(raw) : parseFloat(raw));
   });
 
-  status(`正在保存并重生 ${partId} ...`, true);
+  status(regenerate ? `正在保存参数并重生 ${partId} ...` : `正在保存 ${partId} 的零件参数 ...`, true);
   try {
     await fetch(`${API}/api/projects/${currentProject}/ir`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(currentIR),
     }).then(r => { if (!r.ok) throw new Error("保存IR失败"); });
+
+    if (!regenerate) {
+      status(`${partId} 零件参数已保存`);
+      return;
+    }
 
     const res = await fetch(`${API}/api/projects/${currentProject}/parts/${partId}/regenerate`,
       { method: "POST" });

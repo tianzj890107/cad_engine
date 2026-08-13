@@ -15,7 +15,14 @@ __pycache__/
 # 运行时图纸、模型、审计与本地账户数据不进入源码仓库。
 data/
 
+# 本地分析稿、重复备份文件不进入发布分支
+debug.md
+backend/services/* 2.py
+
 # 环境变量 / 密钥(重要!)
 .env
 .env.local
 *.key
+
+# 本地工作日报不进入代码仓库
+日报.md

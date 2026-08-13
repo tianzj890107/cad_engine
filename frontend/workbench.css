@@ -10,12 +10,12 @@
   --radius-sm:6px; --radius-md:8px; --radius-lg:12px; --radius-full:999px; --transition-fast:150ms ease;
 }
 *{margin:0;padding:0;box-sizing:border-box} body{font-family:Inter,"PingFang SC",-apple-system,sans-serif;background:var(--bg-page);color:var(--text-primary);font-size:14px;line-height:1.5;min-height:100vh;padding-bottom:80px} button,input,textarea{font:inherit}
-.page-container{max-width:1380px;margin:0 auto;padding:var(--space-xl);padding-bottom:80px}
+.page-container{max-width:1200px;margin:0 auto;padding:var(--space-xl);padding-bottom:80px}
 .workflow-section{background:var(--bg-card);border-radius:var(--radius-lg);border:1px solid var(--border-color);padding:var(--space-lg);margin-bottom:var(--space-xl)}
 .main-workflow{display:flex;align-items:flex-start;justify-content:center;gap:var(--space-sm)} .main-step-wrapper{display:flex;flex-direction:column;align-items:center;min-width:120px}.main-step{display:flex;align-items:center;gap:var(--space-xs);font-size:12px;padding:var(--space-xs) var(--space-md);border-radius:var(--radius-full);transition:all var(--transition-fast)}.main-step.active{color:var(--color-primary);background:var(--color-primary-light);font-weight:500}.main-step.completed{color:var(--color-green)}.main-step.pending{color:var(--text-tertiary)}.main-step-number{width:22px;height:22px;border-radius:50%;background:var(--bg-page);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}.main-step.active .main-step-number{background:var(--color-primary);color:#fff}.main-step.completed .main-step-number{background:var(--color-green);color:#fff}.main-step.pending .main-step-number{background:var(--bg-hover);color:var(--text-tertiary)}.main-connector{width:30px;height:2px;background:var(--border-color);margin-top:11px}.main-connector.active{background:var(--color-primary)}
 .sub-labels-row{display:flex;align-items:center;gap:4px;margin-top:4px;padding-left:26px}.sub-label{font-size:11px;color:var(--text-tertiary);padding:2px 6px;border-radius:4px;white-space:nowrap}.sub-label.active{color:var(--color-primary);background:var(--color-primary-light)}.sub-label.completed{color:var(--color-green)}.sub-label-arrow{color:var(--text-tertiary)}
 .title-section{background:var(--bg-card);border-radius:var(--radius-lg);border:1px solid var(--border-color);padding:var(--space-lg);margin-bottom:var(--space-lg)}.title-row{display:flex;align-items:center;gap:var(--space-lg)}.form-title{font-size:18px;font-weight:700;color:var(--text-primary)}.status-badge{padding:var(--space-xs) var(--space-md);background:var(--color-primary-light);color:var(--color-primary);border-radius:var(--radius-full);font-size:12px;font-weight:500}
-.main-content{display:grid;grid-template-columns:minmax(340px,380px) minmax(420px,1fr) minmax(300px,340px);gap:var(--space-lg);min-height:600px;align-items:stretch}.left-panel{background:var(--bg-card);border-radius:var(--radius-lg);border:1px solid var(--border-color);overflow-y:auto;max-height:calc(100vh - 180px)}.panel-section{padding:var(--space-lg);border-bottom:1px solid var(--border-light)}.section-title{font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:var(--space-md);display:flex;align-items:center;gap:var(--space-sm)}.section-title.warning{color:#b45309}
+.main-content{display:grid;grid-template-columns:minmax(340px,380px) minmax(0,1fr);gap:var(--space-lg);min-height:600px;align-items:stretch}.left-panel{background:var(--bg-card);border-radius:var(--radius-lg);border:1px solid var(--border-color);overflow-y:auto;max-height:calc(100vh - 180px)}.panel-section{padding:var(--space-lg);border-bottom:1px solid var(--border-light)}.section-title{font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:var(--space-md);display:flex;align-items:center;gap:var(--space-sm)}.section-title.warning{color:#b45309}
 .design-intent-box{background:var(--bg-page);border-radius:var(--radius-md);padding:var(--space-md)}.design-intent-text{font-size:12px;color:var(--text-primary);margin-bottom:var(--space-sm)}.design-intent-dimensions{font-size:11px;color:var(--text-secondary);font-family:monospace}.field-label{display:block;margin:12px 0 5px;font-size:12px;color:var(--text-secondary)}.upload-form input[type=file],.import-panel input[type=file]{width:100%;font-size:11px}.upload-form textarea{width:100%;border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:7px 8px;color:var(--text-primary);background:#fff;resize:vertical;font-size:12px}.upload-form textarea:focus,.parameter-panel input:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 2px var(--color-primary-light)}.upload-btn{width:100%;margin-top:12px;padding:8px 10px;border:1px solid var(--color-primary);border-radius:var(--radius-sm);color:var(--color-primary);background:#fff;font-size:12px;cursor:pointer}.upload-btn:hover{background:var(--color-primary-light)}
 .file-groups{margin-top:16px}.file-group-title{margin-bottom:8px;font-size:12px;font-weight:600}.uploaded-file-item{display:flex;align-items:center;gap:var(--space-md);padding:var(--space-md);background:var(--bg-page);border-radius:var(--radius-md);transition:all var(--transition-fast)}.uploaded-file-item:hover{background:var(--color-primary-light)}.file-info{flex:1;min-width:0}.file-name{font-size:12px;font-weight:500;color:var(--text-primary);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.file-meta{font-size:10px;color:var(--text-tertiary)}.blueprint-preview{height:auto;margin:0;background:linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%);border:1px solid var(--border-color)}.image-wrap{margin-top:var(--space-sm);padding:6px;background:#fff;border:1px solid var(--border-color);border-radius:var(--radius-md);text-align:center}.img-stage{position:relative;display:inline-block;line-height:0;max-width:100%}.img-stage img{display:block;max-width:100%;max-height:250px;border-radius:var(--radius-sm)}.bbox-layer{position:absolute;inset:0;pointer-events:none}.bbox-layer .bbox{position:absolute;border:2px solid var(--color-primary);border-radius:2px;background:rgba(59,130,246,.1);pointer-events:auto;cursor:pointer}.bbox-layer .bbox.lo{border-color:var(--color-red);background:rgba(239,68,68,.1)}.bbox-layer .bbox.mid{border-color:var(--color-warning);background:rgba(245,158,11,.1)}.bbox-layer .bbox.active{border-width:3px;box-shadow:0 0 0 2px rgba(59,130,246,.35)}.bbox-layer .tag{position:absolute;top:-16px;left:-2px;padding:0 4px;border-radius:3px;background:var(--color-primary);color:#fff;font-size:10px;line-height:14px;white-space:nowrap}.parse-action{display:flex;justify-content:flex-end;margin-top:16px}.start-parse-btn{padding:var(--space-md) var(--space-xl);background:#fff;color:transparent;background-image:linear-gradient(135deg,var(--color-purple),var(--color-primary));-webkit-background-clip:text;background-clip:text;border:1px solid var(--border-color);border-radius:var(--radius-md);font-size:14px;font-weight:600;cursor:pointer;transition:all var(--transition-fast)}.start-parse-btn:hover:not(:disabled){border-color:var(--color-primary);background-color:var(--bg-page)}button:disabled{opacity:.5;cursor:not-allowed}
 
@@ -27,6 +27,11 @@
 .evidence-file:hover{border-color:var(--color-primary)}
 .evidence-icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:var(--radius-sm);background:var(--color-primary-light);color:var(--color-primary);font-size:14px;flex:0 0 auto}
 .evidence-type{padding:2px 5px;border-radius:4px;background:#fff;color:var(--text-tertiary);font-size:9px;font-weight:600;line-height:1.25;flex:0 0 auto}
+.attachment-image-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:8px;text-align:left}
+.attachment-image-gallery figure{min-width:0;margin:0;padding:5px;border:1px solid var(--border-light);border-radius:var(--radius-sm);background:var(--bg-page)}
+.attachment-image-gallery img{display:block;width:100%;height:120px;object-fit:contain;border-radius:4px;background:#fff}
+.attachment-image-gallery figcaption{margin-top:4px;overflow:hidden;color:var(--text-tertiary);font-size:10px;line-height:1.3;text-overflow:ellipsis;white-space:nowrap}
+.versions-empty{padding:2px 0;color:var(--text-tertiary);font-size:11px;line-height:1.5}
 
 /* 型号联网核验：证据独立于 CAD IR，人工确认只留痕，不自动覆盖 BOM。 */
 .model-lookup-panel summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--text-primary)}
@@ -84,3 +89,118 @@
 .view-3d-content{z-index:0;overflow:hidden}
 .view-3d-content canvas{position:relative;z-index:0;display:block}
 .more-actions{z-index:41}
+
+/* 2.1 页面布局：页面整体滚动，卡片按内容自然撑开；底部只保留独立操作按钮。 */
+body{padding-bottom:0}
+.page-container{padding-bottom:var(--space-xl)}
+.main-content{min-height:0;align-items:start}
+.left-panel,.center-panel{max-height:none;overflow:visible}
+.center-panel{min-height:0}
+.footer-bar{position:static;z-index:auto;display:flex;margin-top:var(--space-xl);padding:0;background:transparent;border:0;box-shadow:none;pointer-events:none}
+.footer-left,.footer-right{pointer-events:auto}
+@media(max-width:700px){.page-container{padding-bottom:var(--space-xl)}.footer-bar{display:flex;gap:12px;margin-top:16px;padding:0}.footer-left{display:flex}.footer-right{width:auto}.footer-bar .btn,.footer-bar .report-btn-large{width:auto}}
+
+/* 版本卡片保留原有版本头部；原详细信息位置收起为一行摘要，点击后展开。 */
+.versions .ver{padding:var(--space-md);overflow:visible}
+.versions .ver-summary{display:flex;align-items:center;justify-content:space-between;gap:var(--space-sm);width:100%;margin-top:var(--space-xs);padding:var(--space-xs) 0;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--text-secondary);font-size:11px;font-weight:400;line-height:1.4;text-align:left;cursor:pointer}
+.versions .ver-summary:hover{background:var(--color-primary-light);color:var(--text-primary)}
+.versions .ver-summary>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.versions .ver-toggle{flex:0 0 auto;color:var(--text-tertiary);font-size:10px}
+.versions .ver-details{padding-top:var(--space-xs)}
+.versions .ver.expanded .ver-summary{align-items:flex-start}
+.versions .ver.expanded .ver-summary>span:first-child{overflow:visible;text-overflow:clip;white-space:normal;word-break:break-word}
+.versions .vacts>button{padding:6px var(--space-md);line-height:1.2}
+
+/* 2.1 主内容跟随页面整体滚动：滚到卡片顶部贴住视口时，卡片底部与底部按钮底边对齐。 */
+.main-content{height:calc(100vh - var(--space-xl));min-height:0;align-items:stretch}
+.left-panel,.center-panel{height:100%;max-height:none;overflow:visible}
+.footer-bar{position:fixed;right:20px;bottom:20px;left:20px;z-index:100;display:flex;margin:0;padding:0;background:transparent;border:0;box-shadow:none;pointer-events:none}
+.footer-left,.footer-right{pointer-events:auto}
+.footer-left .btn-secondary{padding:9px 13px;border:1px solid #bfdbfe;border-radius:8px;background:#fff;color:#2563eb;font:600 13px/1.2 Inter,"PingFang SC",-apple-system,sans-serif;box-shadow:0 3px 12px rgba(30,64,175,.1);transition:.15s}
+.footer-left .btn-secondary:hover{border-color:#2563eb;background:#eff6ff;color:#2563eb;transform:translateY(-1px)}
+.footer-left .btn-secondary svg{width:16px;height:16px;flex:0 0 16px}
+.footer-left .btn-secondary svg path:nth-of-type(2){fill:#2563eb!important}
+.footer-bar .report-btn-large{padding:var(--space-md) 14px}
+@media(max-width:700px){.main-content{height:auto}.left-panel,.center-panel{height:auto;overflow:visible}.footer-bar{right:12px;bottom:12px;left:12px}}
+
+/* 2.1 双卡片同时吸附：上边线对齐顶部导航按钮，下边线对齐底部操作按钮；继续滚动时进入卡片内部。 */
+.left-panel,.center-panel{position:sticky;top:18px;align-self:start;height:calc(100vh - 38px);max-height:none;overflow-y:auto;overflow-x:hidden}
+@media(max-width:700px){.left-panel,.center-panel{position:static;height:auto;max-height:none;overflow:visible}}
+
+/* 零件编辑操作按钮与返回/上一步/首页保持统一的蓝色导航按钮样式。 */
+.parameter-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--space-lg);align-items:start}
+.parameter-base,.parameter-features{min-width:0}
+.parameter-features .feat-edit:first-child{margin-top:0}
+.parameter-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-md);margin-top:8px}
+.parameter-actions .btn-regen{margin-top:0}
+.btn-regen{display:inline-flex;align-items:center;justify-content:center;width:100%;margin-top:8px;padding:9px 13px;border:1px solid #bfdbfe;border-radius:8px;background:#fff;color:#2563eb;font:600 13px/1.2 Inter,"PingFang SC",-apple-system,sans-serif;box-shadow:0 3px 12px rgba(30,64,175,.1);transition:.15s;cursor:pointer}
+.btn-regen:hover:not(:disabled){border-color:#2563eb;background:#eff6ff;color:#2563eb;transform:translateY(-1px)}
+@media(max-width:700px){.parameter-columns{grid-template-columns:1fr}}
+@media(max-width:700px){.parameter-actions{grid-template-columns:1fr}}
+
+/* 更多功能按钮与页面导航按钮保持一致。 */
+.report-btn{padding:9px 13px;border:1px solid #bfdbfe;border-radius:8px;background:#fff;color:#2563eb;font:600 13px/1.2 Inter,"PingFang SC",-apple-system,sans-serif;box-shadow:0 3px 12px rgba(30,64,175,.1);transition:.15s;cursor:pointer}
+.report-btn:hover:not(:disabled){border-color:#2563eb;background:#eff6ff;color:#2563eb;transform:translateY(-1px)}
+
+/* STEP、STL、DXF 下载入口与页面导航按钮保持一致。 */
+.dl{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.dl a{display:inline-flex;align-items:center;justify-content:center;margin-right:0;padding:7px 13px;border:1px solid #bfdbfe;border-radius:8px;background:#fff;color:#2563eb;font:600 13px/1.2 Inter,"PingFang SC",-apple-system,sans-serif;text-decoration:none;box-shadow:0 3px 12px rgba(30,64,175,.1);transition:.15s}
+.dl a:hover{border-color:#2563eb;background:#eff6ff;color:#2563eb;transform:translateY(-1px)}
+.dl.download-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dl.download-actions a{width:100%}
+@media(max-width:700px){.dl.download-actions{grid-template-columns:1fr}}
+
+/* 工艺拆解与成本分析入口与返回、上一步、首页保持一致。 */
+.part-nav .btn-process,.part-nav .btn-cost{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 13px;border:1px solid #bfdbfe;border-radius:8px;background:#fff;color:#2563eb;font:600 13px/1.2 Inter,"PingFang SC",-apple-system,sans-serif;box-shadow:0 3px 12px rgba(30,64,175,.1);transition:.15s}
+.part-nav button{cursor:pointer}
+.part-nav .btn-process:hover,.part-nav .btn-cost:hover{border-color:#2563eb;background:#eff6ff;color:#2563eb;transform:translateY(-1px)}
+.part-nav svg{width:16px;height:16px;flex:0 0 16px}
+.part-nav svg path:not(:first-child){fill:#2563eb!important}
+.part-nav .btn-process svg{width:16px;height:16px;flex-basis:16px}
+.part-nav .btn-process svg path{fill:none!important;stroke:#2563eb!important;stroke-width:3;stroke-linejoin:round}
+
+/* 下载、保存参数、重新生成按钮使用普通字重和静态悬浮反馈，与文件操作按钮一致。 */
+.download-actions a,.parameter-actions .btn-regen{padding:8px 10px;border:1px solid var(--color-primary);border-radius:var(--radius-sm);background:#fff;color:var(--color-primary);font:400 12px/1.2 Inter,"PingFang SC",-apple-system,sans-serif;box-shadow:none;transition:background var(--transition-fast);transform:none}
+.download-actions a:hover,.parameter-actions .btn-regen:hover:not(:disabled){border-color:var(--color-primary);background:var(--color-primary-light);color:var(--color-primary);transform:none}
+.parameter-actions .btn-regen{margin-top:0}
+
+/* 零件推荐改用指定灯泡图标，缩小字号并取消左侧竖线。 */
+.parts-list .recommend{display:block;margin-top:5px;padding-left:0;border-left:0;color:#2563eb;font-size:10px;line-height:1.5;text-align:left}
+
+/* 左侧设计意图、解析资料和待澄清问题默认折叠。 */
+.workbench-disclosure>summary{list-style:none;margin-bottom:0;cursor:pointer}
+.workbench-disclosure>summary::-webkit-details-marker{display:none}
+.workbench-disclosure>summary::after{content:"⌄";margin-left:auto;color:var(--text-tertiary);font-size:13px;line-height:1;transition:transform var(--transition-fast)}
+.workbench-disclosure[open]>summary{margin-bottom:var(--space-md)}
+.workbench-disclosure[open]>summary::after{transform:rotate(180deg)}
+.evidence-disclosure .file-groups{margin-top:0}
+
+/* 2.1 当前主阶段按完成态显示；数字与阶段文字始终保持同一绿色。 */
+.main-step.completed,.main-step.workflow-nav-stage-done{color:var(--color-green)!important}
+.main-step.completed .main-step-number,.main-step.workflow-nav-stage-done .main-step-number{background:var(--color-green)!important;color:#fff!important}
+
+/* 设计意图、解析资料和开始解析各自作为独立分区，与下方折叠卡保持一致。 */
+.parse-action.panel-section{margin-top:0}
+
+/* 澄清确认按钮使用文件选择按钮样式；解析报告使用导航按钮样式。 */
+.issue-btn{padding:7px 10px;border:1px solid var(--color-primary);border-radius:var(--radius-sm);background:#fff;color:var(--color-primary);font-size:11px;font-weight:400;transition:background var(--transition-fast)}
+.issue-btn:hover{border-color:var(--color-primary);background:var(--color-primary-light);color:var(--color-primary)}
+.footer-bar .report-btn-large{display:inline-flex;align-items:center;justify-content:center;padding:9px 13px;border:1px solid #bfdbfe;border-radius:8px;background:#fff;color:#2563eb;font:600 13px/1.2 Inter,"PingFang SC",-apple-system,sans-serif;box-shadow:0 3px 12px rgba(30,64,175,.1);transition:.15s;cursor:pointer}
+.footer-bar .report-btn-large:hover:not(:disabled){border-color:#2563eb;background:#eff6ff;color:#2563eb;transform:translateY(-1px)}
+
+/* 开始解析使用实心蓝紫渐变按钮，恢复与原解析入口一致的视觉层级。 */
+.start-parse-btn{display:inline-flex;align-items:center;justify-content:center;padding:9px 13px;border:0;border-radius:8px;background:linear-gradient(135deg,#7c3aed,#3b82f6);color:#fff;-webkit-background-clip:border-box;background-clip:border-box;font:600 13px/1.2 Inter,"PingFang SC",-apple-system,sans-serif;box-shadow:0 3px 12px rgba(79,70,229,.3);transition:.15s}
+.start-parse-btn:hover:not(:disabled){border-color:transparent;background:linear-gradient(135deg,#6d28d9,#2563eb);color:#fff;transform:translateY(-1px);box-shadow:0 6px 16px rgba(79,70,229,.35)}
+
+/* 内嵌分析下方内容单独替换，零件几何摘要与入口始终保留在上方。 */
+.part-summary{margin-bottom:var(--space-md)}
+.inline-analysis-host{min-width:0}
+
+/* AI 校核只展示字段级补丁，弱证据修改必须由用户确认。 */
+.verification-panel summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--text-primary)}
+.verification-panel summary span{font-weight:400;color:var(--text-tertiary)}
+.verification-result{padding-top:8px;color:var(--text-secondary);font-size:10px;line-height:1.55}
+.verification-item{margin-top:7px;padding:8px;border:1px solid var(--border-light);border-radius:6px;background:var(--bg-page)}
+.verification-path{color:var(--text-primary);font-weight:600;word-break:break-all}.verification-change{margin-top:3px;color:var(--color-primary)}
+.verification-reason{margin-top:3px;color:var(--text-secondary)}.verification-actions{display:flex;gap:6px;margin-top:6px}
+.verification-actions button{padding:4px 7px;border-radius:5px;font-size:10px;cursor:pointer}

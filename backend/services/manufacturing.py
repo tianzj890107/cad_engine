@@ -15,6 +15,7 @@ from ..models.cost import WebSource
 from ..models.ir import DesignIR
 from ..models.manufacturing import ManufacturingRecommendation
 from . import llm_client as claude_client
+from . import sop
 
 SYSTEM_PROMPT = """你是资深电子陶瓷 / 先进封装制造工艺工程师。给定器件的结构化设计意图与
 已确定的材料方案,请完成「制造工艺路径规划和 BOM 编制」,输出结构化建议:
@@ -32,6 +33,12 @@ SYSTEM_PROMPT = """你是资深电子陶瓷 / 先进封装制造工艺工程师�
 4. **联网检索**:可用 web_search 查工艺/设备/参数区间作为依据,不要臆造精确数字;
    没有把握的写进 open_questions 并说明 assumptions。
 全程用中文,调用工具输出结构化 ManufacturingRecommendation。"""
+
+GENERAL_SYSTEM_PROMPT = """你是通用制造工艺工程师。根据当前项目零件、材料和结构化设计意图，
+输出 ManufacturingRecommendation：core_path 为符合零件类型的实际制造路径，additional 为必要
+附加工艺评估，bom 为按工序分解的通用工艺 BOM。没有企业设备数据时只写设备类别，不能编造设备
+编号或能力。不得主动引入流延、共烧、陶瓷金属化、半导体封装等行业工艺。缺关键输入时明确提出
+open_questions，不得用行业常识伪装成项目事实。"""
 
 
 def _context(ir: Optional[DesignIR], material_plan: Optional[dict], note: str, use_web: bool) -> str:
@@ -84,14 +91,21 @@ def recommend(
     note: str = "", web: bool = True,
 ) -> ManufacturingRecommendation:
     use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    profile = sop.industry_profile([
+        ir.device_name if ir else "", ir.design_intent if ir else "", note,
+        str(material_plan or ""), *[p.name for p in (ir.parts if ir else [])],
+    ])
+    knowledge, _ = sop.load("common", profile=profile)
     content = [
         claude_client.text_block(_context(ir, material_plan, note, use_web)),
         claude_client.text_block(claude_client.web_search_notice(use_web)),
+        claude_client.text_block("【行业路由与规则】\n" + knowledge),
     ]
     extra_tools = claude_client.web_search_tools(use_web)
     sources: list = []
     rec = claude_client.run(
-        SYSTEM_PROMPT, content, ManufacturingRecommendation,
+        SYSTEM_PROMPT if profile == "electronic_ceramics" else GENERAL_SYSTEM_PROMPT,
+        content, ManufacturingRecommendation,
         extra_tools=extra_tools, sources_out=sources,
     )
     have = {s.url for s in rec.search_sources}

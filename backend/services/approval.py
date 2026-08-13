@@ -1,8 +1,7 @@
 """
 报价审批与决策服务(报价流程第 6 步)。
 
-Claude 依据定价/协商结果研判应走的审批级别(1 销售总监 / 2 +财务联合 / 3 总经理董事长)
-与依据;平台据级别确定性生成审批链并按级流转。
+审批级别由公开的本地通用矩阵决定；模型只归纳风险与待澄清信息。
 """
 from __future__ import annotations
 
@@ -13,8 +12,8 @@ from ..models.cost import WebSource
 from ..models.ir import DesignIR
 from . import llm_client as claude_client
 
-SYSTEM_PROMPT = """你是高端电子陶瓷企业的报价管控负责人。给定该报价的定价方案与价格协商结果,
-请**研判应走的内部审批级别**(分级审批):
+SYSTEM_PROMPT = """你是制造企业的报价管控助手。平台已用确定性矩阵给出最低审批级别，
+你只负责归纳风险、分类和待澄清信息，不得降低平台级别。分级审批:
   级别 1 — 销售总监审核:常规订单,价格符合标准定价区间;
   级别 2 — 销售总监 + 财务负责人联合审核:非常规定价(大幅让利、特殊付款条件);
   级别 3 — 总经理/董事长审批:重大订单、战略客户、超权限定价。
@@ -23,6 +22,26 @@ SYSTEM_PROMPT = """你是高端电子陶瓷企业的报价管控负责人。给�
 标准定价区间、让利幅度、是否特殊付款条件、客户类型(是否战略客户)、是否超出销售授权。
 取"就高不就低"原则:命中任一更高级别条件即升级。summary 给审批要点/风险。
 缺背景的写进 open_questions、假设写进 assumptions。全程中文,调用工具输出结构化 ApprovalRecommendation。"""
+
+
+def determine_level(pricing: Optional[dict], pricenego: Optional[dict], note: str = "") -> tuple[int, str]:
+    """企业授权表缺失时采用保守、透明的通用矩阵。"""
+    pp, pn = pricing or {}, pricenego or {}
+    final_price = float(pn.get("agreed_price") or pp.get("final_price") or pp.get("suggested_price") or 0)
+    suggested = float(pp.get("suggested_price") or 0)
+    base_cost = float((pp.get("costs") or {}).get("base_cost") or 0)
+    quantity = float((pn.get("initial_quote") or {}).get("quantity") or 1)
+    amount = final_price * quantity
+    discount = ((suggested - final_price) / suggested * 100) if suggested > 0 and final_price > 0 else 0
+    margin = ((final_price - base_cost) / final_price * 100) if final_price > 0 and base_cost > 0 else None
+    corpus = f"{note} {(pn.get('initial_quote') or {}).get('payment_terms', '')}"
+    strategic = any(word in corpus for word in ("战略客户", "重大项目", "董事长", "总经理特批"))
+    special_payment = any(word in corpus for word in ("账期", "分期", "预付款低于", "特殊付款"))
+    if strategic or amount >= 1_000_000 or discount >= 15 or (margin is not None and margin < 5):
+        return 3, "通用保守矩阵命中重大金额、战略客户、大幅让利或极低毛利条件"
+    if special_payment or amount >= 200_000 or discount >= 5 or margin is None:
+        return 2, "通用矩阵命中较大金额、非常规付款、让利或毛利信息不完整条件"
+    return 1, "通用矩阵判定为常规金额、无明显非常规条款且价格风险可控"
 
 
 def _context(ir: Optional[DesignIR], pricing: Optional[dict], pricenego: Optional[dict], note: str) -> str:
@@ -54,15 +73,20 @@ def recommend(
     ir: Optional[DesignIR] = None, pricing: Optional[dict] = None,
     pricenego: Optional[dict] = None, note: str = "", web: bool = False,
 ) -> ApprovalRecommendation:
-    content = [claude_client.text_block(_context(ir, pricing, pricenego, note))]
-    extra_tools = [claude_client.WEB_SEARCH_TOOL] if web else None
+    level, reason = determine_level(pricing, pricenego, note)
+    content = [claude_client.text_block(
+        _context(ir, pricing, pricenego, note)
+        + f"\n\n【平台确定性结论】level={level}；{reason}。不得降低。"
+    )]
+    use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    extra_tools = claude_client.web_search_tools(use_web)
     sources: list = []
     rec = claude_client.run(
         SYSTEM_PROMPT, content, ApprovalRecommendation,
         extra_tools=extra_tools, sources_out=sources,
     )
-    if rec.level not in (1, 2, 3):
-        rec.level = 1
+    rec.level = level
+    rec.level_reason = reason
     have = {s.url for s in rec.search_sources}
     for s in sources:
         if s.get("url") and s["url"] not in have:

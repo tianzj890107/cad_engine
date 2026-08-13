@@ -21,8 +21,12 @@ from typing import Callable
 
 from ..storage import store
 from ..time_utils import now_cst_str
+from . import ai_governance
 
-_WORKERS = int(os.getenv("TASK_WORKERS", "4"))
+try:
+    _WORKERS = max(1, min(32, int(os.getenv("TASK_WORKERS", "4"))))
+except (TypeError, ValueError):
+    _WORKERS = 4
 _executor = ThreadPoolExecutor(max_workers=_WORKERS, thread_name_prefix="task")
 _cad_lock = threading.Lock()  # 串行化 CAD(OCCT 非线程安全)
 _submit_lock = threading.Lock()  # 防止双击/多标签页重复提交同一种昂贵任务
@@ -33,12 +37,22 @@ def _now() -> str:
     return now_cst_str()
 
 
-def submit(project_id: str, kind: str, fn: Callable[[], dict], cad: bool = False) -> str:
+def submit(
+    project_id: str,
+    kind: str,
+    fn: Callable[[], dict],
+    cad: bool = False,
+    *,
+    dedup_key: str | None = None,
+) -> str:
     """提交一个任务(fn 为零参可调用,返回 JSON 可序列化的结果),立即返回 task_id。"""
     with _submit_lock:
-        # 同一项目同一动作仍在运行时直接复用任务，避免重复的模型/CAD消耗。
+        # 只有业务输入完全相同的任务才复用。零件级任务、不同批量或不同补充
+        # 说明不能仅因 kind 相同就被错误合并。
+        effective_key = dedup_key or kind
         for task in store.list_tasks(project_id):
-            if task.get("kind") == kind and task.get("status") in {"queued", "running"}:
+            task_key = task.get("dedup_key") or task.get("kind")
+            if task_key == effective_key and task.get("status") in {"queued", "running"}:
                 return str(task["task_id"])
 
         task_id = uuid.uuid4().hex[:12]
@@ -46,6 +60,7 @@ def submit(project_id: str, kind: str, fn: Callable[[], dict], cad: bool = False
             "task_id": task_id,
             "project_id": project_id,
             "kind": kind,
+            "dedup_key": effective_key,
             "status": "queued",
             "progress": "排队中",
             "created_at": _now(),
@@ -54,11 +69,11 @@ def submit(project_id: str, kind: str, fn: Callable[[], dict], cad: bool = False
             "result": None,
             "error": None,
         })
-        _executor.submit(_run, project_id, task_id, fn, cad)
+        _executor.submit(_run, project_id, task_id, kind, fn, cad)
         return task_id
 
 
-def _run(project_id: str, task_id: str, fn: Callable[[], dict], cad: bool) -> None:
+def _run(project_id: str, task_id: str, kind: str, fn: Callable[[], dict], cad: bool) -> None:
     _update(project_id, task_id, status="running", progress="处理中", started_at=_now())
     try:
         if cad:
@@ -66,6 +81,10 @@ def _run(project_id: str, task_id: str, fn: Callable[[], dict], cad: bool) -> No
                 result = fn()
         else:
             result = fn()
+        if kind in ai_governance.AI_TASK_KINDS:
+            store.save_ai_result_metadata(
+                project_id, task_id, kind, ai_governance.metadata(kind, result)
+            )
         _update(project_id, task_id, status="succeeded", progress="完成",
                 finished_at=_now(), result=result)
     except Exception as e:  # noqa: BLE001 — 任务内任何异常都转成失败态
@@ -75,11 +94,7 @@ def _run(project_id: str, task_id: str, fn: Callable[[], dict], cad: bool) -> No
 
 
 def _update(project_id: str, task_id: str, **fields) -> None:
-    rec = store.get_task(project_id, task_id)
-    if not rec:
-        return
-    rec.update(fields)
-    store.save_task(project_id, rec)
+    store.update_task(project_id, task_id, **fields)
 
 
 def _safe_error(exc: Exception) -> str:

@@ -13,6 +13,7 @@ from ..models.assembly import AssemblyRecommendation
 from ..models.cost import WebSource
 from ..models.ir import DesignIR
 from . import llm_client as claude_client
+from . import sop
 
 SYSTEM_PROMPT = """你是资深电子陶瓷封装的组装与可靠性检测工程师。给定器件设计意图、已确定的
 材料方案(陶瓷主体/金属化)与制造工艺,请制定结构化的「组装与检测方案」:
@@ -30,6 +31,12 @@ SYSTEM_PROMPT = """你是资深电子陶瓷封装的组装与可靠性检测工�
 3. **联网检索**:可用 web_search 查焊料/胶粘剂参数与测试标准作为依据,不要臆造精确数字;
    不确定的写进 assumptions/open_questions。
 全程用中文,调用工具输出结构化 AssemblyRecommendation。"""
+
+GENERAL_SYSTEM_PROMPT = """你是通用机械产品装配与检验工程师。依据项目的零件关系、材料和制造路径，
+输出 AssemblyRecommendation。bonding_method 表示实际适用的连接/装配方式，assembly_steps 表示有序
+装配工步，tests 表示与功能和关键接口相匹配的检验项目。只有项目证据明确要求时才引入胶粘、钎焊、
+电性能、吸附力或气密性检测，不得默认陶瓷板与金属基座、静电吸附或氦检。缺少配合、公差或验收标准
+时写入 open_questions。"""
 
 
 def _context(ir: Optional[DesignIR], material_plan: Optional[dict],
@@ -69,14 +76,21 @@ def recommend(
     manufacturing_plan: Optional[dict] = None, note: str = "", web: bool = True,
 ) -> AssemblyRecommendation:
     use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    profile = sop.industry_profile([
+        ir.device_name if ir else "", ir.design_intent if ir else "", note,
+        str(material_plan or ""), str(manufacturing_plan or ""),
+    ])
+    knowledge, _ = sop.load("common", profile=profile)
     content = [
         claude_client.text_block(_context(ir, material_plan, manufacturing_plan, note, use_web)),
         claude_client.text_block(claude_client.web_search_notice(use_web)),
+        claude_client.text_block("【行业路由与规则】\n" + knowledge),
     ]
     extra_tools = claude_client.web_search_tools(use_web)
     sources: list = []
     rec = claude_client.run(
-        SYSTEM_PROMPT, content, AssemblyRecommendation,
+        SYSTEM_PROMPT if profile == "electronic_ceramics" else GENERAL_SYSTEM_PROMPT,
+        content, AssemblyRecommendation,
         extra_tools=extra_tools, sources_out=sources,
     )
     have = {s.url for s in rec.search_sources}

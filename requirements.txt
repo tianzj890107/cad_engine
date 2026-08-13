@@ -8,6 +8,10 @@ pydantic==2.10.4
 anthropic>=0.69.0
 # Responses API 后台任务、JSON 输出与取消支持。
 openai>=2.45.0
+# OpenAI/Qwen 客户端直接使用的网络与代理传输层；避免只依赖 SDK 的间接依赖。
+httpx>=0.27,<1
+# zoneinfo 在精简 Docker 镜像或 Windows 环境中读取 Asia/Shanghai 的时区数据库兜底。
+tzdata>=2025.1
 
 
 cadquery==2.5.2

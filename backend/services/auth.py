@@ -26,20 +26,35 @@ from ..config import (
 )
 from ..time_utils import now_cst_str
 
-ROLES = ("viewer", "engineer", "process_manager", "reviewer", "process_director", "admin")
+ROLES = (
+    "viewer", "engineer", "sales_manager", "process_manager", "reviewer", "process_director",
+    "sales_director", "finance_manager", "general_manager", "admin",
+)
 ROLE_LABEL = {
     "viewer": "只读用户",
     "engineer": "工艺工程师",
+    "sales_manager": "销售经理",
     "process_manager": "工艺技术经理",
     "reviewer": "校核人员（历史角色）",
     "process_director": "工艺技术总监",
+    "sales_director": "销售总监",
+    "finance_manager": "财务负责人",
+    "general_manager": "总经理/董事长",
     "admin": "系统管理员",
 }
 
 WRITE_ROLES = {"engineer", "process_manager", "admin"}  # 建模/改参/生成
 MANAGER_ROLES = {"process_manager", "admin"}               # 需求与评估报告主责
+SALES_MANAGER_ROLES = {"sales_manager"}                      # 客户信用等销售主数据录入
 REVIEW_ROLES = {"reviewer", "process_director", "admin"}  # 通用校核
 DIRECTOR_ROLES = {"process_director", "admin"}              # 需求/评估报告终审
+FINANCE_ROLES = {"finance_manager", "admin"}
+QUOTE_APPROVAL_ROLES = {"sales_director", "finance_manager", "general_manager", "admin"}
+QUOTE_NODE_BY_ROLE = {
+    "sales_director": "销售总监",
+    "finance_manager": "财务负责人",
+    "general_manager": "总经理/董事长",
+}
 ADMIN_ROLES = {"admin"}
 
 # 鉴权关闭时使用的隐式用户(保持旧行为)

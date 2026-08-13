@@ -1,17 +1,18 @@
 """阿里云百炼 Qwen 的 OpenAI Chat Completions 兼容客户端。
 
 Qwen 的视觉兼容接口是 /chat/completions，不是 OpenAI Responses API；因此独立实现，
-不改动现有 OpenAI / Anthropic 调用路径。默认 qwen3-vl-flash、关闭思考模式。
+不改动现有 OpenAI / Anthropic 调用路径。默认 qwen3-vl-plus；视觉 JSON 关闭思考，文本任务开启思考。
 """
 from __future__ import annotations
 
 import base64
 import contextvars
-import functools
 import json
 import os
 import threading
-from typing import Any, Dict, List, Type, TypeVar
+from enum import Enum
+from types import UnionType
+from typing import Any, Dict, List, Type, TypeVar, Union, get_args, get_origin
 
 import httpx
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
@@ -19,10 +20,11 @@ from pydantic import BaseModel, ValidationError
 
 from ..config import (
     LLM_MAX_ATTACHMENT_IMAGE_BYTES, LLM_MAX_ATTACHMENT_TEXT_CHARS, LLM_MAX_ATTACHMENTS,
-    QWEN_API_KEY, QWEN_BASE_URL, QWEN_ENABLE_THINKING, QWEN_MAX_OUTPUT_TOKENS,
-    QWEN_MAX_RETRIES, QWEN_MODEL, QWEN_PROXY_URL, QWEN_TEXT_MAX_OUTPUT_TOKENS,
+    QWEN_API_KEY, QWEN_BASE_URL, QWEN_MAX_OUTPUT_TOKENS,
+    QWEN_MAX_RETRIES, QWEN_SCHEMA_REPAIR_RETRIES, QWEN_MODEL, QWEN_PROXY_URL, QWEN_TEXT_MAX_OUTPUT_TOKENS,
     DATA_DIR, QWEN_TEXT_MODEL, QWEN_TEXT_MODELS, QWEN_TIMEOUT_SECONDS, QWEN_VISION_MAX_OUTPUT_TOKENS,
     QWEN_VISION_MODELS, QWEN_DASHSCOPE_BASE_URL, QWEN_WEB_SEARCH_MODELS,
+    QWEN_VISION_ENABLE_THINKING, QWEN_TEXT_ENABLE_THINKING,
 )
 from ..models.cost import WebSource
 
@@ -45,6 +47,9 @@ _last_used_model: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 # API 返回；仅保存在 data/ 内的权限收紧文件中，重启后依然生效。
 _runtime_path = DATA_DIR / "llm_runtime.json"
 _runtime_lock = threading.RLock()
+_client_lock = threading.RLock()
+_client: OpenAI | None = None
+_client_signature: tuple[str, str, str, float] | None = None
 
 
 def _clean_models(value: Any, fallback: tuple[str, ...]) -> tuple[str, ...]:
@@ -126,29 +131,51 @@ def configure_runtime_settings(*, api_key: str | None = None, base_url: str | No
         _unavailable_models["vision"].clear()
         _unavailable_models["text"].clear()
         _unavailable_models["web"].clear()
+        _close_cached_client()
     return runtime_settings()
 
 
 def get_client() -> OpenAI:
+    """Return a shared HTTP client instead of creating a connection pool per call."""
+    global _client, _client_signature
     with _runtime_lock:
         api_key = _runtime["api_key"]
         base_url = _runtime["base_url"]
     if not api_key:
         raise RuntimeError("未配置 QWEN_API_KEY。请在 .env 填入百炼 API Key 后重启服务。")
-    http_client = httpx.Client(
-        proxy=QWEN_PROXY_URL or None,
-        timeout=httpx.Timeout(QWEN_TIMEOUT_SECONDS, connect=30.0),
-        # httpx 默认会读取 HTTPS_PROXY；Qwen 需要直连时必须禁用它，
-        # 否则仍会误走仅为 OpenAI 配置的 Clash。
-        trust_env=False,
-    )
-    return OpenAI(
-        api_key=api_key,
-        base_url=base_url,
-        http_client=http_client,
-        max_retries=QWEN_MAX_RETRIES,
-        timeout=QWEN_TIMEOUT_SECONDS,
-    )
+    signature = (api_key, base_url, QWEN_PROXY_URL, float(QWEN_TIMEOUT_SECONDS))
+    with _client_lock:
+        if _client is not None and _client_signature == signature:
+            return _client
+        _close_cached_client()
+        http_client = httpx.Client(
+            proxy=QWEN_PROXY_URL or None,
+            timeout=httpx.Timeout(QWEN_TIMEOUT_SECONDS, connect=30.0),
+            # httpx 默认会读取 HTTPS_PROXY；Qwen 需要直连时必须禁用它，
+            # 否则仍会误走仅为 OpenAI 配置的 Clash。
+            trust_env=False,
+        )
+        _client = OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            http_client=http_client,
+            max_retries=QWEN_MAX_RETRIES,
+            timeout=QWEN_TIMEOUT_SECONDS,
+        )
+        _client_signature = signature
+        return _client
+
+
+def _close_cached_client() -> None:
+    global _client, _client_signature
+    with _client_lock:
+        if _client is not None:
+            try:
+                _client.close()
+            except Exception:
+                pass
+        _client = None
+        _client_signature = None
 
 
 def _media_type_for(filename: str) -> str:
@@ -181,7 +208,7 @@ def attachment_blocks(attachments) -> List[Dict[str, Any]]:
     blocks: List[Dict[str, Any]] = []
     attachments = list(attachments or [])
     for index, (name, data) in enumerate(attachments):
-        if index >= LLM_MAX_ATTACHMENTS:
+        if LLM_MAX_ATTACHMENTS > 0 and index >= LLM_MAX_ATTACHMENTS:
             blocks.append(text_block(f"【其余 {len(attachments) - index} 个佐证附件因上下文预算未发送给模型】"))
             break
         lower = (name or "").lower()
@@ -214,6 +241,24 @@ def _usage_summary(response) -> str:
         if isinstance(value, int):
             parts.append(f"{label} {value}")
     return "\n本次 token 用量: " + "，".join(parts) if parts else ""
+
+
+def _message_content(choice) -> str:
+    """兼容代理把 message.content 返回为字符串或内容块数组。"""
+    content = getattr(getattr(choice, "message", None), "content", None)
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        chunks: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                chunks.append(item)
+            elif isinstance(item, dict) and isinstance(item.get("text"), str):
+                chunks.append(item["text"])
+            elif isinstance(getattr(item, "text", None), str):
+                chunks.append(item.text)
+        return "".join(chunks)
+    return ""
 
 
 def _error_message(exc: Exception) -> str:
@@ -307,6 +352,121 @@ def _load_json_object(content: str) -> dict:
         return json.loads(value[start:end + 1])
 
 
+def _number_value(value: Any, *, integer: bool = False) -> Any:
+    """宽容读取模型偶尔返回的“约 12 分钟”“85%”等数值表达。"""
+    if isinstance(value, bool) or value is None or isinstance(value, (int, float)):
+        return value
+    import re
+    matched = re.search(r"-?\d+(?:\.\d+)?", str(value).replace(",", ""))
+    if not matched:
+        return value
+    number = float(matched.group())
+    if "%" in str(value):
+        number /= 100
+    return int(number) if integer else number
+
+
+def _unwrap_optional(annotation: Any) -> Any:
+    """取 Optional[T] 的 T；用于对 Pydantic 模型的已知字段做保守归一。"""
+    origin = get_origin(annotation)
+    if origin in (Union, UnionType):
+        non_none = [item for item in get_args(annotation) if item is not type(None)]
+        return non_none[0] if len(non_none) == 1 else annotation
+    return annotation
+
+
+def _normalise_model_payload(value: Any, model: Type[BaseModel]) -> Any:
+    """在 Pydantic 前处理无语义歧义的模型输出差异。
+
+    仅做确定性转换，不猜测缺失的工程数据：JSON 字符串转对象、单项转列表、
+    数值/布尔文本转标量、嵌套对象递归处理。各业务模型仍负责自己的字段别名和
+    专业枚举映射。
+    """
+    if isinstance(value, str):
+        try:
+            value = _load_json_object(value)
+        except (json.JSONDecodeError, ValueError):
+            return value
+    if not isinstance(value, dict):
+        return value
+    data = dict(value)
+    for field_name, field in model.model_fields.items():
+        if field_name not in data or data[field_name] is None:
+            continue
+        item = data[field_name]
+        annotation = _unwrap_optional(field.annotation)
+        origin = get_origin(annotation)
+        args = get_args(annotation)
+
+        if origin is list:
+            if isinstance(item, str):
+                try:
+                    decoded = json.loads(item)
+                    item = decoded if isinstance(decoded, list) else [decoded]
+                except json.JSONDecodeError:
+                    item = [item]
+            elif not isinstance(item, list):
+                item = [item]
+            nested = _unwrap_optional(args[0]) if args else Any
+            if isinstance(nested, type) and issubclass(nested, BaseModel):
+                # Qwen 偶尔会在结构化数组中混入 "无"、0、空对象或一行说明。
+                # 这类项没有可安全推断的业务含义；过滤单项比整次已付费调用失败更合理。
+                # 对仍保留的对象递归做数值/枚举/JSON 字符串归一，严格字段语义仍交给 Pydantic。
+                cleaned = []
+                required_fields = {
+                    name for name, nested_field in nested.model_fields.items()
+                    if nested_field.is_required()
+                }
+                for entry in item:
+                    normalized_entry = _normalise_model_payload(entry, nested)
+                    if not isinstance(normalized_entry, dict):
+                        # 型号联网核验的两个“推演建议”字段允许自然语言单项，
+                        # 其父模型的 field_validator 会把它规整为对象；不能在此提前丢弃。
+                        if (
+                            isinstance(normalized_entry, str)
+                            and model.__name__ == "ModelLookupResult"
+                            and field_name in {"proposed_components", "process_designs"}
+                        ):
+                            cleaned.append(normalized_entry)
+                        continue
+                    if any(name not in normalized_entry or normalized_entry[name] is None for name in required_fields):
+                        continue
+                    cleaned.append(normalized_entry)
+                item = cleaned
+            data[field_name] = item
+        elif origin is dict:
+            if isinstance(item, str):
+                try:
+                    decoded = json.loads(item)
+                    if isinstance(decoded, dict):
+                        data[field_name] = decoded
+                except json.JSONDecodeError:
+                    pass
+        elif isinstance(annotation, type) and issubclass(annotation, BaseModel):
+            data[field_name] = _normalise_model_payload(item, annotation)
+        elif annotation is float:
+            data[field_name] = _number_value(item)
+        elif annotation is int:
+            data[field_name] = _number_value(item, integer=True)
+        elif annotation is bool and isinstance(item, str):
+            normalized = item.strip().lower()
+            if normalized in {"true", "yes", "y", "1", "是", "有", "需要", "推荐"}:
+                data[field_name] = True
+            elif normalized in {"false", "no", "n", "0", "否", "无", "不需要", "不推荐"}:
+                data[field_name] = False
+        elif isinstance(annotation, type) and issubclass(annotation, Enum) and isinstance(item, str):
+            # 只接受恰好匹配的 enum 值；中文业务别名交由对应业务模型处理，避免误猜。
+            for candidate in annotation:
+                if item.strip().lower() == str(candidate.value).lower():
+                    data[field_name] = candidate.value
+                    break
+    return data
+
+
+def _validate_model_payload(output_model: Type[T], value: Any) -> T:
+    return output_model.model_validate(_normalise_model_payload(value, output_model))
+
+
 def _native_search_sources(payload: dict) -> list[WebSource]:
     """从 DashScope 原生响应提取来源；OpenAI 兼容 Chat 接口不会返回该字段。"""
     raw = ((payload.get("output") or {}).get("search_info") or {}).get("search_results") or []
@@ -356,6 +516,7 @@ def complete_to_model_with_web_search(
             },
         },
     }
+    base_web_user_content = json.dumps(user_payload, ensure_ascii=False)
     attempted: list[str] = []
     last_error: Exception | None = None
     proxy = QWEN_PROXY_URL or None
@@ -363,38 +524,48 @@ def complete_to_model_with_web_search(
         for model in _web_search_model_candidates():
             attempted.append(model)
             body["model"] = model
-            try:
-                response = client.post(
-                    QWEN_DASHSCOPE_BASE_URL,
-                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                    json=body,
-                )
-                if response.status_code >= 400:
-                    error = RuntimeError(f"HTTP {response.status_code}: {response.text[:600]}")
-                    setattr(error, "status_code", response.status_code)
-                    raise error
-                payload = response.json()
-                if payload.get("code"):
-                    error = RuntimeError(str(payload.get("message") or payload.get("code")))
-                    setattr(error, "status_code", payload.get("status_code") or 400)
-                    raise error
-                message = (((payload.get("output") or {}).get("choices") or [{}])[0].get("message") or {})
-                content = message.get("content")
-                if not isinstance(content, str) or not content.strip():
-                    raise RuntimeError("百炼联网搜索未返回可解析内容")
-                result = output_model.model_validate(_load_json_object(content))
-                _last_used_model.set(model)
-                usage = payload.get("usage") or {}
-                search_count = int((((usage.get("plugins") or {}).get("search") or {}).get("count")) or 0)
-                return result, {"model": model, "sources": _native_search_sources(payload), "search_count": search_count}
-            except (httpx.HTTPError, ValueError, ValidationError, json.JSONDecodeError, RuntimeError) as exc:
-                last_error = exc
-                status = getattr(exc, "status_code", None)
-                if status in {403, 404, 429}:
-                    with _pool_lock:
-                        _unavailable_models["web"].add(model)
-                    continue
-                break
+            body["input"]["messages"][1]["content"] = base_web_user_content
+            for repair_index in range(QWEN_SCHEMA_REPAIR_RETRIES + 1):
+                try:
+                    response = client.post(
+                        QWEN_DASHSCOPE_BASE_URL,
+                        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                        json=body,
+                    )
+                    if response.status_code >= 400:
+                        error = RuntimeError(f"HTTP {response.status_code}: {response.text[:600]}")
+                        setattr(error, "status_code", response.status_code)
+                        raise error
+                    payload = response.json()
+                    if payload.get("code"):
+                        error = RuntimeError(str(payload.get("message") or payload.get("code")))
+                        setattr(error, "status_code", payload.get("status_code") or 400)
+                        raise error
+                    message = (((payload.get("output") or {}).get("choices") or [{}])[0].get("message") or {})
+                    content = message.get("content")
+                    if not isinstance(content, str) or not content.strip():
+                        raise RuntimeError("百炼联网搜索未返回可解析内容")
+                    result = _validate_model_payload(output_model, _load_json_object(content))
+                    _last_used_model.set(model)
+                    usage = payload.get("usage") or {}
+                    search_count = int((((usage.get("plugins") or {}).get("search") or {}).get("count")) or 0)
+                    return result, {"model": model, "sources": _native_search_sources(payload), "search_count": search_count}
+                except (httpx.HTTPError, ValueError, ValidationError, json.JSONDecodeError, RuntimeError) as exc:
+                    last_error = exc
+                    status = getattr(exc, "status_code", None)
+                    if status in {403, 404, 429}:
+                        with _pool_lock:
+                            _unavailable_models["web"].add(model)
+                        break
+                    if repair_index < QWEN_SCHEMA_REPAIR_RETRIES:
+                        body["input"]["messages"][1]["content"] = (
+                            json.dumps(user_payload, ensure_ascii=False)
+                            + "\n\n上一次输出未通过本地结构校验，请重新完整输出合法 JSON；不要输出 Markdown。"
+                            + f"校验错误：{exc}"
+                        )
+                        body["parameters"]["max_tokens"] = min(QWEN_MAX_OUTPUT_TOKENS, max(max_tokens, 12000))
+                        continue
+                    break
     suffix = f" 已按顺序尝试：{', '.join(attempted)}。" if attempted else ""
     if last_error:
         raise RuntimeError("Qwen 型号联网核验失败：" + str(last_error) + suffix) from last_error
@@ -409,54 +580,117 @@ def run(
     max_tokens: int | None = None,
     sources_out: list | None = None,
 ) -> T:
-    """以单次同步 Chat Completions 调用得到 JSON；从不自动重发图纸。"""
+    """调用多模态/文本模型得到 JSON，并自动进行网络与结构化修复重试。
+
+    业务 schema 仍然严格校验，防止不完整尺寸进入 CAD；这不是成本限制。
+    团队 API 模式下网络失败、模型切换和 JSON/Pydantic 修复都在这里完成，
+    调用方不需要让用户重新上传图纸。
+    """
     if extra_tools:
         raise RuntimeError("Qwen 路径暂不支持本项目的联网检索；请关闭“联网检索”后重试，或切回 OpenAI。")
     if sources_out is not None:
         sources_out.clear()
     vision = _is_vision(user_content)
     limit = max_tokens or (QWEN_VISION_MAX_OUTPUT_TOKENS if vision else QWEN_TEXT_MAX_OUTPUT_TOKENS)
+    base_user_content = [text_block("请按要求输出 JSON。"), *user_content]
     request_args: Dict[str, Any] = {
         "messages": [
             {"role": "system", "content": _instruction(system_prompt)},
-            {"role": "user", "content": [text_block("请按要求输出 JSON。"), *user_content]},
+            {"role": "user", "content": base_user_content},
         ],
         "response_format": {"type": "json_object"},
         "max_tokens": min(limit, QWEN_MAX_OUTPUT_TOKENS),
-        "extra_body": {"enable_thinking": QWEN_ENABLE_THINKING},
+        "extra_body": {
+            "enable_thinking": QWEN_VISION_ENABLE_THINKING if vision else QWEN_TEXT_ENABLE_THINKING
+        },
     }
     attempted: list[str] = []
     response = None
     last_error: Exception | None = None
+    validation_errors: list[str] = []
     for model in _model_candidates(vision):
         attempted.append(model)
-        try:
-            response = get_client().chat.completions.create(model=model, **request_args)
-            _last_used_model.set(model)
-            break
-        except (APIConnectionError, APIStatusError, APITimeoutError) as exc:
-            last_error = exc
-            if _should_switch_model(exc):
-                _mark_model_unavailable(model, vision)
+        for repair_index in range(QWEN_SCHEMA_REPAIR_RETRIES + 1):
+            try:
+                response = get_client().chat.completions.create(model=model, **request_args)
+                _last_used_model.set(model)
+            except (APIConnectionError, APIStatusError, APITimeoutError) as exc:
+                last_error = exc
+                if _should_switch_model(exc):
+                    _mark_model_unavailable(model, vision)
+                    break
+                # 网络超时/连接异常允许 SDK 重试；重试耗尽后继续下一个同能力模型。
+                if repair_index < QWEN_SCHEMA_REPAIR_RETRIES:
+                    continue
+                break
+
+            choice = response.choices[0] if getattr(response, "choices", None) else None
+            content = _message_content(choice)
+            finish_reason = getattr(choice, "finish_reason", None)
+            if not content.strip() or finish_reason in {"length", "max_tokens"}:
+                last_error = RuntimeError(
+                    f"Qwen 输出未完整结束（finish_reason={finish_reason or 'unknown'}）。"
+                    + _usage_summary(response)
+                )
+                if repair_index < QWEN_SCHEMA_REPAIR_RETRIES:
+                    request_args["messages"] = [
+                        {"role": "system", "content": _instruction(system_prompt)},
+                        {"role": "user", "content": [
+                            *base_user_content,
+                            text_block("上一次没有返回完整 JSON。请重新完整输出，不要省略任何必填字段。"),
+                        ]},
+                    ]
+                    continue
+                break
+            try:
+                return _validate_model_payload(output_model, _load_json_object(content))
+            except (json.JSONDecodeError, ValidationError, TypeError, ValueError) as exc:
+                validation_errors.append(f"{model}: {exc}{_usage_summary(response)}")
+                last_error = exc
+                if repair_index >= QWEN_SCHEMA_REPAIR_RETRIES:
+                    break
+                request_args["messages"] = [
+                    {"role": "system", "content": _instruction(system_prompt)},
+                    {"role": "user", "content": [
+                        *base_user_content,
+                        text_block(
+                            "上一次输出未通过本地字段校验。请保留原图事实，重新输出完整 JSON；"
+                            f"不要输出 Markdown。校验错误如下：{exc}"
+                        ),
+                    ]},
+                ]
+                # 修复调用给视觉结果更大的输出空间，避免上一轮被截断。
+                request_args["max_tokens"] = min(
+                    QWEN_MAX_OUTPUT_TOKENS,
+                    max(int(request_args["max_tokens"]), 24000 if vision else 12000),
+                )
                 continue
-            raise RuntimeError(_error_message(exc)) from exc
+        request_args["messages"] = [
+            {"role": "system", "content": _instruction(system_prompt)},
+            {"role": "user", "content": base_user_content},
+        ]
     if response is None:
         suffix = f" 已按顺序尝试：{', '.join(attempted)}。" if attempted else ""
         if last_error is not None:
             raise RuntimeError(_error_message(last_error) + suffix) from last_error
         raise RuntimeError("Qwen 未配置可用模型候选池。")
-    choice = response.choices[0] if getattr(response, "choices", None) else None
-    content = getattr(getattr(choice, "message", None), "content", None)
-    if not isinstance(content, str) or not content.strip():
-        finish_reason = getattr(choice, "finish_reason", None)
-        raise RuntimeError(f"Qwen 未返回可解析内容（finish_reason={finish_reason or 'unknown'}）。" + _usage_summary(response))
-    try:
-        return output_model.model_validate(json.loads(content))
-    except (json.JSONDecodeError, ValidationError) as exc:
+    # 某个模型可能已经返回过内容，随后候选模型全部网络失败；不能因为 response
+    # 不是 None 就丢掉最后一次 HTTP 状态码和代理诊断。
+    if last_error is not None and (
+        isinstance(last_error, (APIConnectionError, APIStatusError, APITimeoutError))
+        or getattr(last_error, "status_code", None) is not None
+    ):
+        suffix = f" 已按顺序尝试：{', '.join(attempted)}。" if attempted else ""
+        raise RuntimeError(_error_message(last_error) + suffix) from last_error
+    detail = "；".join(validation_errors[-3:])
+    if detail:
         raise RuntimeError(
-            "Qwen 已返回结果，但字段未通过本地数据校验；系统未自动重试，避免再次发送图纸产生额外费用。"
-            f" 校验详情: {exc}" + _usage_summary(response)
-        ) from exc
+            "Qwen 已按视觉/文本能力池及结构化修复策略重试，但仍未通过本地字段校验。"
+            f" 校验详情: {detail}"
+        ) from last_error
+    if last_error:
+        raise RuntimeError(str(last_error)) from last_error
+    raise RuntimeError("Qwen 未返回可解析结果。")
 
 
 def parse_image_to_model(image_bytes: bytes, filename: str, system_prompt: str, user_instruction: str, output_model: Type[T]) -> T:

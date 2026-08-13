@@ -16,6 +16,7 @@ from ..models.material import (
 )
 from ..time_utils import now_cst_str
 from . import llm_client as claude_client
+from . import sop
 
 SYSTEM_PROMPT = """你是资深电子陶瓷 / 封装基板材料工程师。给定一个器件的结构化设计意图
 (零件、材料、特征、尺寸)与可选补充说明,请完成「材料定性与供应链拆解」,输出结构化建议:
@@ -32,6 +33,12 @@ SYSTEM_PROMPT = """你是资深电子陶瓷 / 封装基板材料工程师。给�
 4. **联网检索**:用 web_search 查材料特性区间、当前行情与可能的供应商公开信息作为依据,
    不要臆造精确数字;没有把握的写进 open_questions 并说明假设(assumptions)。
 全程用中文填写各字段,调用工具输出结构化 MaterialRecommendation。"""
+
+GENERAL_SYSTEM_PROMPT = """你是通用机械产品材料工程师。请仅依据项目零件、功能、环境和制造约束，
+输出结构化 MaterialRecommendation。body_candidates 表示通用候选材料；body_recommended 和
+body_rationale 表示推荐牌号及理由。仅当项目证据明确要求浆料/涂层/镀层时填写 paste/layers，
+否则保持空数组。requirements 可表示原材料采购验收要求；没有依据时留空并提出 open_questions。
+不得主动引入陶瓷粉体、金属化、半导体封装等行业专用方案。"""
 
 
 def _context(ir: Optional[DesignIR], note: str, use_web: bool) -> str:
@@ -63,14 +70,22 @@ def recommend(
     ir: Optional[DesignIR] = None, note: str = "", web: bool = True,
 ) -> MaterialRecommendation:
     use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    profile = sop.industry_profile([
+        ir.device_name if ir else "", ir.design_intent if ir else "", note,
+        *[p.name for p in (ir.parts if ir else [])],
+        *[p.material.spec for p in (ir.parts if ir else []) if p.material],
+    ])
+    knowledge, _ = sop.load("common", profile=profile)
     content = [
         claude_client.text_block(_context(ir, note, use_web)),
         claude_client.text_block(claude_client.web_search_notice(use_web)),
+        claude_client.text_block("【行业路由与规则】\n" + knowledge),
     ]
     extra_tools = claude_client.web_search_tools(use_web)
     sources: list = []
     rec = claude_client.run(
-        SYSTEM_PROMPT, content, MaterialRecommendation,
+        SYSTEM_PROMPT if profile == "electronic_ceramics" else GENERAL_SYSTEM_PROMPT,
+        content, MaterialRecommendation,
         extra_tools=extra_tools, sources_out=sources,
     )
     # 合并平台收集到的检索来源(去重)

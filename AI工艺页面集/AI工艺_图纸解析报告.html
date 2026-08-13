@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 工艺 - 图纸解析报告</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --color-primary: #3B82F6;
+      --color-primary-light: #EFF6FF;
+      --color-green: #10B981;
+      --color-green-light: #ECFDF5;
+      --color-orange: #F59E0B;
+      --color-orange-light: #FFFBEB;
+      --color-red: #EF4444;
+      --color-red-light: #FEF2F2;
+      --color-purple: #7C3AED;
+      --color-purple-light: #F5F3FF;
+
+      --bg-page: #F5F5F5;
+      --bg-card: #FFFFFF;
+      --bg-header: #F9FAFB;
+
+      --text-primary: #1F2937;
+      --text-secondary: #6B7280;
+      --text-tertiary: #9CA3AF;
+
+      --border-color: #E5E7EB;
+      --border-light: #F3F4F6;
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 12px;
+      --space-lg: 16px;
+      --space-xl: 20px;
+      --space-2xl: 24px;
+      --space-3xl: 32px;
+
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', 'PingFang SC', -apple-system, sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .page-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: var(--space-xl);
+      position: relative;
+    }
+
+    /* Back Button */
+    .back-button {
+      position: fixed;
+      top: var(--space-xl);
+      left: var(--space-xl);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: var(--space-sm) var(--space-md);
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--color-primary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      z-index: 100;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .back-button:hover {
+      background-color: var(--color-primary-light);
+      border-color: var(--color-primary);
+      box-shadow: var(--shadow-md);
+    }
+
+    .back-button svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Report Header */
+    .report-header {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: var(--space-2xl);
+      margin-bottom: var(--space-xl);
+      text-align: center;
+    }
+
+    .report-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: var(--space-lg);
+    }
+
+    .report-meta {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-md);
+      text-align: left;
+      margin-top: var(--space-xl);
+      padding-top: var(--space-xl);
+      border-top: 1px solid var(--border-color);
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-xs);
+    }
+
+    .meta-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .meta-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* Section Cards */
+    .section-card {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      margin-bottom: var(--space-xl);
+      overflow: hidden;
+    }
+
+    .section-header {
+      background-color: var(--bg-header);
+      padding: var(--space-lg) var(--space-xl);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+    }
+
+    .section-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .section-icon.blue {
+      background-color: var(--color-primary-light);
+      color: var(--color-primary);
+    }
+
+    .section-icon.green {
+      background-color: var(--color-green-light);
+      color: var(--color-green);
+    }
+
+    .section-icon.orange {
+      background-color: var(--color-orange-light);
+      color: var(--color-orange);
+    }
+
+    .section-icon.purple {
+      background-color: var(--color-purple-light);
+      color: var(--color-purple);
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .section-content {
+      padding: var(--space-xl);
+    }
+
+    /* Info Table */
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .info-table td {
+      padding: var(--space-md) var(--space-lg);
+      border-bottom: 1px solid var(--border-light);
+      vertical-align: top;
+    }
+
+    .info-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .info-table td:first-child {
+      width: 200px;
+      background-color: var(--bg-header);
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .info-table td:last-child {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    /* Content List */
+    .content-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+    }
+
+    .content-list li {
+      padding: var(--space-md) var(--space-lg);
+      background-color: var(--bg-header);
+      border-radius: var(--radius-md);
+      border-left: 3px solid var(--color-primary);
+    }
+
+    /* Parameter Table */
+    .param-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .param-table th {
+      background-color: var(--color-primary);
+      color: white;
+      padding: var(--space-md) var(--space-lg);
+      text-align: left;
+      font-weight: 600;
+    }
+
+    .param-table td {
+      padding: var(--space-md) var(--space-lg);
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: top;
+    }
+
+    .param-table tr:nth-child(even) {
+      background-color: var(--bg-header);
+    }
+
+    .param-table tr:hover {
+      background-color: var(--color-primary-light);
+    }
+
+    /* Process Steps */
+    .process-steps {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-lg);
+    }
+
+    .process-step {
+      display: flex;
+      gap: var(--space-lg);
+      padding: var(--space-lg);
+      background-color: var(--bg-header);
+      border-radius: var(--radius-md);
+      transition: all var(--transition-fast);
+    }
+
+    .process-step:hover {
+      background-color: var(--color-primary-light);
+      transform: translateX(4px);
+    }
+
+    .step-number {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: var(--color-primary);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .step-content {
+      flex: 1;
+    }
+
+    .step-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: var(--space-sm);
+    }
+
+    .step-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Footer */
+    .report-footer {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: var(--space-xl);
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .report-meta {
+        grid-template-columns: 1fr;
+      }
+
+      .info-table td:first-child {
+        width: 150px;
+      }
+
+      .process-step {
+        flex-direction: column;
+        gap: var(--space-md);
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Back Button -->
+  <button class="back-button" onclick="history.back()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="19" y1="12" x2="5" y2="12"></line>
+      <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    返回
+  </button>
+
+  <div class="page-container">
+    <!-- Report Header -->
+    <div class="report-header">
+      <h1 class="report-title">图纸解析报告</h1>
+      <div class="report-meta">
+        <div class="meta-item">
+          <span class="meta-label">图纸解析报告编号</span>
+          <span class="meta-value">PR-ESC-20260625-001</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">对应需求单号</span>
+          <span class="meta-value">REQ01234520260625001</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">解析人/日期</span>
+          <span class="meta-value">工艺工程师：张工 / 2026-06-25</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">客户代号</span>
+          <span class="meta-value">浙江富春江功率半导体科技有限公司</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">产品名称</span>
+          <span class="meta-value">12英寸氮化铝静电吸盘 (ESC)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 1: Drawing Overview -->
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-icon blue">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        </div>
+        <h2 class="section-title">一、图纸解析报告</h2>
+      </div>
+      <div class="section-content">
+        <table class="info-table">
+          <tr>
+            <td>1. 图纸概览与完整性检查</td>
+            <td>已完成对上传的3D模型（STEP格式）和2D图纸（DWG/PDF格式）的完整性检查，所有视图齐全，尺寸标注清晰，技术要求明确。</td>
+          </tr>
+          <tr>
+            <td>2. 关键结构解析</td>
+            <td>识别出陶瓷基板、内部电极层、He气孔阵列、冷却流道等关键结构特征。电极采用多层钨浆料印刷叠层结构，He气孔直径Φ0.3mm，间距5mm。</td>
+          </tr>
+          <tr>
+            <td>3. 设计意图与工艺难点解析</td>
+            <td>设计目标为实现高平面度（≤5μm）、优异的热传导性能和稳定的静电吸附力。主要工艺难点在于氮化铝与钨电极的高温共烧匹配、微孔加工精度控制。</td>
+          </tr>
+          <tr>
+            <td>4. 初步风险评估</td>
+            <td>共烧工艺良率存在不确定性，需通过DOE实验优化温度曲线；微孔加工可能产生崩边，需采用激光精密加工并优化参数。</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 2: Key Parameters -->
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-icon green">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="3" y1="9" x2="21" y2="9"></line>
+            <line x1="9" y1="21" x2="9" y2="9"></line>
+          </svg>
+        </div>
+        <h2 class="section-title">二、关键参数提取表</h2>
+      </div>
+      <div class="section-content">
+        <table class="param-table">
+          <thead>
+            <tr>
+              <th style="width: 150px;">参数类别</th>
+              <th style="width: 200px;">参数名称</th>
+              <th style="width: 250px;">图纸标注值/要求</th>
+              <th>工艺转化说明/内部标准</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="2"><strong>基础规格</strong></td>
+              <td>外形尺寸</td>
+              <td>Φ300 ±0.5 mm</td>
+              <td>磨削后终检，公差±0.2mm内控</td>
+            </tr>
+            <tr>
+              <td>总厚度</td>
+              <td>12.0 ±0.1 mm</td>
+              <td>双面研磨保证，平面度≤5μm</td>
+            </tr>
+            <tr>
+              <td rowspan="3"><strong>尺寸与精度</strong></td>
+              <td>平面度</td>
+              <td>≤5 μm</td>
+              <td>采用高精度平面磨床+抛光工艺</td>
+            </tr>
+            <tr>
+              <td>平行度</td>
+              <td>≤10 μm</td>
+              <td>双面同时加工保证</td>
+            </tr>
+            <tr>
+              <td>表面粗糙度</td>
+              <td>Ra ≤0.4 μm</td>
+              <td>金刚石研磨+化学机械抛光</td>
+            </tr>
+            <tr>
+              <td rowspan="2"><strong>性能与电学</strong></td>
+              <td>介电常数</td>
+              <td>≥8.5 @1MHz</td>
+              <td>氮化铝纯度≥99.5%，致密度≥98%</td>
+            </tr>
+            <tr>
+              <td>绝缘电阻</td>
+              <td>≥10^10 Ω</td>
+              <td>高温共烧后测试，无击穿现象</td>
+            </tr>
+            <tr>
+              <td><strong>洁净度</strong></td>
+              <td>颗粒度管控</td>
+              <td>Class 100洁净室生产</td>
+              <td>全程超净环境，最终清洗后粒子数≤10个/cm²</td>
+            </tr>
+            <tr>
+              <td rowspan="2"><strong>特殊结构</strong></td>
+              <td>He气孔</td>
+              <td>Φ0.3mm，间距5mm，深度8mm</td>
+              <td>激光钻孔，孔径公差±0.05mm，垂直度≤0.1mm</td>
+            </tr>
+            <tr>
+              <td>冷却流道</td>
+              <td>宽度2mm，深度1.5mm</td>
+              <td>机械加工+超声波清洗，确保无毛刺</td>
+            </tr>
+            <tr>
+              <td><strong>图纸标注特殊要求</strong></td>
+              <td colspan="3">所有锐角倒钝R0.2-0.5mm；严禁使用含铜、锌工具接触产品表面；包装前进行氦质谱检漏，漏率≤1×10^-9 Pa·m³/s</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 3: Process Conversion -->
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-icon purple">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </div>
+        <h2 class="section-title">三、工艺转化初稿（概要）</h2>
+      </div>
+      <div class="section-content">
+        <p style="margin-bottom: var(--space-lg); color: var(--text-secondary); font-size: 13px;">
+          基于以上解析，初步确定的工艺路线概要如下：
+        </p>
+        <div class="process-steps">
+          <div class="process-step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+              <div class="step-title">粉体处理与流延成型</div>
+              <div class="step-desc">选用高纯氮化铝（AlN）粉体，通过流延成型工艺制备厚度均匀的陶瓷生坯。</div>
+            </div>
+          </div>
+          <div class="process-step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+              <div class="step-title">电极印刷与叠层</div>
+              <div class="step-desc">在生坯上丝网印刷钨（W）电极浆料，并按设计将多层生坯精确叠层，形成内部电极结构。</div>
+            </div>
+          </div>
+          <div class="process-step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+              <div class="step-title">温等静压（WIP）与排胶</div>
+              <div class="step-desc">对叠层生坯进行温等静压，使其紧密结合，然后进行排胶处理，去除有机粘结剂。</div>
+            </div>
+          </div>
+          <div class="process-step">
+            <div class="step-number">4</div>
+            <div class="step-content">
+              <div class="step-title">高温共烧</div>
+              <div class="step-desc">最关键工序。在气氛保护烧结炉中，按特定温度曲线进行高温共烧，使氮化铝陶瓷和钨电极同时致密化，形成牢固的一体结构。</div>
+            </div>
+          </div>
+          <div class="process-step">
+            <div class="step-number">5</div>
+            <div class="step-content">
+              <div class="step-title">精密加工</div>
+              <div class="step-desc">利用高精度磨床和激光加工设备，对烧结后的陶瓷体进行研磨、抛光及微孔（He Hole）加工。</div>
+            </div>
+          </div>
+          <div class="process-step">
+            <div class="step-number">6</div>
+            <div class="step-content">
+              <div class="step-title">清洗与检测</div>
+              <div class="step-desc">进行严格的化学清洗和洁净度管控，并对所有关键尺寸、电性能和氦气漏率进行100%检测。</div>
+            </div>
+          </div>
+          <div class="process-step">
+            <div class="step-number">7</div>
+            <div class="step-content">
+              <div class="step-title">钎焊/粘接组装</div>
+              <div class="step-desc">将加工完成的陶瓷基板与铝合金基座板进行钎焊或粘接。</div>
+            </div>
+          </div>
+          <div class="process-step">
+            <div class="step-number">8</div>
+            <div class="step-content">
+              <div class="step-title">成品终检与包装</div>
+              <div class="step-desc">完成最终性能测试后，在超净环境中进行真空包装。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="report-footer">
+      <p>本报告由AI工艺评估系统自动生成 · 生成时间：2026-06-25 14:30:00</p>
+      <p style="margin-top: var(--space-sm);">江丰半导体 · 工艺技术部</p>
+    </div>
+  </div>
+</body>
+</html>

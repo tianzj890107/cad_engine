@@ -16,13 +16,13 @@ from ..models.costest import CostEstimateRecommendation, CostTotals
 from ..models.ir import DesignIR
 from . import llm_client as claude_client
 
-SYSTEM_PROMPT = """你是资深应成本/报价工程师(电子陶瓷/先进封装)。给定器件设计意图、材料方案、
+SYSTEM_PROMPT = """你是通用制造业成本/报价工程师。给定产品设计意图、材料方案、
 制造工艺路径与 BOM,请做**专业的成本测算**,输出结构化明细:
 
-1. **材料成本(material_costs)**:核算超高纯金属/陶瓷粉体等核心原材料的**单位用量成本**,
+1. **材料成本(material_costs)**:按项目 BOM 核算核心原材料的**单位用量成本**,
    给出规格、单位用量、单价、金额,并**联网检索当前市场价格**写明来源(market_price_source)
    与**供应稳定性**(supply_stability:高/中/低及原因)。金额按 用量×单价 估算并计损耗。
-2. **制造成本(manufacturing_costs)**:对流延、共烧、精密加工等**关键工序逐道**核算
+2. **制造成本(manufacturing_costs)**:对项目实际制造路径中的**关键工序逐道**核算
    人工(labor_cost)、设备折旧(equipment_depreciation)、能耗(energy_cost)及其它,给出工序小计与依据。
 3. **技术附加成本(technical_costs)**:定制化研发、客户验证、特殊检测项目的**成本分摊**
    (basis 写明分摊依据,如一次性投入÷批量)。
@@ -77,8 +77,10 @@ def recommend(
     ir: Optional[DesignIR] = None, material_plan: Optional[dict] = None,
     manufacturing_plan: Optional[dict] = None, note: str = "", web: bool = True,
 ) -> CostEstimateRecommendation:
-    content = [claude_client.text_block(_context(ir, material_plan, manufacturing_plan, note))]
-    extra_tools = [claude_client.WEB_SEARCH_TOOL] if web else None
+    use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    content = [claude_client.text_block(_context(ir, material_plan, manufacturing_plan, note)),
+               claude_client.text_block(claude_client.web_search_notice(use_web))]
+    extra_tools = claude_client.web_search_tools(use_web)
     sources: list = []
     rec = claude_client.run(
         SYSTEM_PROMPT, content, CostEstimateRecommendation,

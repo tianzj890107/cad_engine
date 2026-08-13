@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 工艺平台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --color-primary: #3B82F6;
+      --color-primary-hover: #2563EB;
+      --color-primary-light: #EFF6FF;
+      --color-purple: #7C3AED;
+      --color-purple-light: #F5F3FF;
+      --color-green: #10B981;
+      --color-green-light: #ECFDF5;
+      --color-warning: #F59E0B;
+      --color-warning-light: #FFFBEB;
+      --color-red: #EF4444;
+      --color-orange: #F97316;
+      --color-orange-light: #FFF7ED;
+
+      --bg-page: #F5F5F5;
+      --bg-card: #FFFFFF;
+      --bg-hover: #F9FAFB;
+
+      --text-primary: #1F2937;
+      --text-secondary: #6B7280;
+      --text-tertiary: #9CA3AF;
+
+      --border-color: #E5E7EB;
+      --border-light: #F3F4F6;
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 12px;
+      --space-lg: 16px;
+      --space-xl: 20px;
+      --space-2xl: 24px;
+
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-full: 999px;
+
+      --transition-fast: 150ms ease;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', 'PingFang SC', -apple-system, sans-serif;
+      background: linear-gradient(135deg, #f5f3ff 0%, #eff6ff 100%);
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    .page-container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: var(--space-xl) var(--space-2xl);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ===== Header ===== */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-xl);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--color-purple), var(--color-primary));
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .logo-text {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+    }
+
+    .user-id {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--color-purple), var(--color-primary));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    /* ===== Main Chat Area ===== */
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Greeting */
+    .greeting {
+      text-align: center;
+      margin-bottom: var(--space-xl);
+    }
+
+    .greeting-title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: var(--space-sm);
+    }
+
+    .greeting-title .highlight {
+      background: linear-gradient(135deg, var(--color-purple), var(--color-primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .greeting-subtitle {
+      font-size: 16px;
+      color: var(--text-secondary);
+    }
+
+    /* Category Tags */
+    .category-tags {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-sm);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-xl);
+    }
+
+    .category-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-xs);
+      padding: var(--space-sm) var(--space-lg);
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .category-tag:hover {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+      background-color: var(--color-primary-light);
+    }
+
+    .category-tag.active {
+      background-color: var(--color-primary);
+      border-color: var(--color-primary);
+      color: white;
+    }
+
+    /* Unified Input Card */
+    .unified-input-card {
+      background-color: var(--bg-card);
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      padding: 24px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .unified-content {
+      margin-bottom: 16px;
+    }
+
+    .unified-intro {
+      font-size: 15px;
+      color: var(--text-primary);
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .unified-formats-line {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 14px;
+    }
+
+    .format-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: 8px;
+    }
+
+    .format-label {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    .format-tags-row {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 4px;
+    }
+
+    .format-tag-inline {
+      padding: 3px 8px;
+      background-color: var(--bg-page);
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .unified-textarea {
+      width: 100%;
+      padding: 12px 0;
+      border: none;
+      outline: none;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text-primary);
+      resize: none;
+      line-height: 1.6;
+      background: transparent;
+    }
+
+    .unified-textarea::placeholder {
+      color: var(--text-tertiary);
+    }
+
+    .unified-input-area {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-light);
+    }
+
+    .upload-section {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--color-primary);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .upload-section svg {
+      color: var(--color-primary);
+    }
+
+    .char-counter {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    .send-btn {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--color-purple), var(--color-primary));
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 150ms ease;
+    }
+
+    .send-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+    }
+
+    /* ===== List Section ===== */
+    .list-section {
+      background-color: var(--bg-card);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      padding: 14px;
+    }
+
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .list-tabs {
+      display: flex;
+      gap: 20px;
+    }
+
+    .list-tab {
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      position: relative;
+      padding-bottom: 6px;
+    }
+
+    .list-tab.active {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .list-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: var(--text-primary);
+    }
+
+    .search-box {
+      display: flex;
+      gap: 6px;
+    }
+
+    .search-input {
+      padding: 6px 10px;
+      background-color: var(--bg-page);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 12px;
+      width: 150px;
+    }
+
+    .search-btn {
+      padding: 6px 12px;
+      background-color: var(--bg-page);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    /* Card Grid */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .request-card {
+      background-color: var(--bg-page);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 150ms ease;
+    }
+
+    .request-card:hover {
+      border-color: var(--color-primary);
+      box-shadow: var(--shadow-md);
+    }
+
+    .request-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .request-id {
+      color: var(--color-primary);
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .request-status {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 500;
+      margin-left: auto;
+    }
+
+    /* Unified Status Styles */
+    .status-submitted {
+      background-color: var(--color-primary-light);
+      color: var(--color-primary);
+    }
+
+    .status-confirm {
+      background-color: var(--color-orange-light);
+      color: var(--color-orange);
+    }
+
+    .status-completed {
+      background-color: var(--color-green-light);
+      color: var(--color-green);
+    }
+
+    .status-review {
+      background-color: var(--color-warning-light);
+      color: var(--color-warning);
+    }
+
+    .request-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .request-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .request-creator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .creator-avatar {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--color-purple), var(--color-primary));
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 500;
+    }
+
+    .request-date {
+      font-size: 10px;
+      color: var(--text-tertiary);
+    }
+
+    .request-detail {
+      font-size: 11px;
+      color: var(--color-primary);
+      cursor: pointer;
+    }
+
+    .request-detail:hover {
+      text-decoration: underline;
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-light);
+    }
+
+    .pagination-info {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .pagination-controls {
+      display: flex;
+      gap: 4px;
+    }
+
+    .page-btn {
+      padding: 4px 8px;
+      background-color: var(--bg-page);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .page-btn.active {
+      background-color: var(--color-primary);
+      border-color: var(--color-primary);
+      color: white;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .card-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <div class="logo-icon">AI</div>
+        <span class="logo-text">AI 工艺平台</span>
+      </div>
+      <div class="user-info">
+        <span class="user-id">9988****0092</span>
+        <div class="user-avatar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Container -->
+    <div class="chat-container">
+      <!-- Greeting -->
+      <div class="greeting">
+        <h1 class="greeting-title">
+          <span class="highlight">创作无限可能</span>，AI 工艺
+        </h1>
+        <p class="greeting-subtitle">今天我能帮你做些什么？</p>
+      </div>
+
+      <!-- Category Tags -->
+      <div class="category-tags">
+        <span class="category-tag active">⚡ AI工艺</span>
+        <span class="category-tag">🔥 热门问答</span>
+        <span class="category-tag">📚 企业百科</span>
+      </div>
+
+      <!-- Unified Input + Introduction Card -->
+      <div class="unified-input-card">
+        <div class="unified-content">
+          <p class="unified-intro">请使用 @ 引用需求编号，或直接上传文件内容（图纸、文档等），开始解析工艺、生成方案。</p>
+          <div class="format-row">
+            <span class="format-label">支持格式：</span>
+            <span class="format-label">3D 格式</span>
+            <div class="format-tags-row">
+              <span class="format-tag-inline">STEP</span>
+              <span class="format-tag-inline">STP</span>
+              <span class="format-tag-inline">SLDPRT</span>
+              <span class="format-tag-inline">STL</span>
+              <span class="format-tag-inline">SAT</span>
+            </div>
+            <span class="format-label">2D 格式</span>
+            <div class="format-tags-row">
+              <span class="format-tag-inline">DWG</span>
+              <span class="format-tag-inline">DXF</span>
+              <span class="format-tag-inline">PDF</span>
+            </div>
+          </div>
+        </div>
+        <textarea class="unified-textarea" placeholder="请输入你的问题或需求描述..." rows="3"></textarea>
+        <div class="unified-input-area">
+          <div class="upload-section">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span>上传模型图纸</span>
+          </div>
+          <div class="upload-section">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            <span>上传技术文档</span>
+          </div>
+          <div class="char-counter">0/200</div>
+          <button class="send-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- List Section -->
+      <div class="list-section">
+        <div class="list-header">
+          <div class="list-tabs">
+            <div class="list-tab active">我的清单</div>
+            <div class="list-tab">全部清单</div>
+          </div>
+          <div class="search-box">
+            <input type="text" class="search-input" placeholder="支持通过客户名&创建人&创建时间搜索">
+            <button class="search-btn">查询</button>
+          </div>
+        </div>
+
+        <!-- Card Grid -->
+        <div class="card-grid">
+          <div class="request-card">
+            <div class="request-card-header">
+              <span class="request-id">REQ987543</span>
+              <span class="request-status status-submitted">待提交</span>
+            </div>
+            <div class="request-title">江丰半导体</div>
+            <div class="request-footer">
+              <div class="request-creator">
+                <div class="creator-avatar">张</div>
+                张三 · 2026-06-28
+              </div>
+              <span class="request-detail">详情</span>
+            </div>
+          </div>
+
+          <div class="request-card">
+            <div class="request-card-header">
+              <span class="request-id">REQ987544</span>
+              <span class="request-status status-completed">已完成</span>
+            </div>
+            <div class="request-title">上海睿昇部件</div>
+            <div class="request-footer">
+              <div class="request-creator">
+                <div class="creator-avatar">李</div>
+                李四 · 2026-06-25
+              </div>
+              <span class="request-detail">详情</span>
+            </div>
+          </div>
+
+          <div class="request-card">
+            <div class="request-card-header">
+              <span class="request-id">REQ987545</span>
+              <span class="request-status status-review">待审核</span>
+            </div>
+            <div class="request-title">兰溪泛翌陶瓷</div>
+            <div class="request-footer">
+              <div class="request-creator">
+                <div class="creator-avatar">王</div>
+                王五 · 2026-06-20
+              </div>
+              <span class="request-detail">详情</span>
+            </div>
+          </div>
+
+          <div class="request-card">
+            <div class="request-card-header">
+              <span class="request-id">REQ987546</span>
+              <span class="request-status status-confirm">待确认</span>
+            </div>
+            <div class="request-title">中控技术</div>
+            <div class="request-footer">
+              <div class="request-creator">
+                <div class="creator-avatar">赵</div>
+                赵六 · 2026-06-18
+              </div>
+              <span class="request-detail">详情</span>
+            </div>
+          </div>
+
+          <div class="request-card">
+            <div class="request-card-header">
+              <span class="request-id">REQ987547</span>
+              <span class="request-status status-completed">已完成</span>
+            </div>
+            <div class="request-title">钱江电气</div>
+            <div class="request-footer">
+              <div class="request-creator">
+                <div class="creator-avatar">钱</div>
+                钱七 · 2026-06-15
+              </div>
+              <span class="request-detail">详情</span>
+            </div>
+          </div>
+
+          <div class="request-card">
+            <div class="request-card-header">
+              <span class="request-id">REQ987548</span>
+              <span class="request-status status-confirm">待确认</span>
+            </div>
+            <div class="request-title">富春江智能</div>
+            <div class="request-footer">
+              <div class="request-creator">
+                <div class="creator-avatar">孙</div>
+                孙八 · 2026-06-10
+              </div>
+              <span class="request-detail">详情</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination">
+          <div class="pagination-info">共 48 个结果，当前显示 1–6</div>
+          <div class="pagination-controls">
+            <button class="page-btn">‹</button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">3</button>
+            <button class="page-btn">...</button>
+            <button class="page-btn">8</button>
+            <button class="page-btn">›</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Category tag switching
+    document.querySelectorAll('.category-tag').forEach(tag => {
+      tag.addEventListener('click', function() {
+        document.querySelectorAll('.category-tag').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+      });
+    });
+
+    // List tab switching
+    document.querySelectorAll('.list-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.list-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+      });
+    });
+
+    // Character counter
+    const textarea = document.querySelector('.unified-textarea');
+    const counter = document.querySelector('.char-counter');
+    if (textarea && counter) {
+      textarea.addEventListener('input', function() {
+        const len = this.value.length;
+        counter.textContent = len + '/200';
+        if (len > 200) {
+          counter.style.color = 'var(--color-red)';
+        } else {
+          counter.style.color = 'var(--text-tertiary)';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

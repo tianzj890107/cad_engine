@@ -17,6 +17,8 @@ services:
       BLOB_BACKEND: local
       DATA_DIR: /app/data
       AUTH_ENABLED: "true"
+      # 公司内网演示环境固定免登录并注入 admin；本地/正式环境仍使用 docker-compose.yml 的开关。
+      AUTH_AUTO_ADMIN: "true"
       TASK_RECOVER_ON_START: "true"
       # 源码挂载时避免 Python 在宿主机目录写入 __pycache__。
       PYTHONDONTWRITEBYTECODE: "1"
@@ -25,6 +27,7 @@ services:
       # 增量演示模式：前端修改刷新页面即可生效；后端 Python 修改后仅重启 app 容器。
       - ./backend:/app/backend:ro
       - ./frontend:/app/frontend:ro
+      - ./agent_knowledge:/app/agent_knowledge:ro
       - ./apps:/app/apps:ro
     ports:
       # 公司服务器对外使用 8002：8000 预留，8001 已被服务器既有服务占用。

@@ -37,7 +37,7 @@
   function labelCode(label) { return String(label || '').match(/([123]\.[123456])/u)?.[1] || ''; }
   function stageOfCode(code) { return Number(String(code).split('.')[0]) || 0; }
   function activeStage(root) {
-    const active = root.querySelector('.workflow-step.active,.main-step.active,.tp-flow-step.active,.detail-step.active');
+    const active = root.querySelector('.workflow-step.active,.main-step.active,.tp-flow-step.active,.detail-step.active,.workflow-nav-link.active,.sub-label.active,.tp-flow-substep.active');
     const code = active ? stageOfCode(active.textContent) : 0;
     if (code) return code;
     const text = active?.textContent || '';
@@ -214,7 +214,7 @@
     const technicalDone = techDone || reportExists;
     const stageStates = {
       1: requirementDone ? 'done' : reqStatus ? 'active' : pageStage === 1 ? 'active' : 'pending',
-      2: technicalDone ? 'done' : techStarted ? 'active' : pageStage === 2 ? 'active' : 'pending',
+      2: technicalDone || pageStage >= 2 ? 'done' : techStarted ? 'active' : 'pending',
       3: report.status === 'published' ? 'done' : reportExists ? 'active' : pageStage === 3 ? 'active' : 'pending',
     };
     const doneCodes = new Set();

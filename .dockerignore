@@ -9,3 +9,4 @@ venv/
 .pytest_cache/
 samples/
 *.md
+!agent_knowledge/**/*.md

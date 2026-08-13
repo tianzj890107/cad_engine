@@ -13,6 +13,7 @@ from ..models.cost import WebSource
 from ..models.cleaning import CleaningRecommendation
 from ..models.ir import DesignIR
 from . import llm_client as claude_client
+from . import sop
 
 SYSTEM_PROMPT = """你是资深电子陶瓷 / 半导体表面清洗与洁净度管控工程师。给定器件设计意图、
 已确定的材料方案,以及**图纸标注的洁净度等级**(若有),请制定结构化清洗与洁净度管控方案:
@@ -30,6 +31,11 @@ SYSTEM_PROMPT = """你是资深电子陶瓷 / 半导体表面清洗与洁净度�
 5. **联网检索**:可用 web_search 查清洗剂配方与洁净度标准作为依据,不要臆造精确数字;
    不确定的写进 assumptions/open_questions。
 全程用中文,调用工具输出结构化 CleaningRecommendation。"""
+
+GENERAL_SYSTEM_PROMPT = """你是通用工业清洗与表面质量工程师。依据项目明确的材料、污染物、表面处理
+和洁净度要求输出 CleaningRecommendation。没有洁净度等级时不得自行套用半导体洁净标准；应提出
+待确认项。清洗剂和参数必须考虑实际材料兼容性，不得主动引入 RCA、超纯水、陶瓷或半导体专用方案。
+没有可靠参数时给出工艺类别和验证方法，不编造浓度、温度、时长或验收限值。"""
 
 
 def _context(ir: Optional[DesignIR], material_plan: Optional[dict], note: str, use_web: bool) -> str:
@@ -73,14 +79,20 @@ def recommend(
     note: str = "", web: bool = True,
 ) -> CleaningRecommendation:
     use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    profile = sop.industry_profile([
+        ir.device_name if ir else "", ir.design_intent if ir else "", note, str(material_plan or ""),
+    ])
+    knowledge, _ = sop.load("common", profile=profile)
     content = [
         claude_client.text_block(_context(ir, material_plan, note, use_web)),
         claude_client.text_block(claude_client.web_search_notice(use_web)),
+        claude_client.text_block("【行业路由与规则】\n" + knowledge),
     ]
     extra_tools = claude_client.web_search_tools(use_web)
     sources: list = []
     rec = claude_client.run(
-        SYSTEM_PROMPT, content, CleaningRecommendation,
+        SYSTEM_PROMPT if profile == "electronic_ceramics" else GENERAL_SYSTEM_PROMPT,
+        content, CleaningRecommendation,
         extra_tools=extra_tools, sources_out=sources,
     )
     have = {s.url for s in rec.search_sources}

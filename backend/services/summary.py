@@ -23,7 +23,7 @@ SECTIONS: List[dict] = [
         "fields": [("body.selected", "选定主体材料"), ("body.rationale", "选材理由"),
                    ("metallization.rationale", "金属化方案"), ("supply.conclusion", "供应商结论")],
         "tables": [
-            ("陶瓷主体材料候选", "body.candidates",
+            ("主体材料候选", "body.candidates",
              [("material", "材料"), ("thermal_conductivity", "热导率"), ("cte", "CTE"),
               ("cost_level", "成本"), ("recommended", "推荐")]),
             ("电极浆料", "metallization.paste",

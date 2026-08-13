@@ -1,0 +1,3 @@
+.start-parse-btn[aria-busy="true"],.start-parse-btn[aria-busy="true"]:hover{display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:wait!important;opacity:.78;border-color:transparent;background:linear-gradient(135deg,#7c3aed,#3b82f6);color:#fff;-webkit-text-fill-color:#fff;background-image:linear-gradient(135deg,#7c3aed,#3b82f6);transform:none}
+.parse-spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:parse-button-spin .75s linear infinite}
+@keyframes parse-button-spin{to{transform:rotate(360deg)}}

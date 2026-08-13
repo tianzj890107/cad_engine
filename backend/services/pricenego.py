@@ -13,7 +13,7 @@ from ..models.ir import DesignIR
 from ..models.pricenego import PriceNegoRecommendation
 from . import llm_client as claude_client
 
-SYSTEM_PROMPT = """你是资深销售/商务经理(高端电子陶瓷报价谈判)。给定定价结果与商务条款,
+SYSTEM_PROMPT = """你是资深制造业销售/商务经理。给定定价结果与商务条款,
 请产出**结构化**的价格协商材料:
 
 1. **初步报价单(initial_quote)**:含报价单价(取定价的最终报价)、交付周期、付款条件、有效期。
@@ -50,8 +50,10 @@ def recommend(
     ir: Optional[DesignIR] = None, pricing: Optional[dict] = None,
     negotiation: Optional[dict] = None, note: str = "", web: bool = True,
 ) -> PriceNegoRecommendation:
-    content = [claude_client.text_block(_context(ir, pricing, negotiation, note))]
-    extra_tools = [claude_client.WEB_SEARCH_TOOL] if web else None
+    use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    content = [claude_client.text_block(_context(ir, pricing, negotiation, note)),
+               claude_client.text_block(claude_client.web_search_notice(use_web))]
+    extra_tools = claude_client.web_search_tools(use_web)
     sources: list = []
     rec = claude_client.run(
         SYSTEM_PROMPT, content, PriceNegoRecommendation,

@@ -19,7 +19,7 @@ class QwenClientOfflineTests(unittest.TestCase):
         self.assertEqual(block["type"], "image_url")
         self.assertTrue(block["image_url"]["url"].startswith("data:image/png;base64,"))
 
-    def test_run_uses_json_mode_and_disables_thinking_without_network(self):
+    def test_run_uses_json_mode_and_configured_thinking_without_network(self):
         captured = {}
 
         class Completions:
@@ -43,7 +43,7 @@ class QwenClientOfflineTests(unittest.TestCase):
             qwen_client.get_client = old_client
 
         self.assertEqual(result.value, 7)
-        self.assertEqual(captured["model"], qwen_client.QWEN_TEXT_MODEL)
+        self.assertEqual(captured["model"], qwen_client._model_candidates(False)[0])
         self.assertEqual(captured["response_format"], {"type": "json_object"})
         self.assertIn("JSON", captured["messages"][0]["content"])
         self.assertIn("enable_thinking", captured["extra_body"])
@@ -77,22 +77,60 @@ class QwenClientOfflineTests(unittest.TestCase):
         old_client = qwen_client.get_client
         old_error = qwen_client.APIStatusError
         old_pool = qwen_client.QWEN_TEXT_MODELS
+        old_runtime_pool = qwen_client._runtime["text_models"]
         try:
             qwen_client.get_client = lambda: SimpleNamespace(
                 chat=SimpleNamespace(completions=Completions())
             )
             qwen_client.APIStatusError = QuotaError
             qwen_client.QWEN_TEXT_MODELS = ("text-primary", "text-backup")
+            qwen_client._runtime["text_models"] = ("text-primary", "text-backup")
             qwen_client._unavailable_models["text"].clear()
             result = qwen_client.run("只输出 JSON", [qwen_client.text_block("测试")], _Result)
         finally:
             qwen_client.get_client = old_client
             qwen_client.APIStatusError = old_error
             qwen_client.QWEN_TEXT_MODELS = old_pool
+            qwen_client._runtime["text_models"] = old_runtime_pool
             qwen_client._unavailable_models["text"].clear()
 
         self.assertEqual(result.value, 8)
         self.assertEqual(calls, ["text-primary", "text-backup"])
+
+    def test_schema_failure_is_repaired_without_reuploading(self):
+        calls = []
+
+        class Completions:
+            def create(self, **kwargs):
+                calls.append(kwargs)
+                if len(calls) == 1:
+                    return SimpleNamespace(
+                        choices=[SimpleNamespace(
+                            message=SimpleNamespace(content='{"value":'),
+                            finish_reason="length",
+                        )],
+                        usage=SimpleNamespace(prompt_tokens=3, completion_tokens=4, total_tokens=7),
+                    )
+                return SimpleNamespace(
+                    choices=[SimpleNamespace(
+                        message=SimpleNamespace(content='{"value": 9}'),
+                        finish_reason="stop",
+                    )],
+                    usage=None,
+                )
+
+        old_client = qwen_client.get_client
+        try:
+            qwen_client.get_client = lambda: SimpleNamespace(
+                chat=SimpleNamespace(completions=Completions())
+            )
+            result = qwen_client.run("只输出 JSON", [qwen_client.text_block("测试")], _Result)
+        finally:
+            qwen_client.get_client = old_client
+
+        self.assertEqual(result.value, 9)
+        self.assertEqual(len(calls), 2)
+        self.assertIn("上一次没有返回完整 JSON", calls[1]["messages"][1]["content"][-1]["text"])
 
     def test_native_web_search_keeps_returned_sources(self):
         captured = {}

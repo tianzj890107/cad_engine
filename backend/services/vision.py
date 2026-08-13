@@ -14,7 +14,10 @@
 """
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+import json
+from pathlib import Path
+import re
+from typing import Any, List, Optional, Tuple
 import zipfile
 from xml.etree import ElementTree
 
@@ -22,9 +25,13 @@ from ..config import (
     LLM_MAX_ATTACHMENT_IMAGE_BYTES, LLM_MAX_ATTACHMENT_TEXT_CHARS,
     LLM_MAX_ATTACHMENTS,
 )
-from ..models.ir import DesignIR
+from ..models.ai import (
+    AIResultStatus, EvidenceLevel, FieldEvidence, ValidationSummary, VerificationPatch,
+)
+from ..models.ir import DesignIR, FeatureType
 from . import llm_client as claude_client
 from .requirement_extract import extract_document_text
+from . import sop
 
 # 佐证文件分类
 _IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")
@@ -107,6 +114,17 @@ SYSTEM_PROMPT = f"""\
    - open_questions 的每项: 必须是 {{"field": "P-001.thickness", "reason": "图中未标注", "guess": "10 mm"}}；
      每项必须是对象，不能只写一段字符串。
 
+10. 字段级证据（必须遵守）:
+   - 对每个零件的基体尺寸、数量、材料，以及每个孔/阵列的直径和定位参数，写入
+     evidence_ledger；field 使用稳定路径，如 parts[P-001].features[0].width。
+   - level 只能是 STRONG/MODERATE/WEAK/CONTRADICTORY/NONE；evidence_type 使用
+     direct/derived/document/ocr/estimated/general_knowledge。
+   - 明确尺寸标注可为 STRONG；多视图一致推导为 MODERATE；OCR、比例估算和常识只能为 WEAK。
+   - WEAK/CONTRADICTORY/NONE 的关键字段设置 requires_confirmation=true；只有缺少可建模尺寸、
+     存在高影响冲突或确实需要用户补充资料时才进入 open_questions，同类问题必须合并，
+     不要把每个估算尺寸逐条列成人工确认事项。
+   - assumptions 只记录实际采用的假设；ai_status、validation 和 sop_version 由本地程序最终计算。
+
 只通过调用工具输出结构化结果。"""
 
 USER_INSTRUCTION = """\
@@ -141,7 +159,290 @@ VERIFY_SYSTEM_PROMPT = f"""\
 
 {_CONFIDENCE_RUBRIC}
 
-只通过调用工具输出"修正后的完整 IR"。"""
+输出只允许是字段级补丁 VerificationPatch，禁止重新输出完整 IR。每个 changes 项必须给出：
+- field：现有字段路径，仅可修改现有零件/特征的标量字段；
+- old_value/new_value：合法 JSON 文本，例如 405、"Q235" 或 null；
+- reason、confidence、requires_confirmation；
+- evidence：原始文件、页码/视图、证据等级与定位。
+只有原图明确标注且证据为 STRONG、confidence >= 0.90 时才可设置 requires_confirmation=false；
+其余修改都必须等待人工确认。没有差异时 changes 输出空数组。
+只通过调用工具输出 VerificationPatch。"""
+
+
+_BASE_DIMENSIONS = {
+    FeatureType.plate: ("length", "width", "thickness"),
+    FeatureType.box: ("length", "width", "height"),
+    FeatureType.cylinder: ("diameter", "height"),
+}
+_FEATURE_DIMENSIONS = {
+    FeatureType.hole: ("diameter", "x", "y"),
+    FeatureType.hole_pattern: ("diameter", "count_x", "count_y", "spacing_x", "spacing_y"),
+    FeatureType.fillet: ("radius",), FeatureType.chamfer: ("distance",),
+}
+
+
+def build_input_manifest(filename: str, image_bytes: bytes,
+                         attachments: Optional[List[Tuple[str, bytes]]] = None) -> dict:
+    """阶段 1：确定性文件清单和可解析能力分类。"""
+    def entry(name: str, data: bytes, role: str) -> dict:
+        lower = (name or "").lower()
+        if lower.endswith(_IMAGE_EXTS):
+            kind, extraction = "image", "vision"
+        elif lower.endswith(_EXTRACTABLE_DOCUMENT_EXTS):
+            kind, extraction = "document", "local_text+vision_context"
+        elif lower.endswith(_TEXT_EXTS):
+            kind, extraction = "text", "local_text"
+        else:
+            kind, extraction = "unsupported", "none"
+        return {"name": Path(name).name, "role": role, "kind": kind,
+                "bytes": len(data), "extraction": extraction}
+    return {
+        "version": "drawing-input-1.0",
+        "files": [entry(filename, image_bytes, "primary"), *[
+            entry(name, data, "attachment") for name, data in (attachments or [])
+        ]],
+    }
+
+
+def _evidence_by_field(ir: DesignIR) -> dict[str, FieldEvidence]:
+    return {item.field: item for item in ir.evidence_ledger if item.field}
+
+
+def _without_previous_local_validation(ir: DesignIR) -> tuple[list[str], list[str]]:
+    """移除上一轮本地推导的消息，保留模型或其它校验器产生的独立结论。"""
+    local_error_patterns = (
+        re.compile(r"^零件 .+ 缺少可建模基体特征$"),
+        re.compile(r"^parts\[[^\]]+\]\.features\[0\]\.[^.]+ 缺失$"),
+        re.compile(r"^关键字段 parts\[[^\]]+\]\..+ (?:缺失|存在冲突证据)$"),
+    )
+    local_warning_patterns = (
+        re.compile(r"^关键字段 parts\[[^\]]+\]\..+ 缺少强/中等证据，正式 CAD 生成前需人工确认$"),
+        re.compile(r"^\d+ 个零件未识别材料；.*$"),
+        re.compile(r"^\d+ 个工程字段证据置信度较低；.*$"),
+        re.compile(r"^\d+ 个工程字段存在证据冲突；.*$"),
+    )
+    errors = [
+        item for item in ir.validation.errors
+        if not any(pattern.fullmatch(item) for pattern in local_error_patterns)
+    ]
+    warnings = [
+        item for item in ir.validation.warnings
+        if not any(pattern.fullmatch(item) for pattern in local_warning_patterns)
+    ]
+    return errors, warnings
+
+
+def _question_targets_field(question: Any, field: str) -> bool:
+    """兼容完整路径和旧版 P-001.thickness 写法，识别已被人工确认的问题。"""
+    raw = str(getattr(question, "field", "") or "").strip().lower()
+    normalized = field.strip().lower()
+    if not raw:
+        return False
+    if raw == normalized:
+        return True
+    part_match = re.match(r"^parts\[([^\]]+)\]\.(.+)$", normalized)
+    if not part_match or part_match.group(1).lower() not in raw:
+        return False
+    suffix = part_match.group(2).rsplit(".", 1)[-1]
+    aliases = {suffix}
+    if normalized.endswith(".material.spec"):
+        aliases.update({"material", "material.spec", "材料"})
+    elif suffix == "quantity":
+        aliases.add("数量")
+    return any(alias in raw for alias in aliases)
+
+
+def critical_field_paths(ir: DesignIR) -> list[str]:
+    paths: list[str] = []
+    for part in ir.parts:
+        paths.append(f"parts[{part.part_id}].quantity")
+        paths.append(f"parts[{part.part_id}].material.spec")
+        if not part.features:
+            continue
+        for field in _BASE_DIMENSIONS.get(part.features[0].type, ()):
+            paths.append(f"parts[{part.part_id}].features[0].{field}")
+        for index, feature in enumerate(part.features[1:], 1):
+            for field in _FEATURE_DIMENSIONS.get(feature.type, ()):
+                if getattr(feature, field) is not None:
+                    paths.append(f"parts[{part.part_id}].features[{index}].{field}")
+    return paths
+
+
+def finalize_ir(ir: DesignIR, filename: str, manifest: Optional[dict] = None) -> DesignIR:
+    """阶段 4~7：绑定证据、做本地校验并给出安全状态。"""
+    evidence = _evidence_by_field(ir)
+    errors, warnings = _without_previous_local_validation(ir)
+    missing_material_parts: list[str] = []
+    weak_evidence_fields: list[str] = []
+    conflicting_evidence_fields: list[str] = []
+    for part in ir.parts:
+        if not part.features:
+            errors.append(f"零件 {part.part_id} 缺少可建模基体特征")
+            continue
+        base = part.features[0]
+        for field in _BASE_DIMENSIONS.get(base.type, ()):
+            path = f"parts[{part.part_id}].features[0].{field}"
+            if getattr(base, field) is None:
+                errors.append(f"{path} 缺失")
+                continue
+            if path not in evidence:
+                provenance = part.provenance
+                level = EvidenceLevel.moderate if provenance and (provenance.bbox or provenance.note) and part.confidence >= .7 else EvidenceLevel.weak
+                evidence[path] = FieldEvidence(
+                    field=path, source_file=filename, view="未细分",
+                    evidence_type="derived" if level == EvidenceLevel.moderate else "estimated",
+                    level=level, note=(provenance.note if provenance else "模型未提供字段级定位"),
+                    confidence=part.confidence, requires_confirmation=level != EvidenceLevel.strong,
+                )
+        quantity_path = f"parts[{part.part_id}].quantity"
+        if quantity_path not in evidence:
+            evidence[quantity_path] = FieldEvidence(
+                field=quantity_path, source_file=filename, view="明细表/图面",
+                evidence_type="derived", level=EvidenceLevel.moderate if part.confidence >= .7 else EvidenceLevel.weak,
+                note="由零件解析结果继承", confidence=part.confidence,
+                requires_confirmation=part.confidence < .9,
+            )
+
+    for path in critical_field_paths(ir):
+        item = evidence.get(path)
+        if path.endswith(".material.spec"):
+            part_id = path.split("[", 1)[1].split("]", 1)[0]
+            part = next((candidate for candidate in ir.parts if candidate.part_id == part_id), None)
+            if not part or not part.material or not part.material.spec.strip():
+                missing_material_parts.append(part_id)
+                continue
+        if not item or item.level in {EvidenceLevel.weak, EvidenceLevel.contradictory, EvidenceLevel.none}:
+            weak_evidence_fields.append(path)
+        if item and item.level == EvidenceLevel.contradictory:
+            conflicting_evidence_fields.append(path)
+
+    if missing_material_parts:
+        warnings.append(
+            f"{len(set(missing_material_parts))} 个零件未识别材料；不影响 CAD/2D 生成，"
+            "材料、质量或成本分析前可按需补充"
+        )
+    if weak_evidence_fields:
+        warnings.append(
+            f"{len(set(weak_evidence_fields))} 个工程字段证据置信度较低；"
+            "当前解析值仍可用于生成，正式出图或投产前建议抽样校核"
+        )
+    if conflicting_evidence_fields:
+        warnings.append(
+            f"{len(set(conflicting_evidence_fields))} 个工程字段存在证据冲突；"
+            "当前值仍可用于预览生成，正式出图或投产前建议重点校核"
+        )
+
+    unique_errors = list(dict.fromkeys(errors))
+    unique_warnings = list(dict.fromkeys(warnings))
+    if unique_errors:
+        status = AIResultStatus.blocked
+    elif unique_warnings or ir.open_questions:
+        status = AIResultStatus.partial
+    else:
+        status = AIResultStatus.ready
+    return ir.model_copy(update={
+        "evidence_ledger": list(evidence.values()),
+        "ai_status": status,
+        "validation": ValidationSummary(errors=unique_errors, warnings=unique_warnings),
+        "sop_version": "drawing-1.0",
+    })
+
+
+def generation_gate(ir: DesignIR) -> list[str]:
+    """兼容旧调用方：只返回会让确定性几何无法构建的结构问题。
+
+    材料、证据等级和置信度属于工程治理提示，不是 CAD/2D 生成门禁；真正的
+    数量、基体类型和尺寸有效性由 geometry.preflight_parts 统一检查。
+    """
+    if not ir.sop_version.startswith("drawing-"):
+        return []
+    geometric_patterns = (
+        re.compile(r"^零件 .+ 缺少可建模基体特征$"),
+        re.compile(r"^parts\[[^\]]+\]\.features\[0\]\.[^.]+ 缺失$"),
+    )
+    return [
+        issue for issue in ir.validation.errors
+        if any(pattern.fullmatch(issue) for pattern in geometric_patterns)
+    ]
+
+
+def pipeline_report(ir: DesignIR, manifest: dict) -> dict:
+    """把真实执行过的解析阶段保存为可审计流水线，不伪造未运行的 OCR/企业规则。"""
+    files = manifest.get("files") or []
+    supported = [item for item in files if item.get("extraction") != "none"]
+    unsupported = [item.get("name") for item in files if item.get("extraction") == "none"]
+    views = sorted({item.view for item in ir.evidence_ledger if item.view})
+    critical = critical_field_paths(ir)
+    bound = {item.field for item in ir.evidence_ledger if item.field in critical}
+    return {
+        "version": "drawing-pipeline-1.0",
+        "sop_version": ir.sop_version,
+        "status": ir.ai_status.value,
+        "stages": [
+            {"id": "manifest", "status": "completed", "files": len(files),
+             "supported": len(supported), "unsupported": unsupported},
+            {"id": "local_extraction", "status": "completed",
+             "methods": sorted({item.get("extraction") for item in supported})},
+            {"id": "view_and_candidate_detection", "status": "completed",
+             "views": views, "parts": len(ir.parts), "assemblies": len(ir.assemblies)},
+            {"id": "dimension_binding", "status": "completed" if bound else "partial",
+             "critical_fields": len(critical), "bound_fields": len(bound)},
+            {"id": "ir_assembly", "status": "completed", "standard_parts": len(ir.standard_parts)},
+            {"id": "rule_validation", "status": ir.ai_status.value,
+             "errors": ir.validation.errors, "warnings": ir.validation.warnings},
+        ],
+    }
+
+
+def mark_human_confirmed(ir: DesignIR, actor: str) -> DesignIR:
+    """人工保存 IR 即确认当前关键值，为后续工程校核建立可审计证据。"""
+    # 用户可能刚补齐上一轮缺失的材料或尺寸，必须先重算本地校验，不能把旧错误
+    # 原样带进新版本并继续显示为未解决问题。
+    ir = finalize_ir(ir, "人工校核")
+    evidence = _evidence_by_field(ir)
+    confirmed_fields: set[str] = set()
+    for path in critical_field_paths(ir):
+        if path.endswith(".material.spec"):
+            part_id = path.split("[", 1)[1].split("]", 1)[0]
+            part = next((candidate for candidate in ir.parts if candidate.part_id == part_id), None)
+            if not part or not part.material or not part.material.spec.strip():
+                continue
+        evidence[path] = FieldEvidence(
+            field=path, source_file="人工校核", view="工作台",
+            evidence_type="human_confirmed", level=EvidenceLevel.strong,
+            note=f"{actor} 保存并确认当前值", confidence=1.0, requires_confirmation=False,
+        )
+        confirmed_fields.add(path)
+    remaining_questions = [
+        question for question in ir.open_questions
+        if not any(_question_targets_field(question, field) for field in confirmed_fields)
+    ]
+    confirmed = ir.model_copy(update={
+        "evidence_ledger": list(evidence.values()), "open_questions": remaining_questions,
+    })
+    # 强证据写入后再重算一次，清除已经解决的“缺失/冲突”本地错误。
+    return finalize_ir(confirmed, "人工校核")
+
+
+def confirm_evidence_field(ir: DesignIR, field: str, actor: str) -> DesignIR:
+    """人工接受单个 AI 校核补丁后，只提升该字段的证据，不连带确认其它字段。"""
+    evidence = _evidence_by_field(ir)
+    previous = evidence.get(field)
+    evidence[field] = FieldEvidence(
+        field=field, source_file=(previous.source_file if previous else "人工校核"),
+        page=previous.page if previous else None, view=previous.view if previous else "工作台",
+        bbox=previous.bbox if previous else None, evidence_type="human_confirmed",
+        level=EvidenceLevel.strong,
+        note=f"{actor} 接受 AI 字段级校核建议" + (f"；原依据：{previous.note}" if previous and previous.note else ""),
+        confidence=1.0, requires_confirmation=False,
+    )
+    remaining_questions = [
+        question for question in ir.open_questions if not _question_targets_field(question, field)
+    ]
+    confirmed = ir.model_copy(update={
+        "evidence_ledger": list(evidence.values()), "open_questions": remaining_questions,
+    })
+    return finalize_ir(confirmed, "人工校核")
 
 
 def _attachment_text(name: str, data: bytes) -> str:
@@ -161,7 +462,7 @@ def _attachment_blocks(
     blocks: List[dict] = []
     attachments = list(attachments or [])
     for index, (name, data) in enumerate(attachments):
-        if index >= LLM_MAX_ATTACHMENTS:
+        if LLM_MAX_ATTACHMENTS > 0 and index >= LLM_MAX_ATTACHMENTS:
             blocks.append(claude_client.text_block(
                 f"【其余 {len(attachments) - index} 个佐证附件因上下文预算未发送给模型】"
             ))
@@ -223,10 +524,22 @@ def parse_drawing(
     note: str = "",
     attachments: Optional[List[Tuple[str, bytes]]] = None,
 ) -> DesignIR:
-    """把一张原图(+补充说明/佐证文件)解析成 DesignIR。"""
+    """分阶段解析：清单/提取 -> 视觉候选 -> 本地 IR 组装与规则校验。"""
+    manifest = build_input_manifest(filename, image_bytes, attachments)
+    profile = sop.industry_profile([
+        filename, note, *[name for name, _ in (attachments or [])],
+        *[_attachment_text(name, data)[:5000] for name, data in (attachments or [])
+          if name.lower().endswith(_TEXT_EXTS)],
+    ])
+    knowledge, _ = sop.load("drawing", profile=profile)
     content = _base_blocks(image_bytes, filename, note, attachments)
+    content.insert(0, claude_client.text_block(
+        "【本地输入清单】\n" + json.dumps(manifest, ensure_ascii=False)
+        + "\n\n【本次适用 SOP】\n" + knowledge
+    ))
     content.append(claude_client.text_block(USER_INSTRUCTION))
-    return claude_client.run(SYSTEM_PROMPT, content, DesignIR)
+    candidate = claude_client.run(SYSTEM_PROMPT, content, DesignIR)
+    return finalize_ir(candidate, filename, manifest)
 
 
 def verify_drawing(
@@ -235,9 +548,12 @@ def verify_drawing(
     filename: str,
     note: str = "",
     attachments: Optional[List[Tuple[str, bytes]]] = None,
-) -> DesignIR:
-    """自校验第二遍: 对照原图核对初步 IR 的尺寸/特征并重估置信度，返回修正后的 IR。"""
+) -> VerificationPatch:
+    """自校验第二遍：只返回差异补丁，绝不重新生成完整 IR。"""
+    profile = sop.industry_profile([filename, note, ir.device_name, ir.design_intent])
+    knowledge, _ = sop.load("drawing_verify", profile=profile)
     content = _base_blocks(image_bytes, filename, note, attachments)
+    content.insert(0, claude_client.text_block("【本次适用 SOP】\n" + knowledge))
     content.append(
         claude_client.text_block(
             "【初步解析的 IR(待核对)】\n" + ir.model_dump_json(indent=2)
@@ -245,7 +561,100 @@ def verify_drawing(
     )
     content.append(
         claude_client.text_block(
-            "请按校验清单逐条核对并修正，调用工具输出修正后的完整 IR。"
+            "请按校验清单逐条核对，仅输出字段级 VerificationPatch。"
         )
     )
-    return claude_client.run(VERIFY_SYSTEM_PROMPT, content, DesignIR)
+    return claude_client.run(VERIFY_SYSTEM_PROMPT, content, VerificationPatch)
+
+
+_VERIFY_PATH = re.compile(
+    r"^parts\[([^\]]+)\]\.(name|model_no|role|quantity|confidence|tolerance_general|"
+    r"material\.spec|features\[(\d+)\]\.(length|width|thickness|height|diameter|radius|distance|"
+    r"x|y|count_x|count_y|spacing_x|spacing_y|purpose))$"
+)
+
+
+def _json_scalar(value: str) -> Any:
+    decoded = json.loads(value)
+    if isinstance(decoded, (dict, list)):
+        raise ValueError("校核补丁只允许标量字段")
+    return decoded
+
+
+def apply_verification_patch(ir: DesignIR, patch: VerificationPatch, *, auto_only: bool = True) -> tuple[DesignIR, list[dict], list[dict]]:
+    """本地白名单应用强证据补丁；其余保留为待人工确认建议。"""
+    updated = ir.model_copy(deep=True)
+    applied: list[dict] = []
+    pending: list[dict] = []
+    by_id = {part.part_id: part for part in updated.parts}
+    for change in patch.changes:
+        payload = change.model_dump()
+        matched = _VERIFY_PATH.fullmatch(change.field)
+        if not matched:
+            payload["rejected_reason"] = "字段路径不在校核白名单"
+            pending.append(payload)
+            continue
+        part = by_id.get(matched.group(1))
+        if not part:
+            payload["rejected_reason"] = "零件不存在"
+            pending.append(payload)
+            continue
+        try:
+            old_value, new_value = _json_scalar(change.old_value), _json_scalar(change.new_value)
+        except (ValueError, json.JSONDecodeError) as exc:
+            payload["rejected_reason"] = f"值不是合法 JSON 标量：{exc}"
+            pending.append(payload)
+            continue
+        field = matched.group(2)
+        feature_index = matched.group(3)
+        if field.startswith("features["):
+            index = int(feature_index)
+            if index >= len(part.features):
+                payload["rejected_reason"] = "特征索引不存在"
+                pending.append(payload)
+                continue
+            target, attr = part.features[index], field.rsplit(".", 1)[1]
+        elif field == "material.spec":
+            if not part.material:
+                payload["rejected_reason"] = "当前零件没有材料对象，不能由校核补丁新建"
+                pending.append(payload)
+                continue
+            target, attr = part.material, "spec"
+        else:
+            target, attr = part, field
+        current = getattr(target, attr)
+        if current != old_value and str(current) != str(old_value):
+            payload["rejected_reason"] = "旧值与当前 IR 不一致"
+            pending.append(payload)
+            continue
+        safe = (
+            not change.requires_confirmation and change.confidence >= .9
+            and change.evidence.level == EvidenceLevel.strong
+        )
+        if auto_only and not safe:
+            payload["pending_reason"] = "证据或置信度未达到自动应用门槛"
+            pending.append(payload)
+            continue
+        try:
+            # 每项补丁在独立副本上试应用。校验失败时丢弃副本，确保“待确认/拒绝”
+            # 的坏值绝不会污染后续 IR 或影响同批其它补丁。
+            candidate = updated.model_dump()
+            candidate_part = next(item for item in candidate["parts"] if item["part_id"] == part.part_id)
+            if field.startswith("features["):
+                candidate_target = candidate_part["features"][int(feature_index)]
+            elif field == "material.spec":
+                candidate_target = candidate_part["material"]
+            else:
+                candidate_target = candidate_part
+            candidate_target[attr] = new_value
+            updated = DesignIR.model_validate(candidate)
+            by_id = {item.part_id: item for item in updated.parts}
+        except Exception as exc:
+            payload["rejected_reason"] = f"新值未通过 IR 校验：{exc}"
+            pending.append(payload)
+            continue
+        updated.evidence_ledger = [item for item in updated.evidence_ledger if item.field != change.field]
+        updated.evidence_ledger.append(change.evidence.model_copy(update={"field": change.field}))
+        applied.append(payload)
+    updated = finalize_ir(updated, "AI 校核")
+    return updated, applied, pending

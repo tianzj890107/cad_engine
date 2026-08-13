@@ -16,7 +16,7 @@ from . import llm_client as claude_client
 TERMS = ["价格条款", "交付条款", "付款条款", "质量保证条款", "知识产权条款", "违约责任"]
 CUSTOMERS = ["战略客户", "新客户", "海外客户"]
 
-SYSTEM_PROMPT = f"""你是资深商务/销售总监(高端电子陶瓷/封装基板)。给定该产品的定价结果与项目背景,
+SYSTEM_PROMPT = f"""你是资深制造业商务/销售总监。给定该产品的定价结果与项目背景,
 请制定**结构化**的商务及谈判策略:
 
 1. **商务条款(terms)**:逐项给出以下六类条款的我方主张、底线(bottom_line)与可让步空间
@@ -49,7 +49,9 @@ def recommend(
     note: str = "", web: bool = False,
 ) -> NegotiationRecommendation:
     content = [claude_client.text_block(_context(ir, pricing, note))]
-    extra_tools = [claude_client.WEB_SEARCH_TOOL] if web else None
+    use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    extra_tools = claude_client.web_search_tools(use_web)
+    content.append(claude_client.text_block(claude_client.web_search_notice(use_web)))
     sources: list = []
     rec = claude_client.run(
         SYSTEM_PROMPT, content, NegotiationRecommendation,

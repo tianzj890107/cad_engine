@@ -15,7 +15,7 @@ from . import llm_client as claude_client
 
 FACTORS = ["订单规模", "技术难度与工艺复杂度", "客户战略价值", "行业竞争态势", "原材料价格联动"]
 
-SYSTEM_PROMPT = f"""你是资深定价/商务经理(电子陶瓷/先进封装报价)。给定该产品的**成本测算结果**
+SYSTEM_PROMPT = f"""你是资深制造业定价/商务经理。给定该产品的**成本测算结果**
 (原材料成本、生产加工成本)与项目背景,请基于「成本加成模式(原材料成本 + 生产加工成本 +
 管理成本)」给出定价建议:
 
@@ -51,8 +51,10 @@ def recommend(
     ir: Optional[DesignIR] = None, costest: Optional[dict] = None,
     note: str = "", web: bool = True,
 ) -> PricingRecommendation:
-    content = [claude_client.text_block(_context(ir, costest, note))]
-    extra_tools = [claude_client.WEB_SEARCH_TOOL] if web else None
+    use_web = web and claude_client.WEB_SEARCH_AVAILABLE
+    content = [claude_client.text_block(_context(ir, costest, note)),
+               claude_client.text_block(claude_client.web_search_notice(use_web))]
+    extra_tools = claude_client.web_search_tools(use_web)
     sources: list = []
     rec = claude_client.run(
         SYSTEM_PROMPT, content, PricingRecommendation,

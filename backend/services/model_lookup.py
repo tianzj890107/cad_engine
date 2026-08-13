@@ -1,6 +1,6 @@
 """型号候选 -> Qwen 联网检索 -> 可人工确认的零件识别证据。
 
-不修改 DesignIR：联网资料只能作为外购件/标准件识别的补充，必须由用户确认。
+联网资料先独立保存；只有用户明确确认的匹配结果才写入新的 DesignIR/BOM 版本。
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ _SKIP_TOKENS = re.compile(r"^(?:P-?\d+|A-?\d+|M\d+(?:X\d+)?|ISO[-\s]?\d+|GB/?T|Q
 _MAX_CANDIDATES = 12
 _MAX_DOCUMENT_CONTEXT = 18000
 
-_SYSTEM_PROMPT = """你是机械/半导体设备外购件型号核验工程师。根据项目中明确出现的型号候选，
+_SYSTEM_PROMPT = """你是通用工业产品与设备外购件型号核验工程师。根据项目中明确出现的型号候选，
 使用联网搜索核验其对应的零件或产品。
 
 严格规则：
@@ -139,18 +139,38 @@ def identify_models(ir: DesignIR, attachments: Iterable[tuple[str, bytes]]) -> M
         "task": "先自行判断哪些术语值得联网检索，再仅输出有工程意义的型号/产品标识核验结论；不要为了凑数量而输出每个提示词。",
     }
     result, metadata = qwen_client.complete_to_model_with_web_search(
-        _SYSTEM_PROMPT, prompt, ModelLookupResult, max_tokens=2600,
+        # 型号核验可能同时返回识别、产品级候选部件与工艺推演，使用完整文本预算，
+        # 避免结果在 proposals 中间被截断。
+        _SYSTEM_PROMPT, prompt, ModelLookupResult, max_tokens=12000,
     )
     result.search_sources = metadata["sources"]
     result.search_count = metadata["search_count"]
     result.model = metadata["model"]
     result.generated_at = now_cst_str()
+    candidate_parts = {
+        str(item.get("candidate_model") or "").strip().upper(): item.get("related_part_id")
+        for item in candidates if item.get("related_part_id")
+    }
+    for item in result.identifications:
+        # 模型可能漏回 related_part_id；候选提取阶段已有精确零件来源时由本地补回，
+        # 让用户清楚确认后会写入哪个零件，也避免后续按型号回退匹配到错误实体。
+        if not item.related_part_id:
+            item.related_part_id = candidate_parts.get(item.candidate_model.strip().upper())
     # 防止模型返回项目资料中不存在的型号，保证每项都可追溯到图纸/BOM/技术文档。
     project_corpus = (document_text + "\n" + ir_text).upper()
-    result.identifications = [
-        item for item in result.identifications
-        if item.candidate_model.strip() and item.candidate_model.strip().upper() in project_corpus
-    ][:_MAX_CANDIDATES]
+    # 确认接口以候选型号为稳定键；模型偶尔重复返回同一候选时只保留第一项，
+    # 避免一次人工确认同时作用于多个相互矛盾的识别结论。
+    filtered = []
+    seen_models: set[str] = set()
+    for item in result.identifications:
+        key = item.candidate_model.strip().upper()
+        if not key or key not in project_corpus or key in seen_models:
+            continue
+        seen_models.add(key)
+        filtered.append(item)
+        if len(filtered) >= _MAX_CANDIDATES:
+            break
+    result.identifications = filtered
     if not result.identifications:
         result.open_questions.append("联网服务未对项目中的型号候选返回可用结论，请人工核验。")
     return result

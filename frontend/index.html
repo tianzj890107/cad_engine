@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI 工艺 - 图纸解析</title>
-  <link rel="stylesheet" href="workbench.css?v=20260721-left-fonts" />
+  <link rel="stylesheet" href="workbench.css?v=20260812-ai-sop1" />
+  <link rel="stylesheet" href="inline-analysis.css?v=20260811-inline3" />
+  <link rel="stylesheet" href="parse-loading.css?v=parse-loading2" />
   <script type="importmap">
   {"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
   </script>
@@ -16,7 +18,7 @@
         <div class="main-step-wrapper" data-step="upload"><div class="main-step completed"><div class="main-step-number">1</div><span>接受工艺评估需求</span></div></div>
         <div class="main-connector active"></div>
         <div class="main-step-wrapper" data-step="parse">
-          <div class="main-step active"><div class="main-step-number">2</div><span>解析技术工艺过程</span></div>
+          <div class="main-step completed"><div class="main-step-number">2</div><span>解析技术工艺过程</span></div>
           <div class="sub-labels-row"><span class="sub-label active">2.1 图纸解析</span><span class="sub-label-arrow">→</span><span class="sub-label">2.2 材料定性</span><span class="sub-label-arrow">→</span><span class="sub-label">2.3 工艺路径</span><span class="sub-label-arrow">→</span><span class="sub-label">2.4 洁净管控</span><span class="sub-label-arrow">→</span><span class="sub-label">2.5 组装检测</span><span class="sub-label-arrow">→</span><span class="sub-label">2.6 产能评估</span></div>
         </div>
         <div class="main-connector"></div>
@@ -30,36 +32,44 @@
 
     <div class="main-content">
       <div class="left-panel">
-        <div class="panel-section">
-          <div class="section-title">设计意图</div>
-          <div class="design-intent-box">
+        <details class="panel-section workbench-disclosure intent-disclosure" open>
+            <summary class="section-title">设计意图</summary>
+            <div class="design-intent-box">
             <div id="intent" class="design-intent-text">上传设备需求图纸，AI 将提取设计意图、尺寸、零件结构与待确认事项。</div>
             <div class="design-intent-dimensions">结构化设计意图（IR）</div>
+            </div>
             <div class="upload-form">
               <label class="field-label" for="fileInput">需求图纸</label><input class="file-input" type="file" id="fileInput" accept="image/*" /><label class="file-picker" for="fileInput"><span class="file-picker-button">选择图纸文件</span><span id="fileInputName" class="file-picker-name">未选择文件</span></label>
               <label class="field-label" for="noteInput">补充技术说明（可选）</label><textarea id="noteInput" rows="3" placeholder="可补充材料、尺寸、公差、装配要求或制造约束…"></textarea>
               <label class="field-label" for="attachInput">技术文档与补充视图（可选）</label><input class="file-input" type="file" id="attachInput" multiple accept="image/*,.pdf,.docx,.txt,.md,.csv,.json,.log,.yaml,.yml" /><label class="file-picker" for="attachInput"><span class="file-picker-button">选择补充文件</span><span id="attachInputName" class="file-picker-name">未选择文件</span></label>
               <button id="btnUpload" class="upload-btn">创建评估任务</button>
             </div>
+        </details>
+        <details class="panel-section workbench-disclosure evidence-disclosure" open>
+            <summary class="section-title">本次解析资料</summary>
             <div class="file-groups">
-              <div class="file-group"><div class="file-group-title">本次解析资料</div><div id="projectEvidence" class="project-evidence"><div class="uploaded-file-item blueprint-preview"><div class="file-info"><div class="file-name">需求原图与技术文档</div><div class="file-meta">上传后将同时作为图纸解析依据</div></div></div></div></div>
-              <div class="image-wrap"><div id="imgStage" class="img-stage"><img id="sourceImg" alt="上传后显示原图" /><div id="bboxLayer" class="bbox-layer"></div></div></div>
+              <div id="projectEvidence" class="project-evidence"><div class="uploaded-file-item blueprint-preview"><div class="file-info"><div class="file-name">需求原图与技术文档</div><div class="file-meta">上传后将同时作为图纸解析依据</div></div></div></div>
+              <div class="image-wrap"><div id="imgStage" class="img-stage"><img id="sourceImg" alt="上传后显示原图" /><div id="bboxLayer" class="bbox-layer"></div></div><div id="attachmentImageGallery" class="attachment-image-gallery" hidden></div></div>
             </div>
             <div class="parse-action"><button id="btnParse" class="start-parse-btn" disabled>▶ 开始解析</button></div>
-          </div>
-        </div>
+        </details>
 
         <div class="panel-section">
           <div class="section-title">零件清单</div><div id="tree" class="parts-list empty-state">完成解析后显示零件清单</div>
         </div>
 
-        <div class="panel-section">
-          <div class="section-title warning">待澄清问题</div><div id="extras" class="extras">暂无待澄清问题</div>
-        </div>
+        <details class="panel-section workbench-disclosure clarification-disclosure">
+          <summary class="section-title warning">待澄清问题</summary><div id="extras" class="extras">暂无待澄清问题</div>
+        </details>
 
         <details id="modelLookupDetails" class="panel-section model-lookup-panel" open>
-          <summary>AI 型号联网核验 <span>（按需调用，不修改 CAD/BOM）</span></summary>
+          <summary>AI 型号联网核验 <span>（按需调用，确认后写入零件/BOM）</span></summary>
           <div id="modelLookupResult" class="model-lookup-result">完成图纸解析后，可在“更多功能”中发起型号联网核验。</div>
+        </details>
+
+        <details id="verificationDetails" class="panel-section verification-panel">
+          <summary>AI 校核待确认 <span>（只展示字段级修改）</span></summary>
+          <div id="verificationResult" class="verification-result">完成一次“校验修正”后显示差异。</div>
         </details>
 
         <details class="panel-section import-panel"><summary>导入已有 3D 模型</summary><p>STEP/STP 可直接反向解析，不覆盖已有实体几何。</p><input class="file-input" type="file" id="file3d" accept=".step,.stp,.STEP,.STP" /><label class="file-picker" for="file3d"><span class="file-picker-button">选择 3D 文件</span><span id="file3dName" class="file-picker-name">未选择文件</span></label><button id="btnImport3d" class="version-btn">导入 3D 并解析</button></details>
@@ -67,7 +77,6 @@
         <details class="panel-section version-panel">
           <summary>版本与校核审签</summary><div id="versions" class="versions"></div><div id="diffView" class="diff-view"></div>
         </details>
-        <details class="panel-section history-panel"><summary>历史项目</summary><ul id="projectList" class="project-list"></ul></details>
       </div>
 
       <div class="center-panel">
@@ -77,21 +86,14 @@
         <details class="parameter-panel"><summary>查看并编辑零件参数（专家模式）</summary><div id="parameterEditor">选择零件后可查看参数。</div></details>
       </div>
 
-      <aside class="ai-chat-panel" aria-label="AI 工艺对话">
-        <header class="ai-chat-header"><div class="ai-chat-title"><span class="chat-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></span><span>AI 对话</span></div><span id="chatModelBadge" class="chat-model-badge">项目上下文</span></header>
-        <div id="chatContext" class="chat-context">选择项目后可结合图纸和零件信息提问</div>
-        <div id="chatMessages" class="chat-messages" aria-live="polite"><div class="chat-empty"><div class="chat-empty-mark">AI</div><strong>图纸工艺助手</strong><p>选择零件后，可以询问结构、材料、工艺路径或待澄清事项。</p></div></div>
-        <div class="chat-reference" id="chatReference">当前未引用图纸</div>
-        <form id="chatForm" class="chat-composer"><button id="btnChatUseDrawing" class="chat-reference-btn" type="button" title="引用当前图纸与零件上下文" aria-label="引用当前图纸与零件上下文"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></button><textarea id="chatInput" maxlength="1600" rows="1" placeholder="输入您的工艺问题或需求…" aria-label="输入工艺问题"></textarea><button id="btnChatSend" class="chat-send-btn" type="submit" aria-label="发送"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button></form>
-      </aside>
     </div>
-  </div>
 
-  <div class="footer-bar"><div class="footer-left"><button id="btnPrevious" class="btn btn-secondary" type="button">← 上一步</button></div><div class="footer-right"><button id="btnReport" class="report-btn-large" type="button">工艺解析报告</button></div></div>
+    <div class="footer-bar"><div class="footer-left"><button id="btnPrevious" class="btn btn-secondary" type="button"><svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 0h16v16H0z"/><path fill="#8F9299" d="M3.5 7.5h10c.146 0 .266.047.36.14.093.094.14.214.14.36a.487.487 0 0 1-.14.36.487.487 0 0 1-.36.14h-10a.487.487 0 0 1-.36-.14A.487.487 0 0 1 3 8c0-.135.047-.255.14-.36a.487.487 0 0 1 .36-.14Zm.203.5 4.156 4.14c.094.105.141.225.141.36a.48.48 0 0 1-.149.351A.48.48 0 0 1 7.5 13a.522.522 0 0 1-.36-.14l-4.5-4.5A.522.522 0 0 1 2.5 8c0-.135.047-.255.14-.36l4.5-4.5A.522.522 0 0 1 7.5 3a.48.48 0 0 1 .351.148A.48.48 0 0 1 8 3.5a.522.522 0 0 1-.14.36L3.702 8Z" data-follow-fill="#8F9299"/></svg><span>上一步</span></button></div><div class="footer-right"><button id="btnReport" class="report-btn-large" type="button">解析报告</button></div></div>
+  </div>
 
   <div id="loginOverlay" class="login-overlay" style="display:none"><form id="loginForm" class="login-card"><h2>登录</h2><div class="login-sub">图纸解析与生成平台 · 私有化部署</div><input id="loginUser" placeholder="用户名" autocomplete="username" /><input id="loginPass" type="password" placeholder="密码" autocomplete="current-password" /><div id="loginErr" class="login-err"></div><button type="submit">登 录</button></form></div>
   <span id="health" hidden></span><span id="statusCard" hidden></span><span id="workflowHint" hidden></span>
   <link rel="stylesheet" href="workflow-navigation.css?v=workflow-nav4" />
-  <script src="workflow-navigation.js?v=workflow-nav4"></script><script type="module" src="app.js?v=20260720-chat1"></script><script src="home-link.js?v=home1"></script>
+  <script src="workflow-navigation.js?v=workflow-nav5"></script><script src="inline-analysis.js?v=20260811-inline2"></script><script type="module" src="app.js?v=20260812-ai-sop2"></script><script src="home-link.js?v=home5"></script>
 </body>
 </html>

@@ -12,10 +12,16 @@ from fastapi import UploadFile
 
 from backend import main
 from backend.services import llm_client, tasks
+from backend.storage import store
 from backend.storage.meta_backend import JsonMetaBackend
 
 
 class BackendHardeningTests(unittest.TestCase):
+    @unittest.skipUnless(main.AUTH_AUTO_ADMIN, "仅在临时免登录演示模式验证")
+    def test_auto_admin_mode_reports_authenticated_ui_as_disabled(self):
+        """免登录模式仍提供管理员身份，但前端不应再显示登录遮罩。"""
+        self.assertFalse(main.health()["auth_enabled"])
+
     def test_web_tools_are_safely_disabled_for_a_provider_without_support(self):
         old_available = llm_client.WEB_SEARCH_AVAILABLE
         try:
@@ -64,6 +70,34 @@ class BackendHardeningTests(unittest.TestCase):
 
         self.assertEqual([task[1]["task_id"] for task in saved], ["queued", "running"])
         self.assertTrue(all(task[1]["status"] == "failed" for task in saved))
+
+    def test_task_update_is_atomic_at_storage_boundary(self):
+        records = [{"task_id": "t1", "status": "queued", "result": None}]
+        saved = []
+        class FakeMeta:
+            def get_doc(self, project_id, kind):
+                return {"items": [row.copy() for row in records]}
+            def put_doc(self, project_id, kind, data):
+                saved.append(data)
+        with patch.object(store, "_meta", return_value=FakeMeta()):
+            updated = store.update_task("p1", "t1", status="succeeded", result={"ok": True})
+        self.assertEqual(updated["status"], "succeeded")
+        self.assertEqual(updated["result"], {"ok": True})
+        self.assertEqual(saved[-1]["items"][0]["result"], {"ok": True})
+
+    def test_legacy_example_enterprise_data_is_not_returned_as_real(self):
+        equipment = [
+            {"id": "eq_kiln01", "name": "高温烧结炉 GSL-1800X"},
+            {"id": "eq_real", "name": "客户维护设备"},
+        ]
+        suppliers = [
+            {"id": "sup_al01", "name": "示例-高纯氧化铝粉厂A"},
+            {"id": "sup_real", "name": "客户维护供应商"},
+        ]
+        with patch.object(store, "_read_equipment", return_value=equipment):
+            self.assertEqual(store.list_equipment(), [equipment[1]])
+        with patch.object(store, "_read_suppliers", return_value=suppliers):
+            self.assertEqual(store.list_suppliers(), [suppliers[1]])
 
 
 if __name__ == "__main__":

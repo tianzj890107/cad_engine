@@ -1,6 +1,6 @@
 """2.1 图纸解析中的外购件/型号联网核验结果。
 
-该结果是对 CAD IR 的独立补充证据，绝不自动改写零件、BOM 或几何。
+该结果先作为独立补充证据保存；经人工确认后才写入零件/BOM，不自动改写几何。
 """
 from __future__ import annotations
 
@@ -91,8 +91,8 @@ class ModelLookupResult(BaseModel):
     model: str = ""
     generated_at: str = ""
     confirmations: dict[str, dict] = Field(default_factory=dict)
-    applied_changes: List[dict] = Field(default_factory=list, description="本次核验自动同步到 IR/BOM 的变更明细")
-    auto_sync_attempted_at: str = Field("", description="已有核验结果自动同步到 IR/BOM 的尝试时间")
+    applied_changes: List[dict] = Field(default_factory=list, description="人工确认后同步到 IR/BOM 的变更明细")
+    auto_sync_attempted_at: str = Field("", description="旧数据兼容字段；当前流程不再自动同步")
     product_summary: str = Field("", description="产品级联网资料综合判断，不等同于图纸直接识别")
     proposed_components: List[ProductComponentProposal] = Field(default_factory=list)
     process_designs: List[ProcessDesignProposal] = Field(default_factory=list)

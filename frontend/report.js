@@ -88,6 +88,10 @@ async function render() {
 }
 
 $("btnFlowBack").onclick = () => {
+  const referrer = document.referrer;
+  try {
+    if (referrer && new URL(referrer, location.href).origin === location.origin) { history.back(); return; }
+  } catch { /* 使用兜底地址 */ }
   location.href = pid ? `requirement-detail.html?project=${encodeURIComponent(pid)}` : "home.html";
 };
 $("btnPrevious").onclick = () => { location.href = pid ? `index.html?project=${encodeURIComponent(pid)}` : "index.html"; };

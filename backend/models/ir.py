@@ -18,6 +18,8 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from .ai import AIResultStatus, FieldEvidence, ValidationSummary
+
 
 # --------------------------------------------------------------------------- #
 # 特征 (Feature) —— CAD 内核可识别并参数化生成的几何原语
@@ -279,6 +281,17 @@ class DesignIR(BaseModel):
     open_questions: List[OpenQuestion] = Field(
         default_factory=list, description="需人工澄清的问题"
     )
+    evidence_ledger: List[FieldEvidence] = Field(
+        default_factory=list, description="字段级证据台账；关键尺寸应逐项提供来源"
+    )
+    assumptions: List[str] = Field(
+        default_factory=list, description="解析时采用但尚未被项目资料证实的假设"
+    )
+    ai_status: AIResultStatus = Field(
+        AIResultStatus.partial, description="READY/PARTIAL/BLOCKED"
+    )
+    validation: ValidationSummary = Field(default_factory=ValidationSummary)
+    sop_version: str = Field("", description="本次解析采用的 SOP 版本")
 
     @field_validator("overall_dims", mode="before")
     @classmethod

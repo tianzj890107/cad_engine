@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 工艺 - 工艺评估报告</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --color-primary: #3B82F6;
+      --color-primary-hover: #2563EB;
+      --color-primary-light: #EFF6FF;
+      --color-purple: #7C3AED;
+      --color-purple-light: #F5F3FF;
+      --color-green: #10B981;
+      --color-green-light: #ECFDF5;
+      --color-warning: #F59E0B;
+      --color-warning-light: #FFFBEB;
+      --color-red: #EF4444;
+      --color-red-light: #FEF2F2;
+
+      --bg-page: #F5F5F5;
+      --bg-card: #FFFFFF;
+      --bg-hover: #F9FAFB;
+      --bg-input: #F9FAFB;
+
+      --text-primary: #1F2937;
+      --text-secondary: #6B7280;
+      --text-tertiary: #9CA3AF;
+
+      --border-color: #E5E7EB;
+      --border-light: #F3F4F6;
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 12px;
+      --space-lg: 16px;
+      --space-xl: 20px;
+      --space-2xl: 24px;
+
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+
+      --transition-fast: 150ms ease;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', 'PingFang SC', -apple-system, sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    .page-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: var(--space-xl);
+    }
+
+    /* ===== Workflow Section ===== */
+    .workflow-section {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: var(--space-lg);
+      margin-bottom: var(--space-xl);
+    }
+
+    .main-workflow {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: var(--space-sm);
+    }
+
+    .main-step-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 140px;
+    }
+
+    .main-step {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      font-size: 12px;
+      padding: var(--space-xs) var(--space-md);
+      border-radius: var(--radius-full);
+      transition: all var(--transition-fast);
+    }
+
+    .main-step.active {
+      color: var(--color-primary);
+      background-color: var(--color-primary-light);
+      font-weight: 500;
+    }
+
+    .main-step.completed {
+      color: var(--color-green);
+      cursor: pointer;
+    }
+
+    .main-step.completed:hover {
+      text-decoration: underline;
+    }
+
+    .main-step.pending {
+      color: var(--text-tertiary);
+    }
+
+    .main-step-number {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background-color: var(--bg-page);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .main-step.active .main-step-number {
+      background-color: var(--color-primary);
+      color: white;
+    }
+
+    .main-step.completed .main-step-number {
+      background-color: var(--color-green);
+      color: white;
+    }
+
+    .main-step.pending .main-step-number {
+      background-color: var(--bg-hover);
+      color: var(--text-tertiary);
+    }
+
+    .main-connector {
+      width: 30px;
+      height: 2px;
+      background-color: var(--border-color);
+      margin-top: 11px;
+    }
+
+    .main-connector.active {
+      background-color: var(--color-primary);
+    }
+
+    /* Sub-step under main step */
+    .sub-labels-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 2px;
+      margin-top: 4px;
+      padding-left: 26px;
+      max-width: 400px;
+      justify-content: flex-start;
+    }
+
+    .sub-label {
+      font-size: 9px;
+      color: var(--text-tertiary);
+      padding: 2px 4px;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+
+    .sub-label.active {
+      color: var(--color-primary);
+      background-color: var(--color-primary-light);
+    }
+
+    .sub-label.completed {
+      color: var(--color-green);
+    }
+
+    .sub-label-arrow {
+      color: var(--text-tertiary);
+      font-size: 8px;
+    }
+
+    /* ===== Title Section ===== */
+    .title-section {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: var(--space-lg);
+      margin-bottom: var(--space-xl);
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-lg);
+    }
+
+    .form-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .status-badge {
+      padding: var(--space-xs) var(--space-md);
+      background-color: var(--color-warning-light);
+      color: var(--color-warning);
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* ===== Form Card ===== */
+    .form-card {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      margin-bottom: var(--space-xl);
+      overflow: hidden;
+    }
+
+    .form-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-lg);
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .form-card-title {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .form-card-title svg {
+      color: var(--color-primary);
+    }
+
+    .form-card-toggle {
+      color: var(--text-tertiary);
+      cursor: pointer;
+    }
+
+    .form-card-content {
+      padding: var(--space-xl);
+    }
+
+    /* ===== Form Fields ===== */
+    .form-row {
+      display: grid;
+      gap: var(--space-xl);
+      margin-bottom: var(--space-lg);
+    }
+
+    .form-row.three-col {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .form-row.two-col {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .form-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .form-label {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .form-label .required {
+      color: var(--color-red);
+    }
+
+    .form-input {
+      padding: var(--space-md);
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text-primary);
+      outline: none;
+      transition: all var(--transition-fast);
+    }
+
+    .form-input:focus {
+      border-color: var(--color-primary);
+      background-color: var(--bg-card);
+    }
+
+    .form-input::placeholder {
+      color: var(--text-tertiary);
+    }
+
+    .form-input.auto-filled {
+      color: var(--text-secondary);
+    }
+
+    .form-hint {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .form-select {
+      padding: var(--space-md);
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text-primary);
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right var(--space-md) center;
+      padding-right: var(--space-2xl);
+      transition: all var(--transition-fast);
+    }
+
+    .form-select:focus {
+      border-color: var(--color-primary);
+      background-color: var(--bg-card);
+    }
+
+    .form-textarea {
+      padding: var(--space-md);
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text-primary);
+      outline: none;
+      resize: vertical;
+      min-height: 120px;
+      line-height: 1.6;
+      transition: all var(--transition-fast);
+    }
+
+    .form-textarea:focus {
+      border-color: var(--color-primary);
+      background-color: var(--bg-card);
+    }
+
+    .form-textarea::placeholder {
+      color: var(--text-tertiary);
+    }
+
+    /* ===== Summary Table Card ===== */
+    .summary-card {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      margin-bottom: var(--space-xl);
+      overflow: hidden;
+    }
+
+    .summary-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-lg);
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .summary-card-title {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .summary-card-title svg {
+      color: var(--color-primary);
+    }
+
+    /* Summary Table */
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .summary-table th {
+      background-color: var(--bg-page);
+      padding: var(--space-md) var(--space-lg);
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .summary-table th:first-child {
+      width: 60px;
+      text-align: center;
+    }
+
+    .summary-table th:nth-child(2) {
+      width: 120px;
+    }
+
+    .summary-table td {
+      padding: var(--space-md) var(--space-lg);
+      border-bottom: 1px solid var(--border-light);
+      vertical-align: top;
+    }
+
+    .summary-table td:first-child {
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .summary-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .summary-table tr.white-bg td {
+      background-color: var(--bg-card) !important;
+    }
+
+    .summary-table tr.white-bg td:first-child {
+      background-color: var(--bg-page) !important;
+    }
+
+    .summary-table tr.white-bg td input.table-input {
+      background-color: var(--bg-card);
+    }
+
+    .table-input {
+      width: 100%;
+      padding: var(--space-sm) var(--space-md);
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text-primary);
+      outline: none;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .table-input:focus {
+      border-color: var(--color-primary);
+    }
+
+    .table-select {
+      width: 100%;
+      padding: var(--space-sm) var(--space-md);
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text-primary);
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right var(--space-sm) center;
+      padding-right: var(--space-xl);
+    }
+
+    .table-select:focus {
+      border-color: var(--color-primary);
+    }
+
+    /* Tag-style labels */
+    .tag-label {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .tag-label.tag-ok {
+      color: var(--color-green);
+      background-color: var(--color-green-light);
+      border: 1px solid var(--color-green);
+    }
+
+    .tag-label.tag-warning {
+      color: var(--color-warning);
+      background-color: var(--color-warning-light);
+      border: 1px solid var(--color-warning);
+    }
+
+    .status-ok {
+      color: var(--color-green);
+    }
+
+    .status-warning {
+      color: var(--color-warning);
+    }
+
+    /* Review Table */
+    .review-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .review-table th {
+      background-color: var(--bg-page);
+      padding: var(--space-md) var(--space-lg);
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .review-table td {
+      padding: var(--space-md) var(--space-lg);
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .review-table td .table-select,
+    .review-table td .table-input {
+      min-width: 100px;
+    }
+
+    .review-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .review-status {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .review-status.completed {
+      color: var(--color-green);
+    }
+
+    .review-status.pending {
+      color: var(--text-tertiary);
+    }
+
+    /* Attachment Table */
+    .attachment-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .attachment-table th {
+      background-color: var(--bg-page);
+      padding: var(--space-md) var(--space-lg);
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .attachment-table th:first-child {
+      width: 80px;
+      text-align: center;
+    }
+
+    .attachment-table td {
+      padding: var(--space-md) var(--space-lg);
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .attachment-table td:first-child {
+      text-align: center;
+    }
+
+    .attachment-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .attachment-link {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      color: var(--color-primary);
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .attachment-link:hover {
+      text-decoration: underline;
+    }
+
+    .attachment-link svg {
+      flex-shrink: 0;
+    }
+
+    /* ===== Footer Bar ===== */
+    .footer-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: var(--bg-card);
+      border-top: 1px solid var(--border-color);
+      padding: var(--space-lg) var(--space-xl);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .footer-left {
+      display: flex;
+      gap: var(--space-md);
+    }
+
+    .footer-right {
+      display: flex;
+      gap: var(--space-md);
+    }
+
+    .btn {
+      padding: var(--space-md) var(--space-2xl);
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-sm);
+      border: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--color-purple), var(--color-primary));
+      color: white;
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+
+    .btn-success {
+      background-color: var(--color-green);
+      color: white;
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-success:hover {
+      background-color: #059669;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--bg-hover);
+      border-color: var(--color-primary);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .form-row.two-col,
+      .form-row.three-col {
+        grid-template-columns: 1fr;
+      }
+
+      .action-bar {
+        flex-direction: column;
+      }
+
+      .action-left, .action-right {
+        width: 100%;
+      }
+
+      .btn {
+        flex: 1;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-container">
+    <!-- Workflow Section -->
+    <div class="workflow-section">
+      <div class="main-workflow">
+        <div class="main-step-wrapper">
+          <div class="main-step completed">
+            <div class="main-step-number">1</div>
+            <span>接受工艺评估需求</span>
+          </div>
+        </div>
+        <div class="main-connector active"></div>
+        <div class="main-step-wrapper">
+          <div class="main-step completed">
+            <div class="main-step-number">2</div>
+            <span>解析技术工艺过程</span>
+          </div>
+        </div>
+        <div class="main-connector active"></div>
+        <div class="main-step-wrapper">
+          <div class="main-step active">
+            <div class="main-step-number">3</div>
+            <span>输出工艺评估结果</span>
+          </div>
+          <div class="sub-labels-row">
+            <span class="sub-label active">3.1 汇总结果</span>
+            <span class="sub-label-arrow">→</span>
+            <span class="sub-label">3.2 审核报告</span>
+            <span class="sub-label-arrow">→</span>
+            <span class="sub-label">3.3 发布报告</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Title Section -->
+    <div class="title-section">
+      <div class="title-row">
+        <h1 class="form-title">江丰半导体工艺评估报告</h1>
+        <span class="status-badge">初稿</span>
+      </div>
+    </div>
+
+    <!-- Basic Info Card -->
+    <div class="form-card">
+      <div class="form-card-header">
+        <div class="form-card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          基本信息
+        </div>
+        <div class="form-card-toggle">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+      <div class="form-card-content">
+        <div class="form-row three-col">
+          <div class="form-field">
+            <label class="form-label">报告编号</label>
+            <input type="text" class="form-input" value="PER-ESC-20260628-001">
+          </div>
+          <div class="form-field">
+            <label class="form-label">对应需求单号</label>
+            <input type="text" class="form-input" value="REQ01234520260625001">
+          </div>
+          <div class="form-field">
+            <label class="form-label">编制日期</label>
+            <input type="text" class="form-input" value="2026-06-28">
+          </div>
+        </div>
+        <div class="form-row two-col">
+          <div class="form-field">
+            <label class="form-label">编制人</label>
+            <input type="text" class="form-input" value="工艺技术经理：李成杰">
+          </div>
+          <div class="form-field">
+            <label class="form-label">
+              <span class="required">*</span>产品名称
+            </label>
+            <input type="text" class="form-input" value="浙江富春江半导体12英寸氮化铝（AlN）静电吸盘">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 1: Process Feasibility Summary -->
+    <div class="summary-card">
+      <div class="summary-card-header">
+        <div class="summary-card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 11 12 14 22 4"></polyline>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+          </svg>
+          一、工艺可行性总结论
+        </div>
+        <div class="form-card-toggle">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>评估项</th>
+            <th>结论</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>技术可行性</td>
+            <td style="display:flex; align-items:center; gap:var(--space-md);">
+              <select class="table-select" style="width:100px; flex-shrink:0;">
+                <option value="ok" selected>可行</option>
+                <option value="supplement">需补充</option>
+              </select>
+              <input type="text" class="table-input" value="已掌握氮化铝（AlN）陶瓷与钨（W）电极高温共烧的核心技术，通过引进KSTE的全套生产技术及产线，可满足客户全部技术要求。">
+            </td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>材料供应</td>
+            <td style="display:flex; align-items:center; gap:var(--space-md);">
+              <select class="table-select" style="width:100px; flex-shrink:0;">
+                <option value="ok" selected>可行</option>
+                <option value="supplement">需补充</option>
+              </select>
+              <input type="text" class="table-input" value="核心原材料氮化铝粉体、钨浆料等可通过现有合格供应商体系保障，部分高纯材料需提前锁定采购周期。">
+            </td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>产能匹配</td>
+            <td style="display:flex; align-items:center; gap:var(--space-md);">
+              <select class="table-select" style="width:100px; flex-shrink:0;">
+                <option value="ok" selected>可行</option>
+                <option value="supplement">需补充</option>
+              </select>
+              <input type="text" class="table-input" value="结合公司拟募投建设的年产5,100个静电吸盘产业化项目，可满足客户年预测量需求。">
+            </td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>经济可行性</td>
+            <td style="display:flex; align-items:center; gap:var(--space-md);">
+              <select class="table-select" style="width:100px; flex-shrink:0;">
+                <option value="ok" selected>可行</option>
+                <option value="supplement">需补充</option>
+              </select>
+              <input type="text" class="table-input" value="综合测算，毛利率符合公司精密零部件业务预期水平（参考2025年零部件业务营收10.84亿元，同比增长22.24%）。">
+            </td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td>风险评估</td>
+            <td style="display:flex; align-items:center; gap:var(--space-md);">
+              <select class="table-select" style="width:120px; flex-shrink:0;">
+                <option value="ok">可行</option>
+                <option value="risk" selected>中低风险</option>
+              </select>
+              <input type="text" class="table-input" value="主要风险：共烧工艺良率爬坡周期、部分材料进口依赖。已制定应对预案。">
+            </td>
+          </tr>
+          <tr>
+            <td colspan="3">
+              <strong>小结：</strong><input type="text" class="table-input" value="综合评估，建议接单，启动样品试制及客户评价验证流程。">
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Section 2: Assessment Results Summary -->
+    <div class="summary-card">
+      <div class="summary-card-header">
+        <div class="summary-card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+          二、各环节评估结果汇总
+        </div>
+        <div class="form-card-toggle">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>评估环节</th>
+            <th>核心结论</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>④图纸解析</td>
+            <td><input type="text" class="table-input" value="图纸完整，解析完成。识别3项核心工艺难点：高温共烧、微孔加工、防电弧结构"></td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>⑤材料定性</td>
+            <td><input type="text" class="table-input" value="材料方案已确认。AlN粉体及W浆料可通过现有供应商保障"></td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>⑥工艺路径规划</td>
+            <td><input type="text" class="table-input" value="工艺路线已确认，共8大工序。共烧与精密加工为关键瓶颈工序"></td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>⑦清洗与洁净度</td>
+            <td><input type="text" class="table-input" value="清洗方案已制定，Class 1洁净度可实现"></td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td>⑧组装与检测</td>
+            <td><input type="text" class="table-input" value="钎焊方案沿用公司专利工艺，检测方案覆盖客户全部验收标准"></td>
+          </tr>
+          <tr class="white-bg">
+            <td>6</td>
+            <td>⑨产线匹配</td>
+            <td><input type="text" class="table-input" value="产能可满足客户年预测量，瓶颈设备（烧结炉）需提前排期"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Section 3: Review and Release Info -->
+    <div class="summary-card">
+      <div class="summary-card-header">
+        <div class="summary-card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          三、审核与发布信息
+        </div>
+        <div class="form-card-toggle">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+      <table class="review-table">
+        <thead>
+          <tr>
+            <th>审核角色</th>
+            <th>状态</th>
+            <th>日期</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>工艺技术经理（汇总）</td>
+            <td>
+              <select class="table-select">
+                <option value="completed" selected>已完成</option>
+                <option value="pending">待审核</option>
+                <option value="rejected">已驳回</option>
+              </select>
+            </td>
+            <td><input type="text" class="table-input" value="2026/6/28" style="width:100px;"></td>
+          </tr>
+          <tr>
+            <td>工艺技术总监（审核）</td>
+            <td>
+              <select class="table-select">
+                <option value="completed">已完成</option>
+                <option value="pending" selected>待审核</option>
+                <option value="rejected">已驳回</option>
+              </select>
+            </td>
+            <td><input type="text" class="table-input" value="—" style="width:100px;"></td>
+          </tr>
+          <tr>
+            <td>工艺技术总监（发布）</td>
+            <td>
+              <select class="table-select">
+                <option value="completed">已完成</option>
+                <option value="pending">待审核</option>
+                <option value="rejected">已驳回</option>
+                <option value="released" selected>待发布</option>
+              </select>
+            </td>
+            <td><input type="text" class="table-input" value="—" style="width:100px;"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Section 4: Attachment List -->
+    <div class="summary-card">
+      <div class="summary-card-header">
+        <div class="summary-card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+          </svg>
+          四、附件清单
+        </div>
+        <div class="form-card-toggle">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+      <table class="attachment-table">
+        <thead>
+          <tr>
+            <th>序号</th>
+            <th>附件名称</th>
+            <th>来源</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>
+              <a href="#" class="attachment-link" onclick="downloadAttachment('图纸解析报告.pdf')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                图纸解析报告
+              </a>
+            </td>
+            <td>节点④</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>
+              <a href="#" class="attachment-link" onclick="downloadAttachment('材料需求清单_BOM初稿.xlsx')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                材料需求清单（BOM初稿）
+              </a>
+            </td>
+            <td>节点⑤</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>
+              <a href="#" class="attachment-link" onclick="downloadAttachment('工艺路线图及关键工序参数表.pdf')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                工艺路线图及关键工序参数表
+              </a>
+            </td>
+            <td>节点⑥</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>
+              <a href="#" class="attachment-link" onclick="downloadAttachment('清洗工艺规范书及洁净度管控方案.pdf')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                清洗工艺规范书及洁净度管控方案
+              </a>
+            </td>
+            <td>节点⑦</td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td>
+              <a href="#" class="attachment-link" onclick="downloadAttachment('组装作业指导书及成品检测规范.pdf')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                组装作业指导书及成品检测规范
+              </a>
+            </td>
+            <td>节点⑧</td>
+          </tr>
+          <tr>
+            <td>6</td>
+            <td>
+              <a href="#" class="attachment-link" onclick="downloadAttachment('产线匹配分析报告及产能测算表.xlsx')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                产线匹配分析报告及产能测算表
+              </a>
+            </td>
+            <td>节点⑨</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Footer Bar -->
+  <div class="footer-bar">
+    <div class="footer-left">
+      <button class="btn btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        上一步
+      </button>
+    </div>
+    <div class="footer-right">
+      <button class="btn btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+        保存
+      </button>
+      <button class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+        提交
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function downloadAttachment(filename) {
+      alert('下载文件: ' + filename);
+    }
+  </script>
+</body>
+</html>
