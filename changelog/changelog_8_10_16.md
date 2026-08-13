@@ -57,7 +57,7 @@
 
 - 内网 `cad-engine` 运行目录切换到 `/home/zhangzhen/cad_engine`，并重新创建服务器 Linux 虚拟环境。
 - 仅补齐旧运行目录中存在而新目录缺失的数据文件，保留新目录现有数据和当前代码状态。
-- 主要文件：`scripts/sync_intranet_source.sh`、`DEPLOY.md`、`README.md`。
+- 主要文件：`scripts/sync_intranet_source.sh`、`DEPLOYMENT.md`、`README.md`。
 
 ## 2026-08-12
 

@@ -37,4 +37,16 @@ else
 fi
 
 env DOCKER_CONFIG="$DOCKER_CONFIG_DIR" docker compose -f "$COMPOSE_FILE" ps
+HEALTH_URL="${CAD_ENGINE_HEALTH_URL:-http://127.0.0.1:8002/api/health}"
+HEALTH_BODY="$(mktemp)"
+trap 'rm -f "$HEALTH_BODY"' EXIT
+if ! curl --fail --silent --show-error --max-time 10 "$HEALTH_URL" >"$HEALTH_BODY"; then
+  echo "健康检查失败：$HEALTH_URL" >&2
+  exit 1
+fi
+grep -q '"status"[[:space:]]*:[[:space:]]*"ok"' "$HEALTH_BODY" || {
+  echo "健康检查返回异常：$(head -c 500 "$HEALTH_BODY")" >&2
+  exit 1
+}
+echo "健康检查通过：$HEALTH_URL"
 echo "部署完成：$BRANCH ${AFTER:0:12}"

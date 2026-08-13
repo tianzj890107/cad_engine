@@ -964,7 +964,7 @@ async function pollTask(projectId, taskId, label) {
     catch { continue; }  // 网络抖动则继续轮询
     if (t.status === "succeeded") return t.result;
     if (t.status === "failed") throw new Error(t.error || "任务失败");
-    status(`${label}: ${t.progress || "处理中"}…`, true);
+    status(`${label}：${t.progress || "正在处理"}…`, true);
   }
 }
 

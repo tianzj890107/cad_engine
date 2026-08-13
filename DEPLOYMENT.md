@@ -17,8 +17,9 @@ CAD_ENGINE_USE_PASSWORD=true bash scripts/sync_intranet_source.sh
 ```
 
 该命令会依次完成：推送当前提交到 GitHub 同名分支、通过 SSH 通知服务器、服务器执行
-`git fetch` 和 `git merge --ff-only`、最后重启应用。旧命令名保留为兼容入口；实际逻辑位于
-`scripts/release_intranet.sh`（开发机）和 `scripts/deploy_intranet_git.sh`（服务器）。
+`git fetch` 和 `git merge --ff-only`、重启或重建应用、检查容器状态并访问 `/api/health`。
+旧命令名保留为兼容入口；实际逻辑位于 `scripts/release_intranet.sh`（开发机）和
+`scripts/deploy_intranet_git.sh`（服务器）。
 
 部署完成后建议恢复公钥模式，避免每次发布重复输入密码。
 
@@ -113,7 +114,7 @@ docker compose logs -f app        # 跟踪应用日志
 
 ```bash
 docker compose down               # 停服(保留数据卷)
-docker compose down -v            # 停服并删数据(谨慎!清空 Postgres+MinIO)
+docker compose down -v             # 停服并删数据(谨慎!清空 Postgres+MinIO)
 docker compose pull && docker compose up -d --build   # 升级
 ```
 

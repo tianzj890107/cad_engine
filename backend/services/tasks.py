@@ -16,6 +16,7 @@ import os
 import threading
 import traceback
 import uuid
+from contextvars import ContextVar
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 
@@ -31,6 +32,46 @@ _executor = ThreadPoolExecutor(max_workers=_WORKERS, thread_name_prefix="task")
 _cad_lock = threading.Lock()  # 串行化 CAD(OCCT 非线程安全)
 _submit_lock = threading.Lock()  # 防止双击/多标签页重复提交同一种昂贵任务
 _MAX_ERROR_CHARS = 4000
+_CURRENT_TASK: ContextVar[tuple[str, str, str, int] | None] = ContextVar("current_task", default=None)
+
+_SOP_NAMES = {
+    "parse": ("图纸解析 SOP", 3), "verify": ("图纸校核 SOP", 3),
+    "model_lookup": ("型号核验 SOP", 3), "decompose": ("零件拆解 SOP", 3),
+    "process": ("工艺路线 SOP", 3), "cost": ("零件成本 SOP", 3),
+    "material_recommend": ("材料方案 SOP", 3),
+    "manufacturing_recommend": ("制造方案 SOP", 3),
+    "cleaning_recommend": ("洁净方案 SOP", 3),
+    "assembly_recommend": ("组装检测 SOP", 3),
+    "production_recommend": ("产能评估 SOP", 3),
+    "summary_recommend": ("工艺汇总 SOP", 3),
+    "costest_recommend": ("成本测算 SOP", 3),
+    "pricing_recommend": ("定价 SOP", 3),
+    "negotiation_recommend": ("商务谈判 SOP", 3),
+    "pricenego_recommend": ("价格协商 SOP", 3),
+    "approval_recommend": ("审批定级 SOP", 3),
+    "requirement_document_extract": ("需求字段提取 SOP", 3),
+}
+
+_TASK_START_PROGRESS = {
+    "parse": "准备图纸与附件",
+    "verify": "准备校核输入",
+    "model_lookup": "准备型号核验输入",
+    "decompose": "准备零件拆解输入",
+    "process": "准备工艺路线输入",
+    "cost": "准备成本分析输入",
+    "material_recommend": "准备材料方案输入",
+    "manufacturing_recommend": "准备制造方案输入",
+    "cleaning_recommend": "准备洁净方案输入",
+    "assembly_recommend": "准备组装检测输入",
+    "production_recommend": "准备产能评估输入",
+    "summary_recommend": "准备工艺汇总输入",
+    "costest_recommend": "准备成本测算输入",
+    "pricing_recommend": "准备定价输入",
+    "negotiation_recommend": "准备谈判策略输入",
+    "pricenego_recommend": "准备价格协商输入",
+    "approval_recommend": "准备审批建议输入",
+    "requirement_document_extract": "准备需求文档输入",
+}
 
 
 def _now() -> str:
@@ -56,13 +97,17 @@ def submit(
                 return str(task["task_id"])
 
         task_id = uuid.uuid4().hex[:12]
+        sop_name, sop_total = _SOP_NAMES.get(kind, ("任务处理 SOP", 3))
         store.save_task(project_id, {
             "task_id": task_id,
             "project_id": project_id,
             "kind": kind,
             "dedup_key": effective_key,
             "status": "queued",
-            "progress": "排队中",
+            "progress": _TASK_START_PROGRESS.get(kind, "排队中"),
+            "sop_name": sop_name,
+            "sop_step": 0,
+            "sop_total": sop_total,
             "created_at": _now(),
             "started_at": None,
             "finished_at": None,
@@ -74,7 +119,11 @@ def submit(
 
 
 def _run(project_id: str, task_id: str, kind: str, fn: Callable[[], dict], cad: bool) -> None:
-    _update(project_id, task_id, status="running", progress="处理中", started_at=_now())
+    token = _CURRENT_TASK.set((project_id, task_id, kind, 0))
+    sop_name, sop_total = _SOP_NAMES.get(kind, ("任务处理 SOP", 3))
+    _update(project_id, task_id, status="running",
+            progress=_TASK_START_PROGRESS.get(kind, "开始处理"), sop_name=sop_name,
+            sop_step=0, sop_total=sop_total, started_at=_now())
     try:
         if cad:
             with _cad_lock:
@@ -86,15 +135,29 @@ def _run(project_id: str, task_id: str, kind: str, fn: Callable[[], dict], cad: 
                 project_id, task_id, kind, ai_governance.metadata(kind, result)
             )
         _update(project_id, task_id, status="succeeded", progress="完成",
+                sop_step=sop_total,
                 finished_at=_now(), result=result)
     except Exception as e:  # noqa: BLE001 — 任务内任何异常都转成失败态
         traceback.print_exc()
         _update(project_id, task_id, status="failed", progress="失败",
                 finished_at=_now(), error=_safe_error(e))
+    finally:
+        _CURRENT_TASK.reset(token)
 
 
 def _update(project_id: str, task_id: str, **fields) -> None:
     store.update_task(project_id, task_id, **fields)
+
+
+def report_progress(progress: str) -> None:
+    """更新当前异步任务的真实阶段；任务函数内可直接调用。"""
+    current = _CURRENT_TASK.get()
+    if not current or not progress:
+        return
+    project_id, task_id, kind, step = current
+    next_step = min(step + 1, _SOP_NAMES.get(kind, ("任务处理 SOP", 3))[1] - 1)
+    _CURRENT_TASK.set((project_id, task_id, kind, next_step))
+    _update(project_id, task_id, progress=str(progress)[:240], sop_step=next_step)
 
 
 def _safe_error(exc: Exception) -> str:

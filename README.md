@@ -66,7 +66,7 @@ uvicorn backend.main:app --reload --port 8000
 
 浏览器打开 http://localhost:8000
 
-> **一键私有化部署**(应用 + Postgres + MinIO):见 [DEPLOY.md](DEPLOY.md) ——
+> **一键私有化部署**(应用 + Postgres + MinIO):见 [DEPLOYMENT.md](DEPLOYMENT.md) ——
 > 配好 `.env` 后 `docker compose up -d --build` 即可,元数据进库、二进制进对象存储、
 > 默认开启鉴权。当前 AI/CAD 任务队列为进程内实现，生产环境请保持单个 app 实例。
 

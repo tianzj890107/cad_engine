@@ -125,7 +125,7 @@ async function pollTask(taskId) {
     catch { continue; }
     if (t.status === "succeeded") return t.result;
     if (t.status === "failed") throw new Error(t.error || "任务失败");
-    status(`工艺拆解: ${t.progress || "处理中"}…`, true);
+    status(`工艺拆解：${t.progress || "正在处理"}…`, true);
   }
 }
 

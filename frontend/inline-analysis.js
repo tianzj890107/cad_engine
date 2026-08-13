@@ -215,7 +215,7 @@
       const task = await jsonFetch(`/api/projects/${encodeURIComponent(state.context.projectId)}/tasks/${encodeURIComponent(taskId)}`);
       if (task.status === "succeeded") return task.result;
       if (task.status === "failed") throw new Error(task.error || "任务失败");
-      if (active === state) setStatus(state, `${state.mode === "process" ? "工艺拆解" : "成本分析"}：${task.progress || "处理中"}…`, true);
+      if (active === state) setStatus(state, `${state.mode === "process" ? "工艺拆解" : "成本分析"}：${task.progress || "正在处理"}…`, true);
     }
   }
 

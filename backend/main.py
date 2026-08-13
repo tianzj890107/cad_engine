@@ -946,7 +946,9 @@ def parse(project_id: str, user: dict = Depends(current_user)):
     def job():
         manifest = vision.build_input_manifest(name, data, atts)
         store.audit(project_id, "drawing_parse_stage:manifest", manifest)
+        tasks.report_progress("正在读取图纸、提取文本并调用视觉模型")
         ir = vision.parse_drawing(data, name, note=note, attachments=atts)
+        tasks.report_progress("视觉模型已返回，正在校验尺寸、证据和 IR")
         _assert_input_unchanged(project_id, expected_input_revision)
         store.save_drawing_analysis(project_id, vision.pipeline_report(ir, manifest))
         store.save_ir(project_id, ir.model_dump(), stage="parsed", author=author)
@@ -983,6 +985,7 @@ def verify(project_id: str, user: dict = Depends(current_user)):
     expected_input_revision = _input_revision(project_id)
 
     def job():
+        tasks.report_progress("正在调用视觉模型复核图纸字段")
         original = DesignIR(**ir_dict)
         try:
             patch = vision.verify_drawing(original, data, name, note=note, attachments=atts)
@@ -1102,7 +1105,9 @@ def model_lookup_search(project_id: str, user: dict = Depends(current_user)):
     expected_ir = _digest_value(ir_dict)
 
     def job():
+        tasks.report_progress("正在调用模型识别候选型号")
         result = model_lookup.identify_models(DesignIR(**ir_dict), attachments)
+        tasks.report_progress("型号候选已返回，正在去重并保存待确认结果")
         _assert_ir_unchanged(project_id, expected_ir)
         payload = result.model_dump()
         payload["confirmations"] = {}
@@ -1218,7 +1223,9 @@ def decompose_recommend(project_id: str, user: dict = Depends(current_user)):
     expected_ir = _digest_value(ir_dict)
 
     def job():
+        tasks.report_progress("正在调用模型生成零件拆解建议")
         enriched = decompose.enrich_with_recommendations(DesignIR(**ir_dict))
+        tasks.report_progress("拆解建议已返回，正在校验零件和几何特征")
         _assert_ir_unchanged(project_id, expected_ir)
         store.save_ir(project_id, enriched.model_dump(), stage="decomposed", author=author)
         return enriched.model_dump()
@@ -1475,6 +1482,7 @@ def workbench_chat(
     if len(prompt) > 32000:
         prompt = prompt[:32000] + "\n【上下文按预算截断】"
     try:
+        tasks.report_progress("正在调用项目上下文问答模型")
         result = llm_client.complete_to_model(
             _WORKBENCH_CHAT_SYSTEM, prompt, WorkbenchChatAnswer, max_tokens=1200,
         )
@@ -1745,8 +1753,10 @@ async def generate_cost(
     expected_ir = _digest_value(ir_dict)
 
     def job():
+        tasks.report_progress("正在调用模型生成零件成本拆解")
         analysis = cost.analyze_cost(part, overall=ir, geom=geom, quantity=qty,
                                      note=note, attachments=atts)
+        tasks.report_progress("成本结果已返回，正在重算金额并保存价格依据")
         _assert_ir_unchanged(project_id, expected_ir)
         a_dict = analysis.model_dump()
         store.save_cost(project_id, part_id, a_dict, author=author)
@@ -1818,7 +1828,9 @@ def recommend_material(project_id: str, note: str = Form(""),
     dependency_hash = _digest_value((ir_dict, store.load_material(project_id)))
 
     def job():
+        tasks.report_progress("正在调用模型生成材料方案")
         rec = material.recommend(ir=ir, note=note, web=True)
+        tasks.report_progress("材料方案已返回，正在校验候选和供应要求")
         _assert_dependencies_unchanged(
             dependency_hash, (store.load_ir(project_id), store.load_material(project_id)), "IR 或材料草稿"
         )
@@ -2016,7 +2028,9 @@ def recommend_manufacturing(project_id: str, note: str = Form(""),
     dependency_hash = _digest_value((ir_dict, material_plan, store.load_manufacturing(project_id)))
 
     def job():
+        tasks.report_progress("正在调用模型生成制造工艺方案")
         rec = manufacturing.recommend(ir=ir, material_plan=material_plan, note=note, web=True)
+        tasks.report_progress("制造方案已返回，正在校验工序与 BOM")
         _assert_dependencies_unchanged(
             dependency_hash,
             (store.load_ir(project_id), store.load_material(project_id), store.load_manufacturing(project_id)),
@@ -2179,7 +2193,9 @@ def recommend_cleaning(project_id: str, note: str = Form(""),
     dependency_hash = _digest_value((ir_dict, material_plan, store.load_cleaning(project_id)))
 
     def job():
+        tasks.report_progress("正在调用模型生成洁净方案")
         rec = cleaning.recommend(ir=ir, material_plan=material_plan, note=merged_note, web=True)
+        tasks.report_progress("洁净方案已返回，正在校验等级和操作要求")
         _assert_dependencies_unchanged(
             dependency_hash,
             (store.load_ir(project_id), store.load_material(project_id), store.load_cleaning(project_id)),
@@ -2314,8 +2330,10 @@ def recommend_assembly(project_id: str, note: str = Form(""),
     ))
 
     def job():
+        tasks.report_progress("正在调用模型生成组装检测方案")
         rec = assembly.recommend(ir=ir, material_plan=material_plan,
                                  manufacturing_plan=manufacturing_plan, note=note, web=True)
+        tasks.report_progress("组装检测方案已返回，正在校验检测项和依赖")
         _assert_dependencies_unchanged(
             dependency_hash,
             (store.load_ir(project_id), store.load_material(project_id),
@@ -2457,8 +2475,10 @@ def recommend_production(project_id: str, note: str = Form(""),
     dependency_hash = _digest_value((ir_dict, manufacturing_plan, equipment, store.load_production(project_id)))
 
     def job():
+        tasks.report_progress("正在调用模型生成产能评估方案")
         rec = production.recommend(ir=ir, manufacturing_plan=manufacturing_plan,
                                    equipment=equipment, note=note, web=True)
+        tasks.report_progress("产能方案已返回，正在校验设备和产能约束")
         _assert_dependencies_unchanged(
             dependency_hash,
             (store.load_ir(project_id), store.load_manufacturing(project_id),
@@ -2615,7 +2635,9 @@ def recommend_summary(project_id: str, user: dict = Depends(current_user)):
     dependency_hash = _digest_value(submitted_aggregate)
 
     def job():
+        tasks.report_progress("正在调用模型汇总工艺评估结果")
         rec = summary_svc.recommend(submitted_aggregate, web=False)
+        tasks.report_progress("汇总结果已返回，正在生成审签报告")
         _assert_dependencies_unchanged(
             dependency_hash, summary_svc.aggregate(project_id), "工艺汇总输入"
         )
@@ -2847,8 +2869,10 @@ def recommend_costest(project_id: str, note: str = Form(""),
     author = user.get("username", "system")
 
     def job():
+        tasks.report_progress("正在调用模型生成完整成本测算")
         rec = costest.recommend(ir=ir, material_plan=material_plan,
                                 manufacturing_plan=manufacturing_plan, note=note, web=True)
+        tasks.report_progress("成本测算已返回，正在重算合计并检查依赖")
         _assert_dependencies_unchanged(
             dependency_hash,
             (store.load_ir(project_id), store.load_material(project_id),
@@ -2998,7 +3022,9 @@ def recommend_pricing(project_id: str, note: str = Form(""),
     dependency_hash = _digest_value((ir_dict, ce, store.load_pricing(project_id)))
 
     def job():
+        tasks.report_progress("正在调用模型生成定价建议")
         rec = pricing.recommend(ir=ir, costest=ce, note=note, web=True)
+        tasks.report_progress("定价建议已返回，正在按成本基数计算报价")
         current_costest = store.load_costest(project_id)
         if current_costest and not current_costest.get("totals"):
             current_costest = dict(current_costest)
@@ -3149,7 +3175,9 @@ def recommend_negotiation(project_id: str, note: str = Form(""),
     dependency_hash = _digest_value((ir_dict, pricing_plan, store.load_negotiation(project_id)))
 
     def job():
+        tasks.report_progress("正在调用模型生成商务谈判策略")
         rec = negotiation.recommend(ir=ir, pricing=pricing_plan, note=note, web=False)
+        tasks.report_progress("谈判策略已返回，正在校验报价依赖")
         _assert_dependencies_unchanged(
             dependency_hash,
             (store.load_ir(project_id), store.load_pricing(project_id), store.load_negotiation(project_id)),
@@ -3279,8 +3307,10 @@ def recommend_pricenego(project_id: str, note: str = Form(""),
     ))
 
     def job():
+        tasks.report_progress("正在调用模型生成价格协商建议")
         rec = pricenego.recommend(ir=ir, pricing=pricing_plan,
                                   negotiation=negotiation_plan, note=note, web=True)
+        tasks.report_progress("价格协商建议已返回，正在校验调整项")
         _assert_dependencies_unchanged(
             dependency_hash,
             (store.load_ir(project_id), store.load_pricing(project_id),
@@ -3411,7 +3441,9 @@ def recommend_approval(project_id: str, note: str = Form(""),
     dependency_hash = _digest_value((ir_dict, pricing_plan, pn, store.load_approval(project_id)))
 
     def job():
+        tasks.report_progress("正在调用模型生成审批定级建议")
         rec = approval_svc.recommend(ir=ir, pricing=pricing_plan, pricenego=pn, note=note, web=False)
+        tasks.report_progress("审批建议已返回，正在生成审批节点")
         _assert_dependencies_unchanged(
             dependency_hash,
             (store.load_ir(project_id), store.load_pricing(project_id),
@@ -4312,7 +4344,9 @@ def extract_requirement_documents(project_id: str, user: dict = Depends(current_
 
     def job():
         _assert_input_unchanged(project_id, expected_input_revision)
+        tasks.report_progress("正在读取技术资料并调用模型提取需求字段")
         extracted = requirement_extract.extract_requirement_fields(prepared, expected_industry)
+        tasks.report_progress("需求字段已返回，正在校验必填项并生成推荐值")
         _assert_input_unchanged(project_id, expected_input_revision)
         # 任务完成前可能有人工保存，重新读取最新草稿，并坚持“只补空字段”。
         latest = store.load_requirement(project_id)
