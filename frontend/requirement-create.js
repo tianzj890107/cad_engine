@@ -142,18 +142,19 @@ function rcRemoveBomRequiredMark(){document.querySelector('#file_bom_assembly')?
 renderRequirementCreate=function(){rcRenderRequirementCreateWithCredit();rcMountCustomerCredit();rcRemoveBomRequiredMark();};
 
 // 提交前严格按照页面星号标记校验，避免只校验名称/描述导致不完整需求进入确认环节。
-function rcRequiredFieldErrors(values){
+function rcRequiredFieldEntries(){
   const missing=[];
   document.querySelectorAll('#requirementForm .form-field').forEach(field=>{
     if(!field.querySelector('.required-mark'))return;
     const control=field.querySelector('[name], [data-flexible-spec-key]');
     if(!control||control.disabled)return;
-    const value=control.name?values[control.name]:control.value;
+    // 以当前页面控件为准，不能读 rcData 的旧值，否则用户刚填写的字段仍会被判空。
+    const value=control.type==='checkbox'?(control.checked?'1':''):control.value;
     if(!String(value??'').trim()){
       const labelNode=field.querySelector('.form-label')?.cloneNode(true);
       labelNode?.querySelectorAll('.ai-filled-badge,.ai-recommended-badge,.required-mark').forEach(node=>node.remove());
       const label=labelNode?.textContent?.trim()||control.name||'未命名字段';
-      missing.push(label);
+      missing.push({field,control,label});
     }
   });
   const data=rcData();
@@ -161,16 +162,35 @@ function rcRequiredFieldErrors(values){
   const hasFiles=role=>Boolean((rcFiles[role]||[]).length||(files[role]||[]).length||(role==='drawing_2d'&&rcMeta?.source_filename));
   [['drawing_2d','2D工程图'],['technical_spec','技术规格说明书']].forEach(([role,label])=>{
     const input=document.querySelector(`#file_${role}`);
-    if(input?.closest('.form-field')?.querySelector('.required-mark')&&!hasFiles(role))missing.push(label);
+    const field=input?.closest('.form-field');
+    if(field?.querySelector('.required-mark')&&!hasFiles(role))missing.push({field,control:input,label});
   });
-  return [...new Set(missing)];
+  return missing;
+}
+function rcRequiredFieldErrors(entries){return [...new Set(entries.map(item=>item.label))];}
+function rcFocusFirstRequiredField(entries){
+  const target=entries[0];
+  if(!target?.field)return;
+  const section=target.field.closest('.form-section-content');
+  if(section?.classList.contains('collapsed'))document.querySelector(`[data-toggle="${section.id}"]`)?.click();
+  target.field.style.outline='2px solid #ef4444';
+  const focusTarget=target.control?.type==='file'?target.field.querySelector('.file-upload-area'):target.control;
+  setTimeout(()=>{
+    const top=target.field.getBoundingClientRect().top+window.scrollY-(window.innerHeight/2)+(target.field.offsetHeight/2);
+    window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+    if(focusTarget){
+      if(focusTarget.tabIndex<0)focusTarget.tabIndex=-1;
+      focusTarget.focus({preventScroll:true});
+    }
+    setTimeout(()=>{target.field.style.outline='';},1800);
+  },250);
 }
 const rcPersistWithRequiredValidation=rcPersist;
 rcPersist=async function(submit){
   if(submit){
-    const values={...rcData(),...rcFormData()};
-    const missing=rcRequiredFieldErrors(values);
-    if(missing.length){rcToast(`请先填写必填项：${missing.join('、')}`,true);document.querySelector('#requirementForm .form-field:has(.required-mark) input:not(:disabled),#requirementForm .form-field:has(.required-mark) select:not(:disabled),#requirementForm .form-field:has(.required-mark) textarea:not(:disabled)')?.focus();return;}
+    const missingEntries=rcRequiredFieldEntries();
+    const missing=rcRequiredFieldErrors(missingEntries);
+    if(missing.length){rcToast(`请先填写必填项：${missing.join('、')}`,true);rcFocusFirstRequiredField(missingEntries);return;}
   }
   return rcPersistWithRequiredValidation(submit);
 };

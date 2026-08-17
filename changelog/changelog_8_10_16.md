@@ -135,3 +135,37 @@
 - CAD、2D 工程图和单零件重新生成只由确定性几何预检拦截：缺少基体、必要尺寸无值、尺寸非法或数量非法仍会阻断。
 - 材料缺失、字段证据较弱或证据冲突不再阻断几何生成，改为少量汇总提醒；解析提示也不再把每个估算字段逐条转成人工确认事项。
 - 主要文件：`backend/services/vision.py`、`backend/main.py`、`tests/test_ai_sop.py`。
+
+## 2026-08-13
+
+### 1. AI 工艺评估全流程与工程安全治理
+
+- 贯通需求创建/确认、图纸解析与校核、零件拆解、CAD/2D、工艺、成本、报价、议价和审批，补充多资料输入、文本提取、需求 PDF、项目上下文问答和全过程异步任务留痕。
+- 图纸解析形成输入清单、文本提取、视图/候选识别、关键尺寸绑定、IR 组装和规则校验阶段；关键字段保留来源、证据强度、冲突和待确认状态。
+- AI 校核改为字段级补丁和人工确认；IR、输入文件及上下游依赖增加摘要/版本校验，前置数据变化会使旧的几何、工程图、审批等结果失效。
+- CAD/2D/单零件重生成仅由确定性几何预检阻断缺少基体、必要尺寸无值、尺寸或数量非法等问题，材料缺失和弱证据改为提醒。
+- 主要文件：`backend/main.py`、`backend/services/vision.py`、`backend/models/ir.py`、`backend/storage/store.py`、`backend/services/requirement_extract.py`、`backend/services/requirement_pdf.py`、`frontend/inline-analysis.js`。
+
+### 2. 工艺、成本报价与 AI 结果治理
+
+- 工艺按机加工、钣金、焊接结构和标准外购件加载分类模板，增加特征—工序、材料—工艺兼容性、模板允许工序和最终检验校验；修复空工艺路线自动补齐及工序枚举误判问题。
+- 工艺、材料、制造、清洗、组装、产能、成本和定价结果统一保留 READY/PARTIAL/BLOCKED、证据、假设、待澄清项、校验结果、实际模型和 SOP 版本；没有企业规则库时只使用可审计通用规则，不伪造企业资源数据。
+- 成本、定价、议价和审批增加业务内容比较、依赖摘要、版本和审批节点治理；当前 Qwen/Team 普通成本分析不调用通用联网搜索，按离线知识执行并明确能力边界。
+- 主要文件：`agent_knowledge/`、`backend/models/ai.py`、`backend/models/process.py`、`backend/models/cost.py`、`backend/models/workflow.py`、`backend/services/sop.py`、`backend/services/ai_governance.py`、`backend/services/process.py`、`backend/services/costest.py`、`backend/services/pricing.py`、`backend/services/approval.py`。
+
+### 3. 工作台、需求页面与报告交互完善
+
+- 2.1 工作台内嵌工艺拆解、成本分析、零件摘要、工程图、专家模式、待确认项、版本审签和项目问答；补齐需求推荐、PDF、解析加载、报告审核/发布等页面及演示页面集。
+- 统一首页导航、折叠过渡、按钮图标、加载态、结果页和内网自动管理员登录状态；模型设置改为供应商联动下拉，联网模型列表读取实际服务能力。
+- 主要文件：`frontend/index.html`、`frontend/app.js`、`frontend/home.js`、`frontend/workbench.css`、`frontend/requirement-*.js`、`frontend/report-*.js`、`AI工艺页面集/`。
+
+### 4. 模型配置、测试与内网发布
+
+- Qwen 支持视觉/文本/联网模型池、重试、结构化 JSON 修复、输出预算和实际模型留痕；完善 `.env.example`、Docker 镜像和 AI SOP/行业规则加载，新增 AI SOP、工作流、需求检查、前端确认页和后端加固测试。
+- 内网发布固定使用 `20260722` 分支和 `zhangzhen` 目录，服务器对外使用 `8002`、容器内部使用 `8000`；部署文档统一为 `DEPLOYMENT.md`，发布脚本增加容器状态和 `/api/health` 校验。
+- LLM 异步任务增加阶段进度和后台 SOP 元数据，前端显示准备输入、调用模型、结果校验/保存等自然语言进度，不显示 SOP 编号前缀。
+- 最终发布版本为 `3844d8a`，线上 `172.16.10.34:8002` 容器和健康检查正常，CadQuery 与 Qwen 模型池可用；主要文件：`backend/services/tasks.py`、`frontend/app.js`、`frontend/cost.js`、`frontend/process.js`、`frontend/inline-analysis.js`、`scripts/release_intranet.sh`、`scripts/deploy_intranet_git.sh`、`DEPLOYMENT.md`、`AGENTS.md`。
+
+## 2026-08-14
+
+- 创建当天日 changelog 并启用持续记录机制；当天暂无新增代码、测试或部署变更。

@@ -4491,9 +4491,7 @@ def submit_requirement_confirmation(
     doc = RequirementDoc(**saved)
     if doc.status not in ("draft", "rejected"):
         raise HTTPException(409, "当前需求不在可提交状态")
-    check = _requirement_precheck(project_id, doc)
-    if not check["ok"]:
-        raise HTTPException(409, check["generated_note"])
+    # 1.1 的唯一提交门槛由页面星号必填字段负责；不再用另一套完整性清单拦截。
     doc.status = "pending_confirmation"
     doc.history.append(_workflow_event("submit_confirmation", user, body.comment))
     doc.updated_at = _now_str()
@@ -4516,9 +4514,6 @@ def confirm_requirement(
     doc = RequirementDoc(**saved)
     if doc.status != "pending_confirmation":
         raise HTTPException(409, "当前需求不在待确认状态")
-    check = _requirement_precheck(project_id, doc)
-    if not check["ok"]:
-        raise HTTPException(409, "需求信息在确认前检查未通过：" + check["generated_note"])
     doc.status = "pending_review"
     doc.confirmed_by = user.get("username", "system")
     doc.confirmed_at = _now_str()

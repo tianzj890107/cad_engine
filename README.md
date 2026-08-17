@@ -1,5 +1,7 @@
 # 图纸解析与生成平台
 
+> 实际启动和内网部署请先阅读 [README_STARTUP.md](README_STARTUP.md)；完整私有化配置见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+
 设备需求原图 → **结构化设计意图(IR)** → **确定性 CAD 几何**(STEP/STL/3D)。
 
 核心思路:所选大模型提供商只负责把原图**理解并结构化**成「特征 + 参数 + 装配关系」的设计意图(IR);
