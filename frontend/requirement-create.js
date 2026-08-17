@@ -173,7 +173,6 @@ function rcFocusFirstRequiredField(entries){
   if(!target?.field)return;
   const section=target.field.closest('.form-section-content');
   if(section?.classList.contains('collapsed'))document.querySelector(`[data-toggle="${section.id}"]`)?.click();
-  target.field.style.outline='2px solid #ef4444';
   const focusTarget=target.control?.type==='file'?target.field.querySelector('.file-upload-area'):target.control;
   setTimeout(()=>{
     const top=target.field.getBoundingClientRect().top+window.scrollY-(window.innerHeight/2)+(target.field.offsetHeight/2);
@@ -182,7 +181,6 @@ function rcFocusFirstRequiredField(entries){
       if(focusTarget.tabIndex<0)focusTarget.tabIndex=-1;
       focusTarget.focus({preventScroll:true});
     }
-    setTimeout(()=>{target.field.style.outline='';},1800);
   },250);
 }
 const rcPersistWithRequiredValidation=rcPersist;
