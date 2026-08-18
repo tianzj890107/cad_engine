@@ -17,7 +17,7 @@ const $ = (id) => document.getElementById(id);
 const status = (m, busy = false) => { $("status").textContent = (busy ? "⏳ " : "") + m; };
 const esc = (s) => String(s ?? "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-const money = (v) => (v == null ? "—" : Number(v).toLocaleString("zh-CN", { maximumFractionDigits: 2 }));
+const money = (v, options) => window.AppNumberFormat.formatMoney(v, options);
 
 const CAT_LABEL = {
   material: "材料费", machining: "机加工", standard_part: "标准件/外购", heat_treat: "热处理",
@@ -91,7 +91,7 @@ $("btnGen").onclick = async () => {
     analysis = res.analysis; summary = res.summary; editing = false;
     $("btnGen").textContent = "🔄 重新生成"; $("btnEdit").disabled = false;
     render();
-    status(`成本分析完成:${summary.item_count} 个分项,单件约 ${money(summary.computed_total)} 元`);
+    status(`成本分析完成:${summary.item_count} 个分项,单件约 ${money(summary.computed_total)}`);
   } catch (e) { status("成本分析失败: " + e.message); }
   finally { $("btnGen").disabled = false; }
 };
@@ -143,7 +143,7 @@ function render() {
     h += `<div class="cat-bars">`;
     cats.forEach(cat => {
       const v = bc[cat];
-      h += `<div class="cat-bar"><div class="cb-top"><span>${CAT_LABEL[cat] || cat}</span><span>${money(v)} 元</span></div>` +
+      h += `<div class="cat-bar"><div class="cb-top"><span>${CAT_LABEL[cat] || cat}</span><span>${money(v)}</span></div>` +
         `<div class="cb-track"><div class="cb-fill" style="width:${(v / maxv * 100) | 0}%"></div></div></div>`;
     });
     h += `</div>`;
@@ -211,8 +211,8 @@ function itemRow(it, i) {
     `<td><span class="cat-tag">${CAT_LABEL[it.category] || it.category}</span></td>` +
     `<td>${esc(it.name)}</td><td class="src">${esc(it.basis || "")}</td>` +
     `<td class="num">${it.quantity != null ? it.quantity : ""}</td><td>${esc(it.unit || "")}</td>` +
-    `<td class="num">${it.unit_price != null ? money(it.unit_price) : ""}</td>` +
-    `<td class="num amt">${it.amount != null ? money(it.amount) : ""}</td>` +
+    `<td class="num">${it.unit_price != null ? money(it.unit_price, { compact: false }) : ""}</td>` +
+    `<td class="num amt">${it.amount != null ? money(it.amount, { compact: false }) : ""}</td>` +
     `<td class="src">${esc(it.source || "")}</td><td class="num">${conf}</td></tr>`;
 }
 

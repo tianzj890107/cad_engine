@@ -169,12 +169,13 @@ button:disabled { background: #39424d; color: #6b7480; cursor: not-allowed; }
 
 /* ===== 成本分析页 ===== */
 .cost-total { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 10px; }
-.cost-total .v { font-size: 28px; font-weight: 800; color: #74c97c; }
+.cost-total .v { font-size: 28px; font-weight: 800; color: #74c97c; text-align: right; font-variant-numeric: tabular-nums; }
 .cost-total .u { font-size: 13px; color: #7d8896; }
 .cost-total .q { font-size: 12px; color: #7d8896; margin-left: auto; }
 .cat-bars { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
 .cat-bar { font-size: 12px; }
 .cat-bar .cb-top { display: flex; justify-content: space-between; color: #9fb3c8; }
+.cat-bar .cb-top span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
 .cat-bar .cb-track { height: 7px; background: #11161d; border-radius: 4px; overflow: hidden; margin-top: 2px; }
 .cat-bar .cb-fill { height: 100%; background: #2f7d4f; }
 
