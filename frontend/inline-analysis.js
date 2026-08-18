@@ -18,7 +18,7 @@
 
   const esc = value => String(value ?? "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
   const attr = value => esc(value).replace(/"/g, "&quot;");
-  const money = value => value == null ? "—" : Number(value).toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+  const money = (value, options) => window.AppNumberFormat.formatMoney(value, options);
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const confClass = value => value >= 0.75 ? "" : value >= 0.5 ? "mid" : "lo";
 
@@ -355,7 +355,7 @@
     }
     const summary = state.summary || {};
     const currency = summary.currency || analysis.currency || "CNY";
-    let html = `<div class="inline-cost-content"><section class="inline-card"><div class="inline-card-title">成本概览</div><div class="inline-cost-total"><strong>${money(summary.computed_total)}</strong><span>元 / 件（${esc(currency)}）</span><em>核算批量 ${analysis.quantity || 1} 件</em></div>`;
+    let html = `<div class="inline-cost-content"><section class="inline-card"><div class="inline-card-title">成本概览</div><div class="inline-cost-total"><strong>${money(summary.computed_total)}</strong><span>/ 件（${esc(currency)}）</span><em>核算批量 ${analysis.quantity || 1} 件</em></div>`;
     if (analysis.summary) html += `<div class="inline-row">${esc(analysis.summary)}</div>`;
     const byCategory = summary.by_category || {};
     const values = Object.values(byCategory).map(Number);
@@ -363,7 +363,7 @@
     const categories = Object.keys(byCategory).sort((a, b) => byCategory[b] - byCategory[a]);
     if (categories.length) {
       html += `<div class="inline-cat-bars">`;
-      categories.forEach(category => { html += `<div class="inline-cat-bar"><div><span>${esc(CAT_LABEL[category] || category)}</span><span>${money(byCategory[category])} 元</span></div><i><b style="width:${Math.floor(Number(byCategory[category]) / max * 100)}%"></b></i></div>`; });
+      categories.forEach(category => { html += `<div class="inline-cat-bar"><div><span>${esc(CAT_LABEL[category] || category)}</span><span>${money(byCategory[category])}</span></div><i><b style="width:${Math.floor(Number(byCategory[category]) / max * 100)}%"></b></i></div>`; });
       html += `</div>`;
     }
     (summary.warnings || []).forEach(w => { html += `<div class="inline-warn">⚠ ${esc(w)}</div>`; });
@@ -396,7 +396,7 @@
       const options = CATS.map(category => `<option value="${category}" ${category === item.category ? "selected" : ""}>${CAT_LABEL[category]}</option>`).join("");
       return `<tr data-inline-cost-item data-i="${index}"><td><select data-f="category">${options}</select></td><td><input data-f="name" value="${attr(item.name || "")}"/></td><td><input data-f="basis" value="${attr(item.basis || "")}"/></td><td><input data-f="quantity" type="number" step="any" value="${item.quantity != null ? attr(item.quantity) : ""}"/></td><td><input data-f="unit" value="${attr(item.unit || "")}"/></td><td><input data-f="unit_price" type="number" step="any" value="${item.unit_price != null ? attr(item.unit_price) : ""}"/></td><td><input data-f="amount" type="number" step="any" value="${item.amount != null ? attr(item.amount) : ""}"/></td><td><input data-f="source" value="${attr(item.source || "")}"/></td><td>${Math.floor(confidence * 100)}%</td></tr>`;
     }
-    return `<tr><td><span class="inline-cat-tag">${esc(CAT_LABEL[item.category] || item.category)}</span></td><td>${esc(item.name)}</td><td class="source">${esc(item.basis || "")}</td><td class="number">${item.quantity != null ? esc(item.quantity) : ""}</td><td>${esc(item.unit || "")}</td><td class="number">${item.unit_price != null ? money(item.unit_price) : ""}</td><td class="number amount">${item.amount != null ? money(item.amount) : ""}</td><td class="source">${esc(item.source || "")}</td><td class="number">${Math.floor(confidence * 100)}%</td></tr>`;
+    return `<tr><td><span class="inline-cat-tag">${esc(CAT_LABEL[item.category] || item.category)}</span></td><td>${esc(item.name)}</td><td class="source">${esc(item.basis || "")}</td><td class="number">${item.quantity != null ? esc(item.quantity) : ""}</td><td>${esc(item.unit || "")}</td><td class="number">${item.unit_price != null ? money(item.unit_price, { compact: false }) : ""}</td><td class="number amount">${item.amount != null ? money(item.amount, { compact: false }) : ""}</td><td class="source">${esc(item.source || "")}</td><td class="number">${Math.floor(confidence * 100)}%</td></tr>`;
   }
 
   function collectCostEdits(state) {

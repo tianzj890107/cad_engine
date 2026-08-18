@@ -11,6 +11,7 @@
     <script src="https://unpkg.com/moment@2.29.4/min/moment.min.js"></script>
     <script src="https://unpkg.com/antd@4.24.15/dist/antd.min.js"></script>
     <script src="https://unpkg.com/@ant-design/icons@4.8.0/dist/index.umd.min.js"></script>
+    <script src="/number-format.js?v=numberformat1"></script>
     <script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
     <style>
       html,
@@ -106,6 +107,7 @@
       .tp-flow-line.done{background:var(--tp-green)}
       .tp-flow-step { display:flex; align-items:center; gap:7px; flex:0 0 auto; padding:5px 12px; color:#9ca3af; border-radius:999px; font-size:12px; white-space:nowrap; }.tp-flow-step b{display:grid;width:22px;height:22px;place-items:center;border-radius:50%;background:#f3f4f6;font-size:11px}.tp-flow-step.done{color:var(--tp-green)}.tp-flow-step.done b{color:#fff;background:var(--tp-green)}.tp-flow-step.active{color:var(--tp-blue);background:var(--tp-blue-soft);font-weight:600}.tp-flow-step.active b{color:#fff;background:var(--tp-blue)}.tp-flow-line{width:36px;height:2px;flex:0 0 36px;margin-top:15px;background:var(--tp-line)}.tp-flow-line.done{background:var(--tp-blue)}
       .ant-tabs-nav{margin-bottom:18px!important}.ant-tabs-tab{padding:8px 10px!important;color:var(--tp-muted)}.ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn{color:var(--tp-blue)!important;font-weight:600}.ant-tabs-ink-bar{background:var(--tp-blue)!important}.ant-steps-item-process .ant-steps-item-icon{background:var(--tp-blue)!important;border-color:var(--tp-blue)!important}.ant-btn-primary{background:var(--tp-blue);border-color:var(--tp-blue);border-radius:8px}.ant-btn{border-radius:8px}.ant-table-wrapper .ant-table{border:1px solid var(--tp-line);border-radius:10px;overflow:hidden}.ant-table-thead>tr>th{background:#fafafa;color:var(--tp-muted);font-size:12px}.ant-alert{border-radius:8px}.ant-card,.ant-modal-content{border-radius:12px}
+      .numeric-display,.numeric-cell{text-align:right;font-variant-numeric:tabular-nums}.ant-table-cell.numeric-cell .ant-input-number-input{text-align:right;font-variant-numeric:tabular-nums}
       @media(max-width:700px){.tp-page{padding:12px}.tp-card{padding:16px}.tp-top-workflow{justify-content:flex-start}.tp-flow-line{width:16px;flex-basis:16px}.tp-filter{display:block}.tp-filter-actions{margin:10px 0 0!important}.tp-home-link{top:10px;right:12px;padding:8px 10px;font-size:12px}}
     </style>
   </head>
@@ -124,6 +126,7 @@
         AppstoreOutlined, AimOutlined, FullscreenOutlined,
         RobotOutlined, CheckCircleOutlined, ReloadOutlined, DeleteOutlined,
       } = icons;
+      const formatMoney = (value, options) => window.AppNumberFormat.formatMoney(value, options);
       // 与后端同源:本应用由 process_drawing 服务在 /apps/tech-process/ 提供,/api/* 同源。
       const API = '';
       async function api(path, opts) {
@@ -2024,9 +2027,9 @@
 
         // 生成一个可编辑单元格列（num=数字输入）
         const eCol = (title, field, key, opts) => ({
-          title, dataIndex: key, width: (opts && opts.width),
+          title, dataIndex: key, width: (opts && opts.width), className: opts && opts.num ? 'numeric-cell' : undefined,
           render: (_, row, i) => (opts && opts.num)
-            ? <InputNumber size="small" style={{ width: '100%' }} value={row[key]} onChange={(v) => upd(field, i, key, v)} />
+            ? <InputNumber size="small" style={{ width: '100%' }} value={row[key]} formatter={(v) => window.formatNumber(v)} parser={(v) => String(v || '').replace(/[^\d.-]/g, '')} onChange={(v) => upd(field, i, key, v)} />
             : <Input size="small" value={row[key]} onChange={(e) => upd(field, i, key, e.target.value)} />,
         });
         const delCol = (field) => ({ title: '', width: 44, render: (_, r, i) => (
@@ -2124,7 +2127,7 @@
                     background: hl ? '#e6f4ff' : '#fff' }}>
                     <div style={{ color: '#646a73', fontSize: 13 }}>{label}</div>
                     <div style={{ fontSize: 22, fontWeight: 700, color: hl ? '#1677ff' : '#1f2329' }}>
-                      ¥{(val || 0).toFixed ? (val || 0).toFixed(2) : (val || 0)}
+                      {formatMoney(val)}
                     </div>
                   </div>
                 );
@@ -2329,7 +2332,7 @@
             padding: '12px 16px', background: hi ? '#e6f4ff' : '#fff' }}>
             <div style={{ color: '#646a73', fontSize: 13 }}>{label}</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: hi ? '#1677ff' : '#1f2329' }}>
-              ¥{Number(val || 0).toFixed(2)}
+              {formatMoney(val)}
             </div>
           </div>
         );
@@ -2349,19 +2352,19 @@
             {card('① 成本加成基础(原材料 + 生产加工 + 管理)', null,
               <div>
                 <Space wrap size="large">
-                  <span>原材料成本: <b>¥{Number(costs.material_cost || 0).toFixed(2)}</b></span>
-                  <span>生产加工成本: <b>¥{Number(costs.production_cost || 0).toFixed(2)}</b></span>
+                  <span>原材料成本: <b>{formatMoney(costs.material_cost)}</b></span>
+                  <span>生产加工成本: <b>{formatMoney(costs.production_cost)}</b></span>
                   <span>管理费率(%):
                     <InputNumber size="small" value={costs.management_rate} min={0}
                       onChange={(v) => setCost('management_rate', v)} style={{ width: 80, marginLeft: 4 }} /></span>
-                  <span>管理成本: <b>¥{Number(costs.management_cost || 0).toFixed(2)}</b></span>
-                  <span>成本基数: <b>¥{Number(costs.base_cost || 0).toFixed(2)}</b></span>
+                  <span>管理成本: <b>{formatMoney(costs.management_cost)}</b></span>
+                  <span>成本基数: <b>{formatMoney(costs.base_cost)}</b></span>
                 </Space>
                 <div style={{ marginTop: 12 }}>
                   <span>成本加成率/利润率(%):
                     <InputNumber size="small" value={d.markup_rate} min={0}
                       onChange={(v) => setDoc({ ...d, markup_rate: v })} style={{ width: 90, marginLeft: 4 }} /></span>
-                  <span style={{ marginLeft: 20 }}>→ 加成后基准价: <b>¥{Number(d.base_price || 0).toFixed(2)}</b></span>
+                  <span style={{ marginLeft: 20 }}>→ 加成后基准价: <b>{formatMoney(d.base_price)}</b></span>
                 </div>
                 <div style={{ color: '#8a9099', fontSize: 12, marginTop: 6 }}>
                   原材料/生产加工成本取自「成本测算」;改费率/加成率后点「保存并重算」。
@@ -2383,7 +2386,7 @@
                   {priceBox('加成后基准价', d.base_price)}
                   <div style={{ flex: 1, minWidth: 120, border: '1px solid #eceff2', borderRadius: 6, padding: '12px 16px' }}>
                     <div style={{ color: '#646a73', fontSize: 13 }}>综合调整系数</div>
-                    <div style={{ fontSize: 22, fontWeight: 700 }}>×{Number(d.factor_multiplier || 1).toFixed(3)}</div>
+                    <div className="numeric-display" style={{ fontSize: 22, fontWeight: 700 }}>×{window.formatNumber(d.factor_multiplier || 1, { decimals: 3 })}</div>
                   </div>
                   {priceBox('建议单价', d.suggested_price)}
                   {priceBox('最终报价', d.final_price, true)}
@@ -2742,14 +2745,14 @@
           { title: '日期', dataIndex: 'date', width: 110 },
           { title: '客户反馈', dataIndex: 'customer_feedback' },
           { title: '我方应对', dataIndex: 'our_response' },
-          { title: '调整价', dataIndex: 'adjusted_price', width: 90 },
+          { title: '调整价', dataIndex: 'adjusted_price', width: 90, className: 'numeric-cell', render: (v) => formatMoney(v, { compact: false }) },
           { title: '附加条件', dataIndex: 'conditions' },
         ];
         const tierCols = [
           { title: '数量下限', dataIndex: 'min_qty', width: 90 },
           { title: '数量上限', dataIndex: 'max_qty', width: 90 },
-          { title: '单价(元)', dataIndex: 'unit_price', width: 90 },
-          { title: '折扣', dataIndex: 'discount', width: 90 },
+          { title: '单价(元)', dataIndex: 'unit_price', width: 90, className: 'numeric-cell', render: (v) => formatMoney(v, { compact: false }) },
+          { title: '折扣', dataIndex: 'discount', width: 90, className: 'numeric-cell', render: (v) => window.formatNumber(v) },
           { title: '备注', dataIndex: 'note' },
         ];
         const stCols = [
