@@ -12,9 +12,9 @@
 - 验证：本地服务 `http://127.0.0.1:8000/requirement-confirm.html` 正常返回，`requirement-confirm.css` 完整输出全部样式；已提交并推送 `20260722`、`agentic` 两个分支，内网服务按 `20260722` 发布并完成健康检查。
 - 主要涉及文件：`frontend/requirement-confirm.css`、`frontend/requirement-confirm.html`。
 
-## 2. 补齐 1.2 确认页设计稿的 V1/V2 版本切换（当前未提交）
+## 2. 补齐 1.2 确认页设计稿的 V1/V2 版本切换
 
 - 工艺集设计稿 `AI工艺_确认工艺评估需求_页面2.html` 原有版本切换样式与 `selectVersion` 脚本，但正文缺少实际按钮，弹窗标题固定为 `- V2`，属于残缺元素。
 - 已在 PDF 表单头部补齐 V1/V2 版本切换按钮，切换时同步更新弹窗标题（`工艺评估需求单 - V1/V2`）。
-- 验证：页面结构校验无未闭合标签；JS 回归测试 `test_requirement_confirm_page.js` 与需求流程相关测试全部通过（Python 69 项 + JS 1 项）。
+- 验证：页面结构校验无未闭合标签；JS 回归测试 `test_requirement_confirm_page.js` 与需求流程相关测试全部通过（Python 69 项 + JS 1 项）；已提交并推送 `20260722`、`agentic` 两个分支，仅涉及设计稿与 changelog，未改动其他页面。
 - 主要涉及文件：`AI工艺页面集/AI工艺_确认工艺评估需求_页面2.html`。
