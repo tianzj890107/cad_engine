@@ -668,6 +668,12 @@ def run(
                             text_block("上一次没有返回完整 JSON。请重新完整输出，不要省略任何必填字段。"),
                         ]},
                     ]
+                    # 截断时同样放大输出预算，避免修复调用再次被 max_tokens 截断；
+                    # 与下方“未通过本地字段校验”分支保持一致的修复策略。
+                    request_args["max_tokens"] = min(
+                        QWEN_MAX_OUTPUT_TOKENS,
+                        max(int(request_args["max_tokens"]), 24000 if vision else 12000),
+                    )
                     continue
                 break
             try:
