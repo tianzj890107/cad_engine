@@ -836,6 +836,10 @@
           </svg>
           工艺评估需求表单（点击查看详情）
         </div>
+        <div class="version-tabs">
+          <button type="button" class="version-tab active" onclick="selectVersion(this, 'V2')">V2</button>
+          <button type="button" class="version-tab" onclick="selectVersion(this, 'V1')">V1</button>
+        </div>
       </div>
 
       <div class="pdf-preview">
@@ -1079,6 +1083,8 @@
         tab.classList.remove('active');
       });
       el.classList.add('active');
+      const title = document.querySelector('.modal-title');
+      if (title) title.textContent = '工艺评估需求单 - ' + version;
     }
 
     function openModal() {
