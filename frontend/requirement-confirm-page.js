@@ -64,7 +64,7 @@ async function cfAct(kind) {
 
 async function cfStart() {
   if (!cfPid) { location.href = 'home.html'; return; }
-  try { const [req,project] = await Promise.all([api(`/api/projects/${cfPid}/requirement`),api(`/api/projects/${cfPid}`)]); cfRequirement = req.requirement; if (!cfRequirement) { location.href = `requirement-create.html?project=${encodeURIComponent(cfPid)}`; return; } cfProject = project; cfPrecheck = {items: [], engine: 'disabled'}; cfRender(); }
+  try { const [req,project,ruleCheck] = await Promise.all([api(`/api/projects/${cfPid}/requirement`),api(`/api/projects/${cfPid}`),api(`/api/projects/${cfPid}/requirement/precheck`)]); cfRequirement = req.requirement; if (!cfRequirement) { location.href = `requirement-create.html?project=${encodeURIComponent(cfPid)}`; return; } cfProject = project; cfPrecheck = cfRequirement.ai_check?.engine === 'qwen' ? cfRequirement.ai_check : ruleCheck; cfRender(); }
   catch (err) { document.querySelector('#app').innerHTML = `<div class="page-toast error" style="position:static">页面加载失败：${cfEsc(err.message)}</div>`; }
 }
 cfStart();
