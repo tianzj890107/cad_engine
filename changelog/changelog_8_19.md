@@ -30,3 +30,10 @@
 
 - `qwen_client` 的截断分支（`finish_reason=length/max_tokens`）此前修复时沿用原 `max_tokens`，再次截断会直接失败；现与“未通过本地字段校验”分支一致，在修复调用前把输出上限放大到 24000（视觉）/ 12000（文本），避免因预估不足导致输出失败。
 - 主要涉及文件：`backend/services/qwen_client.py`。
+
+## 5. 1.2 确认页“提交意见”图标对齐设计稿
+
+- 确认页“提交意见”标题此前使用 `▢` 方块字符，与工艺集设计稿不一致；已替换为设计稿同款聊天气泡 SVG 图标（紫色，与标题其他图标样式一致）。
+- 页面 JS 缓存版本升级为 `reqconfirm15`。
+- 验证：JS 回归测试 `test_requirement_confirm_page.js` 通过。
+- 主要涉及文件：`frontend/requirement-confirm-page.js`、`frontend/requirement-confirm.html`。
