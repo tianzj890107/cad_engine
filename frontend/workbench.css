@@ -121,6 +121,12 @@ body{padding-bottom:0}
 .footer-left .btn-secondary svg{width:16px;height:16px;flex:0 0 16px}
 .footer-left .btn-secondary svg path:nth-of-type(2){fill:#2563eb!important}
 .footer-bar .report-btn-large{padding:var(--space-md) 14px}
+/* 下一步：紧挨解析报告右侧。解析报告已经是紫色渐变的强调按钮，这里用实心蓝，
+   两者并排时"看报告"与"进入下一步"仍分得开。 */
+.footer-right .btn-primary{padding:var(--space-md) 16px;border:0;border-radius:var(--radius-md);background:#2563eb;color:#fff;font:600 14px/1.2 Inter,"PingFang SC",-apple-system,sans-serif;box-shadow:0 3px 12px rgba(30,64,175,.18);transition:.15s}
+.footer-right .btn-primary:hover:not(:disabled){background:#1d4ed8;transform:translateY(-1px)}
+.footer-right .btn-primary:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
+.footer-right .btn-primary svg{width:16px;height:16px;flex:0 0 16px}
 @media(max-width:700px){.main-content{height:auto}.left-panel,.center-panel{height:auto;overflow:visible}.footer-bar{right:12px;bottom:12px;left:12px}}
 
 /* 2.1 双卡片同时吸附：上边线对齐顶部导航按钮，下边线对齐底部操作按钮；继续滚动时进入卡片内部。 */
@@ -204,3 +210,12 @@ body{padding-bottom:0}
 .verification-path{color:var(--text-primary);font-weight:600;word-break:break-all}.verification-change{margin-top:3px;color:var(--color-primary)}
 .verification-reason{margin-top:3px;color:var(--text-secondary)}.verification-actions{display:flex;gap:6px;margin-top:6px}
 .verification-actions button{padding:4px 7px;border-radius:5px;font-size:10px;cursor:pointer}
+
+
+/* 零件清单里每个零件下的子操作：工艺推荐 / 成本测算。
+   原先这两个按钮在右侧零件详情中，现随零件一起移到左侧。 */
+.part-subactions{margin:0 0 10px;padding:0 0 0 10px;border-left:2px solid var(--color-primary-light,#dbeafe)}
+.part-subactions[hidden]{display:none}
+.part-subactions .part-nav{margin:6px 0 0}
+.part-subactions .part-inline-host:empty{display:none}
+.part-subactions .part-inline-host{margin-top:8px}

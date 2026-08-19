@@ -17,6 +17,7 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from .coercion import StrList
 from .ir import OpenQuestion
 
 
@@ -192,7 +193,7 @@ class ProcessPlan(BaseModel):
         default_factory=list, description="需工艺工程师澄清的问题(缺尺寸/公差/材料等)"
     )
     part_class: str = Field("machining", description="确定性零件分类/工艺模板")
-    rule_warnings: List[str] = Field(default_factory=list, description="通用工艺规则校验告警")
+    rule_warnings: StrList = Field(default_factory=list, description="通用工艺规则校验告警")
     sop_version: str = Field("", description="采用的工艺 SOP 版本")
 
     @model_validator(mode="before")

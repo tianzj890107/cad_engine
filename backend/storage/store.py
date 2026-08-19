@@ -228,6 +228,34 @@ def update_task(project_id: str, task_id: str, **fields) -> Optional[dict]:
     return None
 
 
+# 进度日志的上限。检索类任务一件零件能播 3~4 行，几十个零件也在这个量级内；
+# 设上限只是防止异常循环把任务文档撑爆。
+PROGRESS_LOG_LIMIT = 400
+
+
+def append_task_progress(project_id: str, task_id: str, line: str) -> Optional[dict]:
+    """追加一条进度，并同步 progress 为最新一条。
+
+    progress 是单值字段：前端轮询间隔内播出的多条进度会互相覆盖。零部件库检索
+    这类"很快跑完但步骤很多"的任务，几乎所有步骤都活不到下一次轮询，于是界面上
+    就"没有过程"。因此进度必须以**只增不改的日志**保存，单值字段只当摘要用。
+    """
+    with _task_lock:
+        data = _meta().get_doc(project_id, "tasks") or {"items": []}
+        for task in data.get("items", []):
+            if task.get("task_id") != task_id:
+                continue
+            log = task.get("progress_log")
+            if not isinstance(log, list):
+                log = []
+            log.append(line)
+            task["progress_log"] = log[-PROGRESS_LOG_LIMIT:]
+            task["progress"] = line
+            _meta().put_doc(project_id, "tasks", data)
+            return task.copy()
+    return None
+
+
 def get_task(project_id: str, task_id: str) -> Optional[dict]:
     with _task_lock:
         data = _meta().get_doc(project_id, "tasks") or {"items": []}
@@ -362,6 +390,84 @@ def save_ir(project_id: str, ir_dict: dict, stage: str = "parsed", author: str =
 
 def load_ir(project_id: str) -> Optional[dict]:
     return _meta().get_doc(project_id, "ir")
+
+
+# 2.1 图纸解析这一步产出的全部东西。「本次任务从头开始」清的就是这一串。
+PARSE_STAGE_DOCS = (
+    "ir", "drawing_analysis", "verification_report", "model_lookup",
+    "component_match", "geometry", "drawings",
+    "process", "cost", "process_lookup", "cost_lookup", "ai_results",
+)
+
+
+def reset_parse_stage(project_id: str, author: str = "system") -> dict:
+    """把 2.1 图纸解析这一步退回起点：清掉它的全部产出，保留输入。
+
+    **不动的东西**：需求单（1.x 的产出）、已上传的原图与技术文档（输入本身 ——
+    「从头开始」是拿同一份图纸重新解析，不是把图纸也删掉）、以及 2.2 之后各步的
+    结论（那些不属于本步骤，替用户决定删掉太越权）。
+
+    下游结论会因此建立在一份已经不存在的 IR 上，所以顺手把 derived_results_stale
+    立起来，界面上照旧提示"请重新生成下游结果"。版本快照（versions）也保留，
+    重来一次不该把可追溯的历史一并抹掉。
+    """
+    cleared: list[str] = []
+    with _document_lock:
+        for kind in PARSE_STAGE_DOCS:
+            if _meta().get_doc(project_id, kind):
+                _meta().put_doc(project_id, kind, {})
+                cleared.append(kind)
+        meta = load_meta(project_id) or {}
+        for stage in ("parsed", "verified", "geometry", "drawings", "process", "cost"):
+            meta.get("stages", {}).pop(stage, None)
+        meta["derived_results_stale"] = True
+        meta["derived_results_stale_reason"] = "本次解析任务已重置，请重新解析"
+        _meta().put_meta(project_id, meta)
+    audit(project_id, "reset_parse_stage", {"by": author, "cleared": cleared})
+    return {"cleared": cleared}
+
+
+def save_component_match(project_id: str, report: dict) -> None:
+    """图纸拆解阶段的零部件库检索报告（哪些可复用/可改制/未匹配）。"""
+    with _document_lock:
+        _meta().put_doc(project_id, "component_match", report)
+        audit(project_id, "component_match", report.get("summary", {}))
+
+
+def load_component_match(project_id: str) -> Optional[dict]:
+    return _meta().get_doc(project_id, "component_match")
+
+
+# --------------------------------------------------------------------------- #
+# 工艺推荐 / 成本测算之前的知识库检索报告（按零件存）
+#
+# 与 plan/analysis 分开存：这两份是**依据**，说明这次推荐用了库里的哪条路线、
+# 哪条价格；人工编辑 plan 不应该把依据一起改掉，依据也不该跟着 plan 走版本。
+# --------------------------------------------------------------------------- #
+def save_process_lookup(project_id: str, part_id: str, report: dict) -> None:
+    with _document_lock:
+        doc = _meta().get_doc(project_id, "process_lookup") or {"reports": {}}
+        doc.setdefault("reports", {})[part_id] = report
+        _meta().put_doc(project_id, "process_lookup", doc)
+        audit(project_id, "process_lookup", {"part_id": part_id, **report.get("summary", {})})
+
+
+def load_process_lookup(project_id: str, part_id: str) -> Optional[dict]:
+    doc = _meta().get_doc(project_id, "process_lookup") or {}
+    return (doc.get("reports") or {}).get(part_id)
+
+
+def save_cost_lookup(project_id: str, part_id: str, report: dict) -> None:
+    with _document_lock:
+        doc = _meta().get_doc(project_id, "cost_lookup") or {"reports": {}}
+        doc.setdefault("reports", {})[part_id] = report
+        _meta().put_doc(project_id, "cost_lookup", doc)
+        audit(project_id, "cost_lookup", {"part_id": part_id, **report.get("summary", {})})
+
+
+def load_cost_lookup(project_id: str, part_id: str) -> Optional[dict]:
+    doc = _meta().get_doc(project_id, "cost_lookup") or {}
+    return (doc.get("reports") or {}).get(part_id)
 
 
 def save_ai_result_metadata(project_id: str, task_id: str, kind: str, metadata: dict) -> None:

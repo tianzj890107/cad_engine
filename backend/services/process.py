@@ -115,7 +115,13 @@ def _part_prompt(part: Part, overall: Optional[DesignIR], geom: Optional[dict],
 def decompose_process(
     part: Part, overall: Optional[DesignIR] = None, geom: Optional[dict] = None,
     note: str = "", attachments: Optional[List[Tuple[str, bytes]]] = None,
+    library: str = "",
 ) -> ProcessPlan:
+    """library 是调用前从工艺库检索出的路线/工序摘要（process_lookup.as_prompt）。
+
+    给了它，模型就该在企业既有工序编号和标准工时上排产；没给（库为空或检索失败），
+    仍退回原来的通用工艺口径 —— 那种情况下必须禁止编造企业资源编号。
+    """
     part_class = classify_part(part)
     gaps = input_gaps(part)
     profile = sop.industry_profile([
@@ -125,10 +131,16 @@ def decompose_process(
     knowledge, sop_version = sop.load("process", profile=profile, template=part_class)
     prompt = _part_prompt(part, overall, geom, part_class, gaps)
     content = [claude_client.text_block(prompt)]
+    resource_rule = (
+        "\n\n企业工艺库检索结果见下一段，工序编号/标准工时/设备类一律以其为准。"
+        if library.strip() else
+        "\n\n当前没有企业设备/刀具/标准工时库；只能使用通用设备和工具类别，不得编造企业资源编号。"
+    )
     content.insert(0, claude_client.text_block(
-        "【本次适用 SOP 与通用规则】\n" + knowledge
-        + "\n\n当前没有企业设备/刀具/标准工时库；只能使用通用设备和工具类别，不得编造企业资源编号。"
+        "【本次适用 SOP 与通用规则】\n" + knowledge + resource_rule
     ))
+    if library.strip():
+        content.append(claude_client.text_block(f"【企业工艺库检索结果】\n{library.strip()}"))
     if note and note.strip():
         content.append(claude_client.text_block(f"【用户补充说明(请优先采用)】\n{note.strip()}"))
     content.extend(claude_client.attachment_blocks(attachments))

@@ -13,6 +13,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from .coercion import StrList
 from .cost import WebSource
 from .ir import OpenQuestion
 from .material import Timing
@@ -57,7 +58,7 @@ class AssemblyRecommendation(BaseModel):
     assembly_steps: List[AssemblyStep] = Field(default_factory=list, description="组装工艺工步(有序)")
     tests: List[TestItem] = Field(default_factory=list, description="检测方案(电性能/吸附力/气密性等)")
     summary: Optional[str] = Field(None, description="方案总体思路")
-    assumptions: List[str] = Field(default_factory=list, description="关键假设")
+    assumptions: StrList = Field(default_factory=list, description="关键假设")
     open_questions: List[OpenQuestion] = Field(default_factory=list, description="需澄清的问题")
     search_sources: List[WebSource] = Field(default_factory=list, description="联网检索来源(可追溯)")
 
@@ -87,7 +88,7 @@ class AssemblyPlan(BaseModel):
     inspection: InspectionSection = Field(default_factory=InspectionSection)
     summary: Optional[str] = None
     timing: Timing = Field(default_factory=Timing)
-    assumptions: List[str] = Field(default_factory=list)
+    assumptions: StrList = Field(default_factory=list)
     open_questions: List[OpenQuestion] = Field(default_factory=list)
     search_sources: List[WebSource] = Field(default_factory=list)
     updated_at: Optional[str] = None

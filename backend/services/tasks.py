@@ -105,6 +105,9 @@ def submit(
             "dedup_key": effective_key,
             "status": "queued",
             "progress": _TASK_START_PROGRESS.get(kind, "排队中"),
+            # 只增不改的进度日志。前端据此把每一步渲染成对话里的时间线；
+            # 上面的 progress 只是"最新一条"，供状态条显示。
+            "progress_log": [],
             "sop_name": sop_name,
             "sop_step": 0,
             "sop_total": sop_total,
@@ -157,7 +160,10 @@ def report_progress(progress: str) -> None:
     project_id, task_id, kind, step = current
     next_step = min(step + 1, _SOP_NAMES.get(kind, ("任务处理 SOP", 3))[1] - 1)
     _CURRENT_TASK.set((project_id, task_id, kind, next_step))
-    _update(project_id, task_id, progress=str(progress)[:240], sop_step=next_step)
+    # 必须 append 而不是覆盖：轮询间隔（1.2s）内播出的多条进度，覆盖式写法只会
+    # 剩下最后一条，检索类任务因此看起来"完全没有过程"。
+    store.append_task_progress(project_id, task_id, str(progress)[:240])
+    _update(project_id, task_id, sop_step=next_step)
 
 
 def _safe_error(exc: Exception) -> str:

@@ -7,93 +7,192 @@
   <link rel="stylesheet" href="workbench.css?v=20260812-ai-sop1" />
   <link rel="stylesheet" href="inline-analysis.css?v=20260811-inline3" />
   <link rel="stylesheet" href="parse-loading.css?v=parse-loading2" />
+  <link rel="stylesheet" href="agent-chat.css?v=20260817-agent1" />
+  <link rel="stylesheet" href="llm-settings-panel.css?v=llm-set1" />
   <script type="importmap">
   {"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
   </script>
 </head>
 <body>
-  <div class="page-container">
-    <div class="workflow-section">
-      <div class="main-workflow" id="workflowSteps">
-        <div class="main-step-wrapper" data-step="upload"><div class="main-step completed"><div class="main-step-number">1</div><span>接受工艺评估需求</span></div></div>
-        <div class="main-connector active"></div>
-        <div class="main-step-wrapper" data-step="parse">
-          <div class="main-step completed"><div class="main-step-number">2</div><span>解析技术工艺过程</span></div>
-          <div class="sub-labels-row"><span class="sub-label active">2.1 图纸解析</span><span class="sub-label-arrow">→</span><span class="sub-label">2.2 材料定性</span><span class="sub-label-arrow">→</span><span class="sub-label">2.3 工艺路径</span><span class="sub-label-arrow">→</span><span class="sub-label">2.4 洁净管控</span><span class="sub-label-arrow">→</span><span class="sub-label">2.5 组装检测</span><span class="sub-label-arrow">→</span><span class="sub-label">2.6 产能评估</span></div>
+  <div class="oc-app">
+    <!-- 左侧悬浮小窗：夹在「返回」（左上固定）与「上一步」（左下页脚）之间。
+         对话设置从原来的整条侧栏收成这一个小窗，页面主体因此全部让给工作区。 -->
+    <aside class="oc-dock oc-dock-left" id="ocAgentDock" aria-label="Agent 设置">
+      <div class="oc-dock-head">
+        <button class="oc-dock-toggle" id="ocSideToggle" type="button" aria-expanded="true"
+                aria-controls="ocAgentDockBody">
+          <span class="oc-dock-mark" aria-hidden="true">✦</span>
+          <span class="oc-dock-title">Agent 设置</span>
+          <span class="oc-dock-caret" aria-hidden="true">⌄</span>
+        </button>
+      </div>
+      <div class="oc-dock-body" id="ocAgentDockBody">
+        <div class="oc-dock-label">模型参数设置</div>
+        <button class="oc-modelpill" id="ocModelPill" type="button" aria-haspopup="dialog">
+          <span aria-hidden="true">⚙</span><span data-model-name>连接中…</span><span aria-hidden="true">▾</span>
+        </button>
+        <button class="oc-newchat" id="ocNewChat" type="button">↺ 本次任务从头开始</button>
+        <div class="oc-dock-label">本步骤资料</div>
+        <button class="oc-citem" type="button" data-open-drawer="upload">补充需求图纸</button>
+        <button class="oc-citem" type="button" data-open-drawer="evidence">解析视图</button>
+        <button class="oc-citem" type="button" data-open-drawer="import3d">导入已有模型</button>
+        <button class="oc-citem" type="button" data-open-drawer="review">版本与校核审查</button>
+        <div class="oc-dock-foot">
+          <div class="oc-side-cwd" id="ocSideCwd">项目工作区</div>
+          <div class="oc-side-profile" id="ocSideProfile">连接中…</div>
         </div>
-        <div class="main-connector"></div>
-        <div class="main-step-wrapper" data-step="generate"><div class="main-step pending"><div class="main-step-number">3</div><span>输出工艺评估结果</span></div></div>
       </div>
-    </div>
+    </aside>
 
-    <div class="title-section">
-      <div class="title-row"><h1 id="deviceName" class="form-title">图纸解析与工艺评估需求单</h1><span id="status" class="status-badge">等待上传图纸</span><span id="partsMetric" hidden></span><span id="confidenceMetric" hidden></span></div>
-    </div>
+    <!-- 右侧悬浮小窗：夹在「首页」（右上固定）与「解析报告」（右下页脚）之间。
+         本次任务涉及的所有文件都从这里进 —— 输入的图纸文档，以及流程中产出的
+         几何、2D 图、导出表格。清单直接列出，可收起。 -->
+    <aside class="oc-dock oc-dock-right" id="ocFilesDock" aria-label="任务文件">
+      <div class="oc-dock-head">
+        <button class="oc-dock-toggle" id="ocFilesToggle" type="button" aria-expanded="true"
+                aria-controls="ocFilesBody">
+          <span class="oc-dock-mark" aria-hidden="true">🗂</span>
+          <span class="oc-dock-title">任务文件</span>
+          <!-- 计数在标题栏里，收起之后仍然看得到有没有新文件。 -->
+          <span class="oc-dock-count" id="ocFilesCount">—</span>
+          <span class="oc-dock-caret" aria-hidden="true">⌄</span>
+        </button>
+        <button class="oc-dock-mini" id="ocFilesRefresh" type="button" aria-label="刷新文件列表">⟳</button>
+      </div>
+      <div class="oc-dock-body oc-files-list" id="ocFilesBody"></div>
+    </aside>
 
-    <div class="main-content">
-      <div class="left-panel">
-        <details class="panel-section workbench-disclosure intent-disclosure" open>
-            <summary class="section-title">设计意图</summary>
-            <div class="design-intent-box">
-            <div id="intent" class="design-intent-text">上传设备需求图纸，AI 将提取设计意图、尺寸、零件结构与待确认事项。</div>
-            <div class="design-intent-dimensions">结构化设计意图（IR）</div>
+    <div class="oc-shell">
+      <div class="page-container">
+        <div class="workflow-section">
+          <div class="main-workflow" id="workflowSteps">
+            <div class="main-step-wrapper" data-step="upload"><div class="main-step completed"><div class="main-step-number">1</div><span>接受工艺评估需求</span></div></div>
+            <div class="main-connector active"></div>
+            <div class="main-step-wrapper" data-step="parse">
+              <div class="main-step completed"><div class="main-step-number">2</div><span>解析技术工艺过程</span></div>
+              <div class="sub-labels-row"><span class="sub-label active">2.1 图纸解析</span><span class="sub-label-arrow">→</span><span class="sub-label">2.2 材料定性</span><span class="sub-label-arrow">→</span><span class="sub-label">2.3 工艺路径</span><span class="sub-label-arrow">→</span><span class="sub-label">2.4 洁净管控</span><span class="sub-label-arrow">→</span><span class="sub-label">2.5 组装检测</span><span class="sub-label-arrow">→</span><span class="sub-label">2.6 产能评估</span></div>
             </div>
-            <div class="upload-form">
-              <label class="field-label" for="fileInput">需求图纸</label><input class="file-input" type="file" id="fileInput" accept="image/*" /><label class="file-picker" for="fileInput"><span class="file-picker-button">选择图纸文件</span><span id="fileInputName" class="file-picker-name">未选择文件</span></label>
-              <label class="field-label" for="noteInput">补充技术说明（可选）</label><textarea id="noteInput" rows="3" placeholder="可补充材料、尺寸、公差、装配要求或制造约束…"></textarea>
-              <label class="field-label" for="attachInput">技术文档与补充视图（可选）</label><input class="file-input" type="file" id="attachInput" multiple accept="image/*,.pdf,.docx,.txt,.md,.csv,.json,.log,.yaml,.yml" /><label class="file-picker" for="attachInput"><span class="file-picker-button">选择补充文件</span><span id="attachInputName" class="file-picker-name">未选择文件</span></label>
-              <button id="btnUpload" class="upload-btn">创建评估任务</button>
-            </div>
-        </details>
-        <details class="panel-section workbench-disclosure evidence-disclosure" open>
-            <summary class="section-title">本次解析资料</summary>
-            <div class="file-groups">
-              <div id="projectEvidence" class="project-evidence"><div class="uploaded-file-item blueprint-preview"><div class="file-info"><div class="file-name">需求原图与技术文档</div><div class="file-meta">上传后将同时作为图纸解析依据</div></div></div></div>
-              <div class="image-wrap"><div id="imgStage" class="img-stage"><img id="sourceImg" alt="上传后显示原图" /><div id="bboxLayer" class="bbox-layer"></div></div><div id="attachmentImageGallery" class="attachment-image-gallery" hidden></div></div>
-            </div>
-            <div class="parse-action"><button id="btnParse" class="start-parse-btn" disabled>▶ 开始解析</button></div>
-        </details>
-
-        <div class="panel-section">
-          <div class="section-title">零件清单</div><div id="tree" class="parts-list empty-state">完成解析后显示零件清单</div>
+            <div class="main-connector"></div>
+            <div class="main-step-wrapper" data-step="generate"><div class="main-step pending"><div class="main-step-number">3</div><span>输出工艺评估结果</span></div></div>
+          </div>
         </div>
 
-        <details class="panel-section workbench-disclosure clarification-disclosure">
-          <summary class="section-title warning">待澄清问题</summary><div id="extras" class="extras">暂无待澄清问题</div>
-        </details>
+        <div class="title-section">
+          <div class="title-row"><h1 id="deviceName" class="form-title">图纸解析与工艺评估需求单</h1><span id="status" class="status-badge">等待上传图纸</span><span id="partsMetric" hidden></span><span id="confidenceMetric" hidden></span></div>
+        </div>
 
-        <details id="modelLookupDetails" class="panel-section model-lookup-panel" open>
-          <summary>AI 型号联网核验 <span>（按需调用，确认后写入零件/BOM）</span></summary>
-          <div id="modelLookupResult" class="model-lookup-result">完成图纸解析后，可在“更多功能”中发起型号联网核验。</div>
-        </details>
+        <!-- 两部分工作页面：左 Agent 对话框 / 右 3D 工作区 -->
+        <div class="oc-work">
+          <section class="oc-agent-pane" aria-label="Agent 对话">
+            <div class="oc-thread" id="ocThread">
+              <div class="oc-tinner" id="ocTinner">
+                <!-- 设计意图作为对话里的第一条内容；开始解析按钮就在它下方。
+                     #intent 与 #btnParse 保留原 id，app.js 无需改动即可继续驱动。 -->
+                <div class="oc-amsg">
+                  <div class="oc-aav" aria-hidden="true">✦</div>
+                  <div class="oc-abody">
+                    <div class="oc-intent-card">
+                      <h4>设计意图</h4>
+                      <div id="intent" class="design-intent-text">上传设备需求图纸，AI 将提取设计意图、尺寸、零件结构与待确认事项。</div>
+                      <div class="oc-intent-meta">结构化设计意图（IR）· 补充资料与审查见输入框左侧 ＋</div>
+                      <button id="btnParse" class="start-parse-btn" disabled>▶ 开始解析</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="oc-empty" id="ocEmpty">
+                  <div style="font-size:30px;">✦</div>
+                  <div style="font-size:14px;">工艺评估助手</div>
+                  <div style="font-size:12.5px;">它能读取本项目的图纸与技术资料、查询解析结果，并按你的要求发起解析。<br/>试试：「这张图有哪些待澄清的问题」或直接说「开始解析」。</div>
+                </div>
+                <!-- 零件清单 / 待澄清问题：常驻对话**底部**，每轮对话结束后重新置底。
+                     放在设计意图卡里的话，聊几轮就被顶到上面翻不到了。 -->
+                <div class="oc-result-actions" id="ocResultActions" hidden></div>
+              </div>
+            </div>
 
-        <details id="verificationDetails" class="panel-section verification-panel">
-          <summary>AI 校核待确认 <span>（只展示字段级修改）</span></summary>
-          <div id="verificationResult" class="verification-result">完成一次“校验修正”后显示差异。</div>
-        </details>
+            <div class="oc-composer">
+              <div class="oc-cinner">
+                <div class="oc-inputbox">
+                  <button class="oc-ibtn" id="ocPlus" type="button" aria-label="补充资料与审查" style="width:30px;height:30px;flex-shrink:0;">＋</button>
+                  <textarea id="ocInput" rows="1" maxlength="4000" placeholder="向 Agent 描述需求，或直接说「开始解析」…" aria-label="向 Agent 发送消息"></textarea>
+                  <button class="oc-send" id="ocSend" type="button" aria-label="发送">↑</button>
+                </div>
+                <div class="oc-disc">Agent 会读取本项目资料并可发起解析。尺寸与材料以图纸为准，请核实关键信息。</div>
+              </div>
+            </div>
+          </section>
 
-        <details class="panel-section import-panel"><summary>导入已有 3D 模型</summary><p>STEP/STP 可直接反向解析，不覆盖已有实体几何。</p><input class="file-input" type="file" id="file3d" accept=".step,.stp,.STEP,.STP" /><label class="file-picker" for="file3d"><span class="file-picker-button">选择 3D 文件</span><span id="file3dName" class="file-picker-name">未选择文件</span></label><button id="btnImport3d" class="version-btn">导入 3D 并解析</button></details>
+          <div class="center-panel">
+            <div class="center-header"><div id="viewerPartName" class="center-title">3D 视图 · 选择零件后查看</div><div class="more-actions"><button id="btnMoreActions" class="report-btn" type="button" aria-expanded="false">更多功能 ▾</button><div id="actionSheet" class="action-sheet" hidden><button id="btnModelLookup" disabled>联网核验</button><button id="btnVerify" disabled>校验修正</button><button id="btnDecompose" disabled>拆解推荐</button><button id="btnGenerate" disabled>生成 CAD 几何</button><button id="btnDrawings" disabled>生成 2D 工程图</button><button id="btnBom" disabled>导出 BOM（CSV）</button><button id="btnTechProcess" type="button">技术工艺管理</button><button id="btnQuoteManagement" type="button">报价与决策</button></div></div></div>
+            <div id="viewer" class="view-3d-content"></div>
+            <div class="part-details"><div class="part-details-title">零件信息</div><div id="partDetail" class="part-detail"><div class="view-3d-placeholder">从「零件清单」中选择一项，查看模型、识别依据和生成结果。</div></div></div>
+            <details class="parameter-panel"><summary>查看并编辑零件参数（专家模式）</summary><div id="parameterEditor">选择零件后可查看参数。</div></details>
+          </div>
+        </div>
 
-        <details class="panel-section version-panel">
-          <summary>版本与校核审签</summary><div id="versions" class="versions"></div><div id="diffView" class="diff-view"></div>
-        </details>
+        <div class="footer-bar"><div class="footer-left"><button id="btnPrevious" class="btn btn-secondary" type="button"><svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 0h16v16H0z"/><path fill="#8F9299" d="M3.5 7.5h10c.146 0 .266.047.36.14.093.094.14.214.14.36a.487.487 0 0 1-.14.36.487.487 0 0 1-.36.14h-10a.487.487 0 0 1-.36-.14A.487.487 0 0 1 3 8c0-.135.047-.255.14-.36a.487.487 0 0 1 .36-.14Zm.203.5 4.156 4.14c.094.105.141.225.141.36a.48.48 0 0 1-.149.351A.48.48 0 0 1 7.5 13a.522.522 0 0 1-.36-.14l-4.5-4.5A.522.522 0 0 1 2.5 8c0-.135.047-.255.14-.36l4.5-4.5A.522.522 0 0 1 7.5 3a.48.48 0 0 1 .351.148A.48.48 0 0 1 8 3.5a.522.522 0 0 1-.14.36L3.702 8Z" data-follow-fill="#8F9299"/></svg><span>上一步</span></button></div><div class="footer-right"><button id="btnReport" class="report-btn-large" type="button">解析报告</button><button id="btnNext" class="btn btn-primary" type="button"><span>下一步</span><svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 0h16v16H0z"/><path fill="currentColor" d="M12.5 8.5h-10a.487.487 0 0 1-.36-.14A.487.487 0 0 1 2 8c0-.135.047-.255.14-.36a.487.487 0 0 1 .36-.14h10c.146 0 .266.047.36.14.093.105.14.225.14.36a.487.487 0 0 1-.14.36.487.487 0 0 1-.36.14Zm-.203-.5L8.141 3.86A.522.522 0 0 1 8 3.5c0-.135.05-.252.148-.352A.48.48 0 0 1 8.5 3c.135 0 .255.047.36.14l4.5 4.5c.093.105.14.225.14.36a.522.522 0 0 1-.14.36l-4.5 4.5a.522.522 0 0 1-.36.14.48.48 0 0 1-.352-.148A.48.48 0 0 1 8 12.5c0-.135.047-.255.141-.36L12.297 8Z"/></svg></button></div></div>
       </div>
-
-      <div class="center-panel">
-        <div class="center-header"><div id="viewerPartName" class="center-title">3D 视图 · 选择零件后查看</div><div class="more-actions"><button id="btnMoreActions" class="report-btn" type="button" aria-expanded="false">更多功能 ▾</button><div id="actionSheet" class="action-sheet" hidden><button id="btnModelLookup" disabled>联网核验</button><button id="btnVerify" disabled>校验修正</button><button id="btnDecompose" disabled>拆解推荐</button><button id="btnGenerate" disabled>生成 CAD 几何</button><button id="btnDrawings" disabled>生成 2D 工程图</button><button id="btnBom" disabled>导出 BOM（CSV）</button><button id="btnTechProcess" type="button">技术工艺管理</button><button id="btnQuoteManagement" type="button">报价与决策</button></div></div></div>
-        <div id="viewer" class="view-3d-content"></div>
-        <div class="part-details"><div class="part-details-title">零件信息</div><div id="partDetail" class="part-detail"><div class="view-3d-placeholder">从左侧零件清单选择一项，查看模型、识别依据和生成结果。</div></div></div>
-        <details class="parameter-panel"><summary>查看并编辑零件参数（专家模式）</summary><div id="parameterEditor">选择零件后可查看参数。</div></details>
-      </div>
-
     </div>
-
-    <div class="footer-bar"><div class="footer-left"><button id="btnPrevious" class="btn btn-secondary" type="button"><svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 0h16v16H0z"/><path fill="#8F9299" d="M3.5 7.5h10c.146 0 .266.047.36.14.093.094.14.214.14.36a.487.487 0 0 1-.14.36.487.487 0 0 1-.36.14h-10a.487.487 0 0 1-.36-.14A.487.487 0 0 1 3 8c0-.135.047-.255.14-.36a.487.487 0 0 1 .36-.14Zm.203.5 4.156 4.14c.094.105.141.225.141.36a.48.48 0 0 1-.149.351A.48.48 0 0 1 7.5 13a.522.522 0 0 1-.36-.14l-4.5-4.5A.522.522 0 0 1 2.5 8c0-.135.047-.255.14-.36l4.5-4.5A.522.522 0 0 1 7.5 3a.48.48 0 0 1 .351.148A.48.48 0 0 1 8 3.5a.522.522 0 0 1-.14.36L3.702 8Z" data-follow-fill="#8F9299"/></svg><span>上一步</span></button></div><div class="footer-right"><button id="btnReport" class="report-btn-large" type="button">解析报告</button></div></div>
   </div>
+
+  <!-- 抽屉：原左栏的资料与结果面板整体搬进来，由 ＋ 菜单与结果按钮打开。
+       这些 DOM 的 id/class 全部保持不变，app.js 与 inline-analysis.js 无需适配。 -->
+  <button class="oc-drawer-backdrop" id="ocDrawerBackdrop" type="button" aria-label="关闭面板" hidden></button>
+  <section class="oc-drawer" id="ocDrawer" role="dialog" aria-modal="true" aria-labelledby="ocDrawerTitle" hidden>
+    <header class="oc-drawer-head">
+      <div class="oc-drawer-title" id="ocDrawerTitle">补充资料</div>
+      <button class="oc-ibtn" type="button" data-drawer-close aria-label="关闭">×</button>
+    </header>
+    <div class="oc-drawer-body" id="ocDrawerBody">
+      <div class="panel-section" id="secUpload" data-drawer-section>
+        <div class="section-title">补充需求图纸</div>
+        <div class="upload-form">
+          <label class="field-label" for="fileInput">需求图纸</label><input class="file-input" type="file" id="fileInput" accept="image/*" /><label class="file-picker" for="fileInput"><span class="file-picker-button">选择图纸文件</span><span id="fileInputName" class="file-picker-name">未选择文件</span></label>
+          <label class="field-label" for="noteInput">补充技术说明（可选）</label><textarea id="noteInput" rows="3" placeholder="可补充材料、尺寸、公差、装配要求或制造约束…"></textarea>
+          <label class="field-label" for="attachInput">技术文档与补充视图（可选）</label><input class="file-input" type="file" id="attachInput" multiple accept="image/*,.pdf,.docx,.txt,.md,.csv,.json,.log,.yaml,.yml" /><label class="file-picker" for="attachInput"><span class="file-picker-button">选择补充文件</span><span id="attachInputName" class="file-picker-name">未选择文件</span></label>
+          <button id="btnUpload" class="upload-btn">创建评估任务</button>
+        </div>
+      </div>
+
+      <details class="panel-section workbench-disclosure evidence-disclosure" id="secEvidence" data-drawer-section open>
+        <summary class="section-title">解析视图</summary>
+        <!-- 只放「解析之后的视图」：原图叠加解析出的零件标注框，点零件会在这里高亮。
+             输入的原图与技术文档本身归右侧「任务文件」小窗，这里不再重复列一遍。 -->
+        <div class="file-groups">
+          <div class="evidence-caption">解析出的零件标注框叠加在图纸上；输入原图与技术文档见右侧「任务文件」。</div>
+          <div class="image-wrap"><div id="imgStage" class="img-stage"><img id="sourceImg" alt="解析后显示带标注的视图" /><div id="bboxLayer" class="bbox-layer"></div></div></div>
+        </div>
+      </details>
+
+      <div class="panel-section" id="secParts" data-drawer-section>
+        <div class="section-title">零件清单</div><div id="tree" class="parts-list empty-state">完成解析后显示零件清单</div>
+      </div>
+
+      <details class="panel-section workbench-disclosure clarification-disclosure" id="secQuestions" data-drawer-section>
+        <summary class="section-title warning">待澄清问题</summary><div id="extras" class="extras">暂无待澄清问题</div>
+      </details>
+
+      <details id="modelLookupDetails" class="panel-section model-lookup-panel" data-drawer-section open>
+        <summary>AI 型号联网核验 <span>（按需调用，确认后写入零件/BOM）</span></summary>
+        <div id="modelLookupResult" class="model-lookup-result">完成图纸解析后，可在“更多功能”中发起型号联网核验。</div>
+      </details>
+
+      <details id="verificationDetails" class="panel-section verification-panel" data-drawer-section>
+        <summary>AI 校核待确认 <span>（只展示字段级修改）</span></summary>
+        <div id="verificationResult" class="verification-result">完成一次“校验修正”后显示差异。</div>
+      </details>
+
+      <details class="panel-section import-panel" id="secImport3d" data-drawer-section><summary>导入已有 3D 模型</summary><p>STEP/STP 可直接反向解析，不覆盖已有实体几何。</p><input class="file-input" type="file" id="file3d" accept=".step,.stp,.STEP,.STP" /><label class="file-picker" for="file3d"><span class="file-picker-button">选择 3D 文件</span><span id="file3dName" class="file-picker-name">未选择文件</span></label><button id="btnImport3d" class="version-btn">导入 3D 并解析</button></details>
+
+      <details class="panel-section version-panel" id="secVersions" data-drawer-section>
+        <summary>版本与校核审签</summary><div id="versions" class="versions"></div><div id="diffView" class="diff-view"></div>
+      </details>
+    </div>
+  </section>
 
   <div id="loginOverlay" class="login-overlay" style="display:none"><form id="loginForm" class="login-card"><h2>登录</h2><div class="login-sub">图纸解析与生成平台 · 私有化部署</div><input id="loginUser" placeholder="用户名" autocomplete="username" /><input id="loginPass" type="password" placeholder="密码" autocomplete="current-password" /><div id="loginErr" class="login-err"></div><button type="submit">登 录</button></form></div>
   <span id="health" hidden></span><span id="statusCard" hidden></span><span id="workflowHint" hidden></span>
   <link rel="stylesheet" href="workflow-navigation.css?v=workflow-nav4" />
-  <script src="workflow-navigation.js?v=workflow-nav5"></script><script src="inline-analysis.js?v=20260811-inline2"></script><script type="module" src="app.js?v=20260812-ai-sop2"></script><script src="home-link.js?v=home5"></script>
+  <script src="workflow-navigation.js?v=workflow-nav5"></script><script src="inline-analysis.js?v=20260811-inline2"></script><script type="module" src="app.js?v=20260817-agent1"></script><script src="llm-settings-panel.js?v=llm-set1"></script><script src="agent-chat.js?v=20260817-agent1"></script><script src="home-link.js?v=home6"></script>
 </body>
 </html>

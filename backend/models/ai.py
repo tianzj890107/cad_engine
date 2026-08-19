@@ -6,6 +6,8 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from .coercion import StrList
+
 
 class AIResultStatus(str, Enum):
     ready = "READY"
@@ -49,14 +51,14 @@ class FieldEvidence(BaseModel):
 
 
 class ValidationSummary(BaseModel):
-    errors: List[str] = Field(default_factory=list)
-    warnings: List[str] = Field(default_factory=list)
+    errors: StrList = Field(default_factory=list)
+    warnings: StrList = Field(default_factory=list)
 
 
 class AIResultMetadata(BaseModel):
     status: AIResultStatus = AIResultStatus.partial
     evidence: List[FieldEvidence] = Field(default_factory=list)
-    assumptions: List[str] = Field(default_factory=list)
+    assumptions: StrList = Field(default_factory=list)
     open_questions: List[Any] = Field(default_factory=list)
     validation: ValidationSummary = Field(default_factory=ValidationSummary)
     confidence: Optional[float] = None
@@ -92,8 +94,8 @@ class VerificationChange(BaseModel):
 
 class VerificationPatch(BaseModel):
     changes: List[VerificationChange] = Field(default_factory=list)
-    assumptions: List[str] = Field(default_factory=list)
-    open_questions: List[str] = Field(default_factory=list)
+    assumptions: StrList = Field(default_factory=list)
+    open_questions: StrList = Field(default_factory=list)
     summary: str = ""
 
 

@@ -18,6 +18,7 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from .coercion import StrList
 from .ai import AIResultStatus, FieldEvidence, ValidationSummary
 
 
@@ -284,7 +285,7 @@ class DesignIR(BaseModel):
     evidence_ledger: List[FieldEvidence] = Field(
         default_factory=list, description="字段级证据台账；关键尺寸应逐项提供来源"
     )
-    assumptions: List[str] = Field(
+    assumptions: StrList = Field(
         default_factory=list, description="解析时采用但尚未被项目资料证实的假设"
     )
     ai_status: AIResultStatus = Field(

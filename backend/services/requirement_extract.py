@@ -15,12 +15,16 @@ from xml.etree import ElementTree
 
 from ..models.workflow import RequirementDocumentExtraction, RequirementDynamicSpecField
 from ..config import LLM_MAX_DOCUMENT_CHARS, LLM_MAX_DOCUMENTS, LLM_MAX_TOTAL_DOCUMENT_CHARS
-from . import qwen_client
+# 走统一分派层，而不是直接绑死 qwen —— 直接 import 具体提供商的客户端，
+# 就会绕过「模型设置」，出现"配了 opus5 却报 Qwen 调用失败"。
+from . import llm_client
 
 _TEXT_SUFFIXES = (".txt", ".md", ".csv", ".json", ".log", ".yaml", ".yml", ".ini")
 _MAX_DOCUMENTS = LLM_MAX_DOCUMENTS
 _MAX_CHARS_PER_DOCUMENT = LLM_MAX_DOCUMENT_CHARS
 _MAX_TOTAL_CHARS = LLM_MAX_TOTAL_DOCUMENT_CHARS
+
+from . import industry_templates
 
 # 与 1.1 表单字段一一对应；模型返回其它键会被服务端丢弃，防止污染业务数据。
 EXTRACTABLE_FIELDS = {
@@ -44,6 +48,8 @@ EXTRACTABLE_FIELDS = {
     "battery_operating_temperature", "thermal_runaway_temperature", "crush_puncture_safety",
     "cycle_life", "calendar_life", "stacking_process", "minimalist_packaging",
     "battery_process_other", "vda_dimensions", "slim_cell_dimensions", "battery_form_factor",
+    # 电器行业固定规格模板（1.1 Section C）。
+    *industry_templates.field_keys("appliance"),
 }
 
 # 只有必填字段允许使用兜底推荐；非必填字段没有资料时保持空白。
@@ -75,6 +81,10 @@ _BATTERY_RECOMMENDATION_FIELDS = _COMMON_RECOMMENDATION_FIELDS | {
     "battery_process_other", "vda_dimensions", "slim_cell_dimensions", "battery_form_factor",
 }
 
+_APPLIANCE_RECOMMENDATION_FIELDS = _COMMON_RECOMMENDATION_FIELDS | set(
+    industry_templates.field_keys("appliance")
+)
+
 _COMMON_REQUIRED_RECOMMENDATION_FIELDS = {
     "requirement_type", "priority", "bu", "disclosure", "description",
     "customer_type", "customer_industry", "account_manager", "final_customer_name",
@@ -89,6 +99,9 @@ _SEMICONDUCTOR_REQUIRED_RECOMMENDATION_FIELDS = _COMMON_REQUIRED_RECOMMENDATION_
 _BATTERY_REQUIRED_RECOMMENDATION_FIELDS = _COMMON_REQUIRED_RECOMMENDATION_FIELDS | {
     "battery_model", "cathode_material", "anode_material", "nominal_voltage",
 }
+_APPLIANCE_REQUIRED_RECOMMENDATION_FIELDS = (
+    _COMMON_REQUIRED_RECOMMENDATION_FIELDS | industry_templates.required_keys("appliance")
+)
 
 # 这些字段对应 1.1 页面已有的 select/tag 选项。AI 只能返回这里的 value，
 # 服务端和前端都不允许把模型生成的其它字符串变成新的下拉条目。
@@ -118,6 +131,15 @@ _RECOMMENDATION_ENUMS = {
     "technology_source": {"self", "kste", "customer", "joint"},
     "target_equipment": {"刻蚀机", "PVD设备", "CVD设备", "离子注入机", "光刻机", "量测设备"},
     "process_stage": {"刻蚀", "薄膜沉积", "离子注入", "光刻", "量测"},
+    # 电器行业（1.1 Section C）。
+    "appliance_category": {"refrigerator", "washer", "ac", "kitchen", "small", "other"},
+    "energy_efficiency_grade": {"g1", "g2", "g3", "tbd"},
+    "housing_material": {"abs", "hips", "vcm", "spcc", "glass", "other"},
+    "surface_process": {"brushed", "spray", "laminated", "ecoat", "none"},
+    "certification_region": {"ccc", "ce", "ul", "multi"},
+    "core_components": {"压缩机", "变频电机", "PCBA控制板", "风机", "热交换器", "显示模组"},
+    "forming_process": {"注塑", "冲压", "折弯", "吸塑", "发泡", "绕线", "焊接"},
+    "safety_standard": {"GB 4706.1", "GB 4343.1", "GB 17625.1", "CCC", "CE", "UL"},
 }
 _RECOMMENDATION_ENUM_DEFAULTS = {
     key: next(iter(sorted(values))) for key, values in _RECOMMENDATION_ENUMS.items()
@@ -132,6 +154,10 @@ _RECOMMENDATION_ENUM_DEFAULTS.update({
     "category_a": "A1", "category_b": "B1", "product_type": "esc", "complexity": "medium",
     "new_technology": "no", "technology_source": "self", "target_equipment": "刻蚀机",
     "process_stage": "刻蚀",
+    "appliance_category": "refrigerator", "energy_efficiency_grade": "g1",
+    "housing_material": "spcc", "surface_process": "laminated",
+    "certification_region": "ccc", "core_components": "压缩机",
+    "forming_process": "注塑", "safety_standard": "GB 4706.1",
 })
 _RECOMMENDATION_DATE_OFFSETS = {
     "project_k0": 7, "project_start_due": 10, "evaluation_due": 14,
@@ -148,7 +174,10 @@ def _extractable_fields_for_industry(industry: str) -> set[str]:
     """字段明确出现在技术文档中时仍可带入，不能因它不是必填项而丢弃。"""
     if industry == "battery":
         return _BATTERY_RECOMMENDATION_FIELDS | _BATTERY_REQUIRED_RECOMMENDATION_FIELDS
+    if industry == "appliance":
+        return _APPLIANCE_RECOMMENDATION_FIELDS | _APPLIANCE_REQUIRED_RECOMMENDATION_FIELDS
     if industry == "flexible":
+        # 历史草稿：规格字段由 AI 动态生成，只保留跨行业通用字段。
         return _COMMON_RECOMMENDATION_FIELDS | _COMMON_REQUIRED_RECOMMENDATION_FIELDS
     return _SEMICONDUCTOR_RECOMMENDATION_FIELDS | _SEMICONDUCTOR_REQUIRED_RECOMMENDATION_FIELDS
 
@@ -156,6 +185,8 @@ def _extractable_fields_for_industry(industry: str) -> set[str]:
 def _required_recommendation_fields_for_industry(industry: str) -> set[str]:
     if industry == "battery":
         return _BATTERY_REQUIRED_RECOMMENDATION_FIELDS
+    if industry == "appliance":
+        return _APPLIANCE_REQUIRED_RECOMMENDATION_FIELDS
     if industry == "flexible":
         return _COMMON_REQUIRED_RECOMMENDATION_FIELDS
     return _SEMICONDUCTOR_REQUIRED_RECOMMENDATION_FIELDS
@@ -233,13 +264,14 @@ key 只能含小写字母、数字和下划线。
 
 _INDUSTRY_PROMPT = """
 你还必须输出 industry、industry_confidence、industry_reason：
-- industry 只能是 semiconductor、battery、flexible；
+- industry 只能是 semiconductor、battery、appliance；
 - semiconductor 仅用于半导体制造、晶圆、真空腔体、静电吸盘、半导体设备及其明确零部件；
 - battery 仅用于锂电池、动力电池、储能电池、电芯、模组、PACK 与其明确零部件；
-- 其他行业或依据不足时使用 flexible；
+- appliance 仅用于家用电器整机及其明确部件（冰箱、洗衣机、空调、厨电、小家电、
+  以及压缩机、家电电机、控制板、箱体门体等）；
+- 三者都不匹配或依据不足时，选最接近的一个并把 industry_confidence 压低到 0.4 以下，
+  由人工在页面上改选，不要臆造行业；
 - industry_confidence 为 0 到 1 的数字，industry_reason 不超过 80 字。
-若 industry=flexible，必须按 flexible_spec_fields 规则生成与当前产品相关的 3.1/3.2/3.3 字段；
-即使上游没有指定“灵活”模板，也要遵守这一规则。
 """
 
 
@@ -349,7 +381,8 @@ def _normalize_flexible_spec_fields(raw_fields: list[RequirementDynamicSpecField
 
 
 def _normalized_industry(value: str) -> str:
-    return value if value in {"semiconductor", "battery", "flexible"} else "flexible"
+    """模型识别出的行业。不在受支持模板内时回落到默认模板，由人工在页面上改选。"""
+    return industry_templates.normalize(value)
 
 
 def extract_requirement_fields(prepared: PreparedDocuments, industry_selection: str = "semiconductor") -> RequirementDocumentExtraction:
@@ -357,13 +390,14 @@ def extract_requirement_fields(prepared: PreparedDocuments, industry_selection: 
     if not prepared.text:
         raise ValueError("没有可供解析的技术文档文本")
     selection = str(industry_selection or "semiconductor").strip().lower()
-    manual_industry = selection if selection in {"semiconductor", "battery", "flexible"} else ""
+    # flexible 是历史草稿模板，仍允许沿用；新建需求只会传三个受支持行业之一。
+    manual_industry = selection if selection in (*industry_templates.INDUSTRIES, "flexible") else ""
     system_prompt = _SYSTEM_PROMPT + _INDUSTRY_PROMPT
     if manual_industry:
         system_prompt += f"\n用户已人工指定行业模板为 {manual_industry}。仍请输出识别建议用于留痕，但必须按该人工模板组织字段。"
     if manual_industry == "flexible":
         system_prompt += _FLEXIBLE_SPEC_PROMPT
-    result = qwen_client.complete_to_model(
+    result = llm_client.complete_to_model(
         system_prompt,
         "请从以下技术文档提取 1.1 需求创建字段：\n\n" + prepared.text,
         RequirementDocumentExtraction,

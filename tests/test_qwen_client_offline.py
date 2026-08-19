@@ -35,7 +35,7 @@ class QwenClientOfflineTests(unittest.TestCase):
 
         old_client = qwen_client.get_client
         try:
-            qwen_client.get_client = lambda: SimpleNamespace(
+            qwen_client.get_client = lambda vision=False: SimpleNamespace(
                 chat=SimpleNamespace(completions=Completions())
             )
             result = qwen_client.run("只输出 JSON", [qwen_client.text_block("测试")], _Result)
@@ -55,7 +55,10 @@ class QwenClientOfflineTests(unittest.TestCase):
                 extra_tools=[qwen_client.WEB_SEARCH_TOOL],
             )
 
-    def test_quota_error_switches_to_next_text_model(self):
+    def test_configured_model_is_never_silently_swapped(self):
+        """以前配的模型一报 429/404 就静默换成池里的下一个 —— 界面上配了 opus5，
+        实际跑的还是旧 qwen 型号，用户完全看不出来。现在只用配置的那一个，
+        失败就如实报错，并且错误里要带上模型名。"""
         calls = []
 
         class QuotaError(Exception):
@@ -78,24 +81,32 @@ class QwenClientOfflineTests(unittest.TestCase):
         old_error = qwen_client.APIStatusError
         old_pool = qwen_client.QWEN_TEXT_MODELS
         old_runtime_pool = qwen_client._runtime["text_models"]
+        old_candidates = qwen_client._model_candidates
         try:
-            qwen_client.get_client = lambda: SimpleNamespace(
+            qwen_client.get_client = lambda vision=False: SimpleNamespace(
                 chat=SimpleNamespace(completions=Completions())
             )
             qwen_client.APIStatusError = QuotaError
             qwen_client.QWEN_TEXT_MODELS = ("text-primary", "text-backup")
             qwen_client._runtime["text_models"] = ("text-primary", "text-backup")
             qwen_client._unavailable_models["text"].clear()
-            result = qwen_client.run("只输出 JSON", [qwen_client.text_block("测试")], _Result)
+            # 模型选择现在来自「模型设置」，不再是 qwen 的模型池。
+            qwen_client._model_candidates = lambda vision: ("text-primary",)
+            with self.assertRaises(RuntimeError) as caught:
+                qwen_client.run("只输出 JSON", [qwen_client.text_block("测试")], _Result)
+            error = str(caught.exception)
         finally:
             qwen_client.get_client = old_client
             qwen_client.APIStatusError = old_error
             qwen_client.QWEN_TEXT_MODELS = old_pool
             qwen_client._runtime["text_models"] = old_runtime_pool
             qwen_client._unavailable_models["text"].clear()
+            qwen_client._model_candidates = old_candidates
 
-        self.assertEqual(result.value, 8)
-        self.assertEqual(calls, ["text-primary", "text-backup"])
+        # 只调用了配置的那一个模型，没有偷偷换第二个。
+        self.assertEqual(calls, ["text-primary"])
+        self.assertIn("text-primary", error)
+        self.assertNotIn("text-backup", error)
 
     def test_schema_failure_is_repaired_without_reuploading(self):
         calls = []
@@ -121,7 +132,7 @@ class QwenClientOfflineTests(unittest.TestCase):
 
         old_client = qwen_client.get_client
         try:
-            qwen_client.get_client = lambda: SimpleNamespace(
+            qwen_client.get_client = lambda vision=False: SimpleNamespace(
                 chat=SimpleNamespace(completions=Completions())
             )
             result = qwen_client.run("只输出 JSON", [qwen_client.text_block("测试")], _Result)
@@ -183,3 +194,45 @@ class QwenClientOfflineTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ConfiguredParamsTests(unittest.TestCase):
+    """「模型设置」里配的推理参数必须真的进请求 —— 以前只对 Agent 会话生效，
+    平台自己的解析与分析仍走 .env 固定值，等于设了没用。"""
+
+    def _run_capturing(self, tuning):
+        captured = {}
+
+        class Completions:
+            def create(self, **kwargs):
+                captured.update(kwargs)
+                return SimpleNamespace(
+                    choices=[SimpleNamespace(
+                        message=SimpleNamespace(content='{"value": 1}'),
+                        finish_reason="stop")],
+                    usage=None,
+                )
+
+        old_client = qwen_client.get_client
+        old_tuning = qwen_client._tuning
+        try:
+            qwen_client.get_client = lambda vision=False: SimpleNamespace(
+                chat=SimpleNamespace(completions=Completions()))
+            qwen_client._tuning = lambda: tuning
+            qwen_client.run("只输出 JSON", [qwen_client.text_block("测试")], _Result)
+        finally:
+            qwen_client.get_client = old_client
+            qwen_client._tuning = old_tuning
+        return captured
+
+    def test_temperature_and_max_tokens_reach_the_request(self):
+        args = self._run_capturing({"temperature": 0.25, "max_tokens": 4096, "thinking": True})
+        self.assertEqual(args["temperature"], 0.25)
+        self.assertEqual(args["max_tokens"], 4096)
+        self.assertTrue(args["extra_body"]["enable_thinking"])
+
+    def test_blank_temperature_is_not_sent_as_zero(self):
+        """留空表示用模型默认值；传 0 会把模型钉死在贪心解码上。"""
+        args = self._run_capturing({"temperature": None, "max_tokens": None, "thinking": False})
+        self.assertNotIn("temperature", args)
+        self.assertFalse(args["extra_body"]["enable_thinking"])

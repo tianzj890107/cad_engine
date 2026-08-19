@@ -10,6 +10,8 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from .coercion import StrList
+
 
 class WorkflowReview(BaseModel):
     action: str
@@ -60,7 +62,7 @@ class RequirementDocumentExtraction(BaseModel):
     # 每个 AI 推荐值的置信度，范围 0~1；字段明确带入的值不在此列。
     recommendation_confidence: dict[str, float] = Field(default_factory=dict)
     summary: str = ""
-    open_questions: List[str] = Field(default_factory=list)
+    open_questions: StrList = Field(default_factory=list)
     # 自动行业识别；手动选择行业时仅作为建议与留痕，不覆盖人工选择。
     industry: str = "flexible"
     industry_confidence: float = 0.0
@@ -166,8 +168,8 @@ class ProcessReport(BaseModel):
     title: str = "工艺评估报告"
     status: str = "draft"  # draft -> in_review -> approved/rejected -> published
     overview: str = ""
-    highlights: List[str] = Field(default_factory=list)
-    risks: List[str] = Field(default_factory=list)
+    highlights: StrList = Field(default_factory=list)
+    risks: StrList = Field(default_factory=list)
     conclusion: str = ""
     # 3.1 汇总结果页的可编辑结构化内容；与底层各工艺步骤数据并存。
     # display_mode=reference 时展示经产品确认的参考稿占位内容；当 2.2–2.6

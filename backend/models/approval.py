@@ -17,6 +17,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from .coercion import StrList
 from .cost import WebSource
 from .ir import OpenQuestion
 from .material import Timing
@@ -62,7 +63,7 @@ class ApprovalRecommendation(BaseModel):
     level_reason: Optional[str] = Field(None, description="定级依据")
     classification: ApprovalClassification = Field(default_factory=ApprovalClassification, description="定级所依据的判断")
     summary: Optional[str] = Field(None, description="审批要点/风险提示")
-    assumptions: List[str] = Field(default_factory=list, description="关键假设")
+    assumptions: StrList = Field(default_factory=list, description="关键假设")
     open_questions: List[OpenQuestion] = Field(default_factory=list, description="需澄清的问题")
     search_sources: List[WebSource] = Field(default_factory=list, description="联网检索来源(可追溯)")
 
@@ -77,12 +78,12 @@ class QuoteApproval(BaseModel):
     classification: ApprovalClassification = Field(default_factory=ApprovalClassification)
     chain: List[ApprovalNode] = Field(default_factory=list)
     status: str = Field("draft", description="draft(草稿) | in_review(审批中) | approved(通过,可签约) | rejected(驳回)")
-    approvers: List[str] = Field(default_factory=list, description="已选择并发送审批流的审批人/角色(送审人)")
+    approvers: StrList = Field(default_factory=list, description="已选择并发送审批流的审批人/角色(送审人)")
     sent_at: Optional[str] = Field(None, description="发送审批流的时间")
     decision_note: Optional[str] = None
     summary: Optional[str] = None
     timing: Timing = Field(default_factory=Timing)
-    assumptions: List[str] = Field(default_factory=list)
+    assumptions: StrList = Field(default_factory=list)
     open_questions: List[OpenQuestion] = Field(default_factory=list)
     search_sources: List[WebSource] = Field(default_factory=list)
     updated_at: Optional[str] = None

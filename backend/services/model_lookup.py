@@ -43,6 +43,37 @@ _SYSTEM_PROMPT = """你是通用工业产品与设备外购件型号核验工程
 7. 只输出一个合法 JSON 对象，不要 Markdown、解释或代码块。"""
 
 
+def _lookup_with_search(prompt: dict, *, max_tokens: int):
+    """按当前选中的语言模型走对应提供商的联网检索。
+
+    百炼有自己的原生搜索 API（会返回可核验的来源），Anthropic / OpenAI 则用各自的
+    hosted web search 工具。之前这里写死走百炼，换成别的模型就会报
+    "Qwen 调用失败"。
+    """
+    from . import llm_client, llm_settings
+
+    provider = llm_settings.provider_of(llm_settings.selected_model(vision=False))
+    if provider == "qwen":
+        return qwen_client.complete_to_model_with_web_search(
+            _SYSTEM_PROMPT, prompt, ModelLookupResult, max_tokens=max_tokens)
+
+    sources: list = []
+    result = llm_client.run(
+        _SYSTEM_PROMPT,
+        [llm_client.text_block(str(prompt)),
+         llm_client.text_block(llm_client.web_search_notice(True))],
+        ModelLookupResult,
+        extra_tools=llm_client.web_search_tools(True),
+        max_tokens=max_tokens,
+        sources_out=sources,
+    )
+    return result, {
+        "sources": sources,
+        "search_count": len(sources),
+        "model": llm_client.last_used_model() or "",
+    }
+
+
 def _valid_token(value: str) -> bool:
     token = value.strip(".,;:()[]{}<>\"' ")
     if not 4 <= len(token) <= 80 or not any(char.isascii() and char.isalpha() for char in token):
@@ -138,11 +169,9 @@ def identify_models(ir: DesignIR, attachments: Iterable[tuple[str, bytes]]) -> M
         "project_identification_text": ir_text,
         "task": "先自行判断哪些术语值得联网检索，再仅输出有工程意义的型号/产品标识核验结论；不要为了凑数量而输出每个提示词。",
     }
-    result, metadata = qwen_client.complete_to_model_with_web_search(
-        # 型号核验可能同时返回识别、产品级候选部件与工艺推演，使用完整文本预算，
-        # 避免结果在 proposals 中间被截断。
-        _SYSTEM_PROMPT, prompt, ModelLookupResult, max_tokens=12000,
-    )
+    # 型号核验可能同时返回识别、产品级候选部件与工艺推演，使用完整文本预算，
+    # 避免结果在 proposals 中间被截断。
+    result, metadata = _lookup_with_search(prompt, max_tokens=12000)
     result.search_sources = metadata["sources"]
     result.search_count = metadata["search_count"]
     result.model = metadata["model"]

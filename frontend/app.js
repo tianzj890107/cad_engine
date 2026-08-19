@@ -51,60 +51,9 @@ function setParseDisclosure(open) {
   if (evidence) evidence.open = open;
 }
 
-function fileTypeLabel(name) {
-  const suffix = String(name || "").split(".").pop().toUpperCase();
-  return suffix && suffix !== String(name || "").toUpperCase() ? suffix : "文件";
-}
-
-function isImageFile(name) {
-  return /\.(png|jpe?g|webp|gif|bmp)$/i.test(String(name || ""));
-}
-
-function renderProjectEvidence(meta = {}) {
-  const root = $("projectEvidence");
-  if (!root) return;
-  const sourceName = meta.source_filename || "需求原图";
-  const attachments = Array.isArray(meta.attachments) ? meta.attachments : [];
-  const projectId = currentProject;
-  const sourceMeta = attachments.length
-    ? `原图 + ${attachments.length} 份技术资料将共同参与 AI 解析`
-    : "原图将作为 AI 图纸解析依据";
-  let html = `<div class="uploaded-file-item blueprint-preview"><span class="evidence-icon">▧</span><div class="file-info"><div class="file-name">${esc(sourceName)}</div><div class="file-meta">${sourceMeta}</div></div><span class="evidence-type">图纸</span></div>`;
-  if (attachments.length) {
-    html += `<div class="evidence-caption">已带入的技术文档与补充资料</div><div class="evidence-list">`;
-    html += attachments.map(name => {
-      const href = projectId
-        ? mediaUrl(`${API}/api/projects/${encodeURIComponent(projectId)}/attachments/${encodeURIComponent(name)}`)
-        : "#";
-      return `<a class="uploaded-file-item evidence-file" href="${href}" target="_blank" rel="noopener"><span class="evidence-icon">▤</span><div class="file-info"><div class="file-name">${esc(name)}</div><div class="file-meta">将作为图纸解析的需求与约束依据</div></div><span class="evidence-type">${esc(fileTypeLabel(name))}</span></a>`;
-    }).join("");
-    html += "</div>";
-  }
-  root.innerHTML = html;
-}
-
-function renderAttachmentImageGallery(meta = {}) {
-  const gallery = $("attachmentImageGallery");
-  if (!gallery) return;
-  const attachments = Array.isArray(meta.attachments) ? meta.attachments : [];
-  const imageAttachments = attachments.filter(isImageFile);
-  gallery.replaceChildren();
-  gallery.hidden = !imageAttachments.length;
-  if (!imageAttachments.length) return;
-  imageAttachments.forEach(name => {
-    const figure = document.createElement("figure");
-    const image = document.createElement("img");
-    image.src = currentProject
-      ? mediaUrl(`${API}/api/projects/${encodeURIComponent(currentProject)}/attachments/${encodeURIComponent(name)}`)
-      : "";
-    image.alt = name;
-    image.loading = "lazy";
-    const caption = document.createElement("figcaption");
-    caption.textContent = name;
-    figure.append(image, caption);
-    gallery.append(figure);
-  });
-}
+// 输入原图与技术文档的清单已经统一由右侧「任务文件」小窗承载，左侧抽屉只保留
+// 解析后的标注视图，因此这里原有的 renderProjectEvidence / renderAttachmentImageGallery
+// 一并去掉 —— 同一份清单在两处渲染，改一处就会两边对不上。
 
 function safeExternalUrl(value) {
   try {
@@ -558,6 +507,15 @@ $("btnReport").onclick = () => {
   }
   location.href = `report.html?project=${encodeURIComponent(currentProject)}`;
 };
+// 下一步 = 2.2 材料定性。路由与前置校验都交给流程栏那套（workflow-navigation.js），
+// 这里不另写一份 —— 否则「解析没做完能不能进下一步」会出现两个说法。
+$("btnNext").onclick = () => {
+  if (!currentProject) {
+    status("请先创建或打开一个项目，再进入下一步。");
+    return;
+  }
+  window.CadWorkflowNavigation?.navigate("2.2");
+};
 
 function openBusinessWorkbench(biz) {
   const project = currentProject ? `&project=${encodeURIComponent(currentProject)}` : "";
@@ -800,13 +758,6 @@ $("btnUpload").onclick = async () => {
   if (phEl) phEl.remove();
   $("sourceImg").style.display = "";
   $("sourceImg").src = mediaUrl(`${API}/api/projects/${currentProject}/source?t=${Date.now()}`);
-  renderProjectEvidence({
-    source_filename: f.name,
-    attachments: Array.from($("attachInput").files).map(file => file.name),
-  });
-  renderAttachmentImageGallery({
-    attachments: Array.from($("attachInput").files).map(file => file.name),
-  });
   $("btnParse").disabled = false;
   $("btnVerify").disabled = true;
   $("btnDecompose").disabled = true;
@@ -844,6 +795,14 @@ $("btnParse").onclick = async () => {
       .catch(() => 0);
     status(`解析完成（已结合 ${documentCount} 份技术资料；平均置信度 ${avgConfidence(currentIR)}）`);
     setWorkflow("review", "AI 已完成解析，请确认零件、材料与待澄清项。");
+    // 通知 2.1 的 Agent 对话框：把零件清单与待澄清问题渲染成结果按钮。
+    window.dispatchEvent(new CustomEvent("agent:parse-done", {
+      detail: {
+        summary: `解析完成：识别 ${(currentIR.parts || []).length} 个零件、`
+          + `${(currentIR.standard_parts || []).length} 项标准件，`
+          + `平均置信度 ${avgConfidence(currentIR)}。`,
+      },
+    }));
   } catch (e) { status("解析失败: " + e.message); }
   finally {
     parseButton.disabled = false;
@@ -962,6 +921,17 @@ async function pollTask(projectId, taskId, label) {
     let t;
     try { t = await fetch(`${API}/api/projects/${projectId}/tasks/${taskId}`).then(r => r.json()); }
     catch { continue; }  // 网络抖动则继续轮询
+    // 把任务进度同时播给 Agent 对话框，让处理过程显示在对话里。
+    // 传整份 progress_log 而不是单条 progress：轮询间隔内后端可能已经走完好几步，
+    // 只传"最新一条"的话中间步骤全都丢了（检索类任务尤其明显）。
+    window.dispatchEvent(new CustomEvent("agent:task-progress", {
+      detail: {
+        label, taskId, status: t.status,
+        progress: t.progress || "",
+        log: Array.isArray(t.progress_log) ? t.progress_log : [],
+        error: t.error || "",
+      },
+    }));
     if (t.status === "succeeded") return t.result;
     if (t.status === "failed") throw new Error(t.error || "任务失败");
     status(`${label}：${t.progress || "正在处理"}…`, true);
@@ -1007,8 +977,6 @@ async function openProject(pid) {
   currentIR = data.ir;
   currentGeometry = data.geometry;
   currentDrawings = data.drawings;
-  renderProjectEvidence(data.meta);
-  renderAttachmentImageGallery(data.meta);
 
   // 原图区: 图片项目显示原图; 3D 导入项目无 2D 原图,显示占位
   const fname = (data.meta && data.meta.source_filename) || "";
@@ -1137,6 +1105,62 @@ function renderNode(node, container, depth, partById) {
     `</div>`;
   div.onclick = () => selectPart(p);
   container.appendChild(div);
+  container.appendChild(buildPartSubActions(p));
+}
+
+// 零件下的子操作：工艺推荐 / 成本测算。它们原先在右侧零件详情里，
+// 现在跟着零件一起放在左侧 —— 左侧负责"选什么、看什么结论"，
+// 右侧只保留 3D 视图与零件信息。
+function buildPartSubActions(part) {
+  const wrap = document.createElement("div");
+  wrap.className = "part-subactions";
+  wrap.dataset.partActions = part.part_id;
+  wrap.hidden = true;
+
+  const row = document.createElement("div");
+  row.className = "part-nav part-subactions-row";   // 复用原右侧按钮的既有样式
+  [["process", "工艺推荐", processWrenchNavIcon], ["cost", "成本测算", costNavIcon]]
+    .forEach(([mode, label, icon]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `part-subaction btn-${mode}`;
+      button.dataset.partAnalysis = mode;
+      button.innerHTML = `${icon}<span>${label}</span>`;
+      button.onclick = event => {
+        event.stopPropagation();   // 不要触发外层零件行的再次选中
+        openPartAnalysis(part, mode);
+      };
+      row.appendChild(button);
+    });
+
+  const host = document.createElement("div");
+  host.className = "inline-analysis-host part-inline-host";
+  host.dataset.partHost = part.part_id;
+
+  wrap.append(row, host);
+  return wrap;
+}
+
+function openPartAnalysis(part, mode) {
+  const host = document.querySelector(`[data-part-host="${CSS.escape(part.part_id)}"]`);
+  if (!host || !window.CadInlineAnalysis) return;
+  window.CadInlineAnalysis.open(mode, {
+    host,
+    projectId: currentProject,
+    part,
+    status,
+    // 关闭后回到只有两个子按钮的状态，而不是跳回右侧详情。
+    onClose: () => { host.innerHTML = ""; },
+  });
+}
+
+// 展开的零件只保留一个，否则左栏会被多份分析面板撑开。
+function togglePartSubActions(partId) {
+  document.querySelectorAll("#tree .part-subactions").forEach(node => {
+    const open = node.dataset.partActions === partId;
+    if (!open && !node.hidden) node.querySelector("[data-part-host]").innerHTML = "";
+    node.hidden = !open;
+  });
 }
 
 // 根据已经解析出的几何特征显示一个轻量缩略图。它完全由本地 IR 生成，
@@ -1210,9 +1234,15 @@ function renderIR(ir) {
   // 重渲染后保持选中态(高亮 tree/box)
   if (currentSelectedId) {
     const sel = (ir.parts || []).find(p => p.part_id === currentSelectedId);
-    if (sel) markSelection(currentSelectedId);
+    if (sel) {
+      markSelection(currentSelectedId);
+      // 树是整棵重建的，选中零件的子按钮要跟着重新展开。
+      togglePartSubActions(currentSelectedId);
+    }
   }
   loadVersions();
+  // 零件清单/待澄清已重新渲染；通知 Agent 对话框刷新结果按钮的数量。
+  window.dispatchEvent(new CustomEvent("agent:ir-rendered"));
 }
 
 // --------------------------------------------------------------------------- //
@@ -1400,6 +1430,7 @@ function selectPart(part) {
   window.CadInlineAnalysis?.reset();
   currentSelectedId = part.part_id;
   markSelection(part.part_id);
+  togglePartSubActions(part.part_id);
   const g = geomFor(part.part_id);
   const dw = drawingsFor(part.part_id);
   $("viewerPartName").textContent = `${part.part_id} ${part.name}`;
@@ -1482,24 +1513,11 @@ function selectPart(part) {
   }
   if (downloadLinks.length) lowerHtml += `<div class="dl download-actions">${downloadLinks.join("")}</div>`;
 
+  // 工艺推荐与成本测算已移到左侧零件清单的子按钮下；右侧只保留 3D 与零件信息。
   const html = `<div class="part-summary">${summaryHtml}</div>` +
-    `<div class="part-nav">` +
-      `<button class="btn-process" type="button" data-inline-analysis="process">${processWrenchNavIcon}<span>工艺拆解</span></button>` +
-      `<button class="btn-cost" type="button" data-inline-analysis="cost">${costNavIcon}<span>成本分析</span></button>` +
-    `</div>` +
     `<div id="inlineAnalysisHost" class="inline-analysis-host">${lowerHtml}</div>`;
 
   $("partDetail").innerHTML = html;
-  document.querySelectorAll("#partDetail [data-inline-analysis]").forEach(button => {
-    button.onclick = () => window.CadInlineAnalysis?.open(button.dataset.inlineAnalysis, {
-      host: $("inlineAnalysisHost"),
-      expertPanel: document.querySelector(".parameter-panel"),
-      projectId: currentProject,
-      part,
-      status,
-      onClose: () => selectPart(part),
-    });
-  });
   $("parameterEditor").innerHTML = parameterHtml || "此零件暂无可编辑参数。";
   const sb = document.getElementById("btnSaveParams");
   if (sb) sb.onclick = () => savePartEdits(part.part_id, false);

@@ -8,6 +8,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from . import industry_templates
+
 
 _LABELS = {
     "requirement_type": "需求类型", "priority": "优先级", "bu": "BU", "disclosure": "披露口径", "description": "需求描述",
@@ -20,12 +22,42 @@ _LABELS = {
 _SECTIONS = [
     ("一、需求基本信息", ["requirement_type", "priority", "bu", "disclosure", "description"]),
     ("二、客户与项目信息", ["customer_type", "customer_industry", "account_manager", "final_customer_name", "transaction_customer_name", "customer_credit", "project_name", "project_code", "product_iteration", "project_manager", "technical_contact"]),
-    ("三、产品技术规格", ["product_name", "product_model", "wafer_size", "chuck_type", "temperature_zones", "ceramic_material", "electrode_material", "base_material", "product_weight", "overall_dimensions", "ttv", "roughness", "micro_hole_diameter", "micro_hole_diameter_tolerance", "micro_hole_depth_tolerance", "mesa_height", "adsorption_uniformity", "temperature_range", "max_voltage", "leakage_current", "helium_leak_rate", "cleanliness", "service_life", "target_equipment", "process_stage", "vacuum_environment", "heating"]),
+    # 三、产品技术规格按行业模板动态取字段，见 _product_section()。
     ("四、市场与商务信息", ["annual_forecast", "lifetime_forecast", "first_sample_due", "mass_production_due", "target_price", "competitors", "current_situation"]),
     ("五、项目时间计划", ["project_k0", "evaluation_due", "project_start_due", "milestones"]),
     ("六、分类与标签", ["category_a", "category_b", "product_type", "complexity", "new_technology", "technology_source"]),
     ("七、备注与附件", ["notes", "related_requirement"]),
 ]
+
+
+# 各行业 Section C 的字段中文名统一由行业模板提供，避免 PDF 与页面对不上。
+_LABELS.update(industry_templates.all_labels())
+
+
+def _product_section(data: dict) -> tuple[str, list[str]]:
+    """按需求单选定的行业模板返回「三、产品技术规格」的字段顺序。
+
+    早期版本把半导体字段写死在这里，导致电池需求单的 Section C 整章空白。
+    """
+    industry = str(data.get("industry") or "").strip().lower()
+    if industry == "flexible":
+        # 历史草稿：字段是 AI 动态生成的，直接按其自身顺序渲染。
+        fields = (data.get("flexible_spec") or {}).get("fields") or []
+        keys = [str(field.get("key") or "") for field in fields if isinstance(field, dict)]
+        for field in fields:
+            if isinstance(field, dict) and field.get("key"):
+                _LABELS.setdefault(str(field["key"]), str(field.get("label") or field["key"]))
+        return ("三、产品技术规格", [key for key in keys if key])
+    return ("三、产品技术规格", industry_templates.field_keys(industry))
+
+
+def _flexible_values(data: dict) -> dict:
+    """灵活模板的值不在 data 顶层，取值时需要单独展开。"""
+    return {
+        str(field.get("key") or ""): field.get("value")
+        for field in ((data.get("flexible_spec") or {}).get("fields") or [])
+        if isinstance(field, dict)
+    }
 
 
 def _plain(value: Any) -> str:
@@ -85,11 +117,14 @@ def build_requirement_pdf(requirement: dict, project: dict | None = None) -> byt
         (f"项目图纸：{_plain((project or {}).get('source_filename'))}", 9),
         ("", 9),
     ]
-    for title, keys in _SECTIONS:
+    dynamic_values = _flexible_values(data)
+    sections = [*_SECTIONS[:2], _product_section(data), *_SECTIONS[2:]]
+    for title, keys in sections:
         lines.append((title, 13))
         for key in keys:
-            label = _LABELS[key]
-            wrapped = _wrap(f"{label}：{_plain(data.get(key))}")
+            label = _LABELS.get(key, key)
+            value = data.get(key, dynamic_values.get(key))
+            wrapped = _wrap(f"{label}：{_plain(value)}")
             lines.extend((part, 9) for part in wrapped)
         lines.append(("", 9))
     lines.append(("本表单由 AI 工艺平台根据当前已保存的需求数据实时生成，供确认、审核、归档与下载使用。", 8))

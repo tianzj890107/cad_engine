@@ -15,3 +15,12 @@
 /* 展开后的分析标题图标按需求放大：蓝色方块 1.5 倍，内部图标 1.2 倍。 */
 .inline-analysis-icon{width:39px;height:39px;border-radius:10px}
 .inline-analysis-icon svg{width:19px;height:19px}
+
+/* 库内依据卡：说明工序编号与单价来自库里的哪条记录。
+   extra 用于「需要留意」的两类 —— 路线外的补充工序、回退到通用值的费率。 */
+.inline-library .inline-card-title{color:var(--color-purple)}
+.inline-lib-step{margin-top:4px;padding:4px 6px;border-left:2px solid var(--border-color);
+  background:#f8fafc;color:var(--text-secondary);font-size:10px;line-height:1.5;word-break:break-word}
+.inline-lib-step code{color:var(--text-primary);font-size:9px;font-weight:600}
+.inline-lib-step small{display:block;margin-top:1px;color:var(--text-tertiary);font-size:9px}
+.inline-lib-step.extra{border-left-color:#f59e0b;background:#fffbeb}

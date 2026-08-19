@@ -135,14 +135,21 @@ def configure_runtime_settings(*, api_key: str | None = None, base_url: str | No
     return runtime_settings()
 
 
-def get_client() -> OpenAI:
-    """Return a shared HTTP client instead of creating a connection pool per call."""
+def get_client(vision: bool = False) -> OpenAI:
+    """按当前选中模型所属提供商的**官方网关**建客户端（按签名缓存复用）。
+
+    以前这里固定读部署时配的那一个兼容端点，所有提供商的模型都往那儿发 ——
+    正是"选了 opus5 也跑不到 Anthropic"的根因。
+    """
     global _client, _client_signature
-    with _runtime_lock:
-        api_key = _runtime["api_key"]
-        base_url = _runtime["base_url"]
+    from . import llm_settings
+
+    route = llm_settings.resolve(vision=vision)
+    api_key, base_url = route["api_key"], route["base_url"]
     if not api_key:
-        raise RuntimeError("未配置 QWEN_API_KEY。请在 .env 填入百炼 API Key 后重启服务。")
+        raise RuntimeError(
+            f"未配置 {route['provider_label']} 的 API Key，无法调用 "
+            f"{llm_settings.label_of(route['model'])}。请在「模型设置」中填写。")
     signature = (api_key, base_url, QWEN_PROXY_URL, float(QWEN_TIMEOUT_SECONDS))
     with _client_lock:
         if _client is not None and _client_signature == signature:
@@ -275,22 +282,34 @@ def _error_message(exc: Exception) -> str:
 
 
 def _model_candidates(vision: bool) -> tuple[str, ...]:
-    kind = "vision" if vision else "text"
-    with _runtime_lock:
-        configured = tuple(_runtime["vision_models"] if vision else _runtime["text_models"])
-    with _pool_lock:
-        available = tuple(model for model in configured if model not in _unavailable_models[kind])
-    # 若全部模型都在本进程内被判定不可用，保留原始候选列表用于给出清晰错误，
-    # 而不是悄悄请求一个未配置的模型。
-    return available or configured
+    """只返回**「模型设置」里选中的那一个模型**。
+
+    以前这里返回整个模型池，配置的模型一报 403/404/429 就静默换成池里的下一个。
+    结果就是界面上明明配了 opus5，实际跑的还是旧的 qwen 型号，而且全程没有任何
+    提示 —— 用户看到的"AI 解析"出自一个他从没选过的模型。
+
+    工艺评估的结论要能追溯到具体模型，宁可把错误如实抛出去，也不能悄悄降级。
+    """
+    from . import llm_settings
+
+    return (llm_settings.selected_model(vision=vision),)
+
+
+def _tuning() -> dict[str, Any]:
+    """读「模型设置」里的推理参数。延迟导入避免与 llm_settings 循环依赖。"""
+    try:
+        from . import llm_settings
+
+        return llm_settings.inference_params()
+    except Exception:                                   # pragma: no cover - 依赖导入顺序
+        return {}
 
 
 def _web_search_model_candidates() -> tuple[str, ...]:
+    """同上：联网检索也只用配置的那一个，不做静默降级。"""
     with _runtime_lock:
         configured = tuple(_runtime["web_search_models"])
-    with _pool_lock:
-        available = tuple(model for model in configured if model not in _unavailable_models["web"])
-    return available or configured
+    return configured[:1]
 
 
 def _should_switch_model(exc: Exception) -> bool:
@@ -591,7 +610,12 @@ def run(
     if sources_out is not None:
         sources_out.clear()
     vision = _is_vision(user_content)
-    limit = max_tokens or (QWEN_VISION_MAX_OUTPUT_TOKENS if vision else QWEN_TEXT_MAX_OUTPUT_TOKENS)
+    # 「模型设置」里配的温度/最大 token/是否思考必须真的用上 —— 以前这三项只在
+    # Agent 会话里生效，平台自己的解析与分析仍走 .env 里的固定值，等于设了没用。
+    tuning = _tuning()
+    limit = (max_tokens or tuning.get("max_tokens")
+             or (QWEN_VISION_MAX_OUTPUT_TOKENS if vision else QWEN_TEXT_MAX_OUTPUT_TOKENS))
+    thinking = tuning.get("thinking")
     base_user_content = [text_block("请按要求输出 JSON。"), *user_content]
     request_args: Dict[str, Any] = {
         "messages": [
@@ -601,9 +625,13 @@ def run(
         "response_format": {"type": "json_object"},
         "max_tokens": min(limit, QWEN_MAX_OUTPUT_TOKENS),
         "extra_body": {
-            "enable_thinking": QWEN_VISION_ENABLE_THINKING if vision else QWEN_TEXT_ENABLE_THINKING
+            "enable_thinking": bool(thinking) if thinking is not None
+            else (QWEN_VISION_ENABLE_THINKING if vision else QWEN_TEXT_ENABLE_THINKING)
         },
     }
+    # 温度留空表示用模型默认值，这时不能把 temperature 传成 0。
+    if tuning.get("temperature") is not None:
+        request_args["temperature"] = float(tuning["temperature"])
     attempted: list[str] = []
     response = None
     last_error: Exception | None = None
@@ -612,7 +640,7 @@ def run(
         attempted.append(model)
         for repair_index in range(QWEN_SCHEMA_REPAIR_RETRIES + 1):
             try:
-                response = get_client().chat.completions.create(model=model, **request_args)
+                response = get_client(vision).chat.completions.create(model=model, **request_args)
                 _last_used_model.set(model)
             except (APIConnectionError, APIStatusError, APITimeoutError) as exc:
                 last_error = exc
@@ -670,17 +698,19 @@ def run(
             {"role": "user", "content": base_user_content},
         ]
     if response is None:
-        suffix = f" 已按顺序尝试：{', '.join(attempted)}。" if attempted else ""
+        # 只用配置的那一个模型，所以这里的失败就是"你选的模型没跑通"，
+        # 必须把模型名说清楚 —— 以前会静默换个模型接着跑，问题被藏了起来。
+        suffix = f" 使用的模型：{', '.join(attempted)}（在「模型设置」中配置）。" if attempted else ""
         if last_error is not None:
             raise RuntimeError(_error_message(last_error) + suffix) from last_error
-        raise RuntimeError("Qwen 未配置可用模型候选池。")
+        raise RuntimeError("未配置可用模型，请先在「模型设置」中选择模型。")
     # 某个模型可能已经返回过内容，随后候选模型全部网络失败；不能因为 response
     # 不是 None 就丢掉最后一次 HTTP 状态码和代理诊断。
     if last_error is not None and (
         isinstance(last_error, (APIConnectionError, APIStatusError, APITimeoutError))
         or getattr(last_error, "status_code", None) is not None
     ):
-        suffix = f" 已按顺序尝试：{', '.join(attempted)}。" if attempted else ""
+        suffix = f" 使用的模型：{', '.join(attempted)}（在「模型设置」中配置）。" if attempted else ""
         raise RuntimeError(_error_message(last_error) + suffix) from last_error
     detail = "；".join(validation_errors[-3:])
     if detail:

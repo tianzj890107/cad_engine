@@ -40,15 +40,18 @@ def _walk(payload: Any, key: str) -> list[Any]:
 
 
 def _model(kind: str) -> str:
-    if LLM_PROVIDER == "qwen":
-        try:
-            from . import qwen_client
-            used = qwen_client.last_used_model()
-            if used:
-                return used
-        except Exception:
-            pass
-    return active_model() if kind == "parse" else active_text_model()
+    """留痕用的模型名。以「模型设置」里选中的那个为准。
+
+    以前只在 LLM_PROVIDER=="qwen" 时才去问实际用过的模型，否则回落到 .env 常量 ——
+    换成别的提供商后，审计记录里写的就不是真正跑过的模型。
+    """
+    try:
+        from . import llm_client, llm_settings
+
+        return llm_client.last_used_model() or llm_settings.selected_model(
+            vision=(kind == "parse"))
+    except Exception:                                   # pragma: no cover - 配置异常
+        return active_model() if kind == "parse" else active_text_model()
 
 
 def metadata(kind: str, result: Any) -> dict:

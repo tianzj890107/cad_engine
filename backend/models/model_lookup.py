@@ -8,6 +8,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from .coercion import StrList
 from .cost import WebSource
 
 
@@ -72,7 +73,7 @@ class ProcessDesignProposal(BaseModel):
     name: str = Field(..., description="工艺/技术方案名称")
     related_component: str = Field("", description="关联候选部件")
     design_summary: str = Field("", description="公开资料支持的工艺或设计要点")
-    key_controls: List[str] = Field(default_factory=list, description="需工程确认的关键控制点")
+    key_controls: StrList = Field(default_factory=list, description="需工程确认的关键控制点")
     confidence: float = Field(0.5, description="公开资料支持强度 0~1")
     requires_confirmation: bool = Field(True)
 
@@ -85,7 +86,7 @@ class ProcessDesignProposal(BaseModel):
 class ModelLookupResult(BaseModel):
     summary: str = ""
     identifications: List[ModelIdentification] = Field(default_factory=list)
-    open_questions: List[str] = Field(default_factory=list)
+    open_questions: StrList = Field(default_factory=list)
     search_sources: List[WebSource] = Field(default_factory=list)
     search_count: int = 0
     model: str = ""

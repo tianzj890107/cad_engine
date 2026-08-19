@@ -264,7 +264,7 @@ function renderHome() {
     <i class="cpq-panel-divider"></i><div class="cpq-section-title"><span class="cpq-section-icon">${homeNavIcon(3)}</span>历史对话</div><div class="cpq-nav-history" id="sideProjectList"><p class="home-nav-empty">正在加载…</p></div>
     <div class="cpq-nav-bottom-actions"><button class="cpq-action" id="homeNavSettingsPanel"><span class="cpq-action-icon">${homeNavIcon(6)}</span>模型与 API<i>›</i></button><a class="cpq-action" href="account.html"><span class="cpq-action-icon">${homeNavIcon(7)}</span>用户设置</a></div>
   </div>`;
-  document.querySelector('#app').insertAdjacentHTML('beforeend', `<div class="home-llm-mask" id="homeLlmMask" hidden><section class="home-llm-dialog" role="dialog" aria-modal="true" aria-labelledby="homeLlmTitle"><header><h2 id="homeLlmTitle">模型设置</h2><button type="button" id="homeLlmClose" aria-label="关闭">×</button></header><div class="home-llm-body"><p class="home-llm-status" id="homeLlmStatus">正在读取服务配置…</p><label>LLM 提供商<select id="homeLlmProvider"></select></label><p class="home-llm-provider-note" id="homeLlmProviderNote"></p><label>视觉模型（图纸解析）<select id="homeLlmVision"></select></label><label>文本模型（文档/分析）<select id="homeLlmText"></select></label><label>联网检索模型<select id="homeLlmWeb"></select></label><label>API Base URL<input id="homeLlmBase" placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1"></label><label>API Key <small>留空即不修改当前密钥</small><input id="homeLlmKey" type="password" autocomplete="new-password" placeholder="••••••••"></label><p class="home-llm-note" id="homeLlmNote"></p></div><footer><button type="button" id="homeLlmCancel">取消</button><button type="button" class="primary" id="homeLlmSave">保存并立即生效</button></footer></section></div>`);
+  document.querySelector('#app').insertAdjacentHTML('beforeend', `<div class="home-llm-mask" id="homeLlmMask" hidden><section class="home-llm-dialog" role="dialog" aria-modal="true" aria-labelledby="homeLlmTitle"><header><h2 id="homeLlmTitle">模型设置</h2><button type="button" id="homeLlmClose" aria-label="关闭">×</button></header><div class="home-llm-body" id="homeLlmBody"></div><footer><button type="button" id="homeLlmCancel">关闭</button></footer></section></div>`);
 }
 
 function homeFileIcon(kind) {
@@ -314,7 +314,7 @@ function renderHomeAttachments() {
 function homeMountIndustrySelector() {
   const content = document.querySelector('.unified-content');
   if (!content || document.querySelector('#homeIndustry')) return;
-  content.insertAdjacentHTML('beforeend', `<label class="home-industry-picker">行业模板<select id="homeIndustry" aria-label="选择行业模板"><option value="semiconductor">半导体</option><option value="battery">电池</option><option value="flexible">灵活（AI 根据需求文档生成）</option></select></label>`);
+  content.insertAdjacentHTML('beforeend', `<label class="home-industry-picker">行业模板<select id="homeIndustry" aria-label="选择行业模板"><option value="semiconductor">半导体</option><option value="battery">电池</option><option value="appliance">电器</option></select></label>`);
   const select = document.querySelector('#homeIndustry');
   select.value = homeIndustry;
   select.onchange = () => { homeIndustry = select.value; };
@@ -392,7 +392,6 @@ function bindHome() {
   document.querySelector('#homeLlmClose').onclick=closeHomeLlmSettings;
   document.querySelector('#homeLlmCancel').onclick=closeHomeLlmSettings;
   document.querySelector('#homeLlmMask').onclick=event=>{if(event.target.id==='homeLlmMask')closeHomeLlmSettings();};
-  document.querySelector('#homeLlmSave').onclick=saveHomeLlmSettings;
 }
 function renderHomeSidebarProjects() {
   const list=document.querySelector('#sideProjectList');
@@ -405,56 +404,16 @@ function renderHomeSidebarProjects() {
   });
 }
 
-function homeModelList(value) {
-  return String(value || '').split(',').map(item=>item.trim()).filter(Boolean);
-}
-function homeRenderModelOptions(select, values, selected='') {
-  if (!select) return;
-  const items=[...new Set((values||[]).filter(Boolean))];
-  select.innerHTML=items.length ? items.map(value=>`<option value="${homeEsc(value)}">${homeEsc(value)}</option>`).join('') : '<option value="">当前提供商没有可用视觉模型</option>';
-  select.value=items.includes(selected) ? selected : (items[0]||'');
-  select.disabled=!items.length;
-}
-function homeApplyProviderCatalog(settings, provider) {
-  const catalog=settings.provider_catalogs?.[provider] || {text:[],vision:[]};
-  homeRenderModelOptions(document.querySelector('#homeLlmVision'), catalog.vision, settings.vision_models?.[0] || settings.model);
-  homeRenderModelOptions(document.querySelector('#homeLlmText'), catalog.text, settings.text_models?.[0] || settings.text_model);
-  homeRenderModelOptions(document.querySelector('#homeLlmWeb'), catalog.web, settings.web_search_models?.[0]);
-  const active=provider==='team' || provider===settings.runtime_provider;
-  document.querySelector('#homeLlmBase').disabled=!active || !settings.editable;
-  document.querySelector('#homeLlmKey').disabled=!active || !settings.editable;
-  document.querySelector('#homeLlmSave').disabled=!active || !settings.editable;
-  const webNote=settings.web_search_available ? `联网能力：${settings.web_search_scope}` : '联网能力：当前没有可用的联网搜索模型';
-  document.querySelector('#homeLlmProviderNote').textContent=(active ? 'Team 使用当前服务器的团队模型配置。' : '该供应商仅用于查看可选模型；切换实际供应商需修改服务器部署配置并重启。') + ` ${webNote}`;
-}
 function closeHomeLlmSettings() { document.querySelector('#homeLlmMask').hidden=true; }
-async function openHomeLlmSettings() {
-  const mask=document.querySelector('#homeLlmMask'), status=document.querySelector('#homeLlmStatus');
-  mask.hidden=false; status.textContent='正在读取服务配置…';
-  try {
-    const settings=await api('/api/llm/settings');
-    const editable=Boolean(settings.editable);
-    const providerSelect=document.querySelector('#homeLlmProvider');
-    providerSelect.innerHTML=(settings.provider_options||[]).map(item=>`<option value="${homeEsc(item.value)}">${homeEsc(item.label)}</option>`).join('');
-    providerSelect.value=settings.provider||settings.runtime_provider||'';
-    providerSelect.disabled=!editable;
-    homeApplyProviderCatalog(settings, providerSelect.value);
-    document.querySelector('#homeLlmBase').value=settings.base_url||'';
-    document.querySelectorAll('#homeLlmVision,#homeLlmText,#homeLlmWeb,#homeLlmBase,#homeLlmKey').forEach(el=>el.disabled=!editable);
-    document.querySelector('#homeLlmSave').hidden=!editable;
-    status.textContent=editable?'可修改 Team 的模型选择和 API；保存后对新任务立即生效。':'当前模型：'+(settings.model||'—')+'。只有系统管理员可修改团队模型与 API。';
-    document.querySelector('#homeLlmNote').textContent=settings.runtime_provider==='qwen'?'视觉/文本/联网模型均来自当前团队配置；Team 当前仅对型号联网核验开放原生搜索。API Key 永不回显。':(settings.reason||'当前提供商由服务器部署配置固定。');
-    providerSelect.onchange=()=>homeApplyProviderCatalog(settings, providerSelect.value);
-  } catch(error) { status.textContent='读取模型设置失败：'+(error.message||'未知错误'); }
+// 面板实现与 2.1 页 Agent 小窗共用 llm-settings-panel.js —— 两处各写一套表单，
+// 正是之前「首页改的和智能体里显示的对不上」的根因。
+function openHomeLlmSettings() {
+  const mask=document.querySelector('#homeLlmMask'), body=document.querySelector('#homeLlmBody');
+  mask.hidden=false;
+  if(!window.LlmSettingsPanel){ body.textContent='模型设置面板未加载。'; return; }
+  window.LlmSettingsPanel.mount(body, { onSaved:()=>homeToast('模型设置已保存，全局生效。') });
 }
-async function saveHomeLlmSettings() {
-  const save=document.querySelector('#homeLlmSave'), status=document.querySelector('#homeLlmStatus');
-  save.disabled=true; status.textContent='正在保存…';
-  try {
-    const result=await api('/api/llm/settings',{method:'PUT',body:JSON.stringify({provider:document.querySelector('#homeLlmProvider').value,api_key:document.querySelector('#homeLlmKey').value.trim(),base_url:document.querySelector('#homeLlmBase').value.trim(),vision_models:[document.querySelector('#homeLlmVision').value].filter(Boolean),text_models:[document.querySelector('#homeLlmText').value].filter(Boolean),web_search_models:homeModelList(document.querySelector('#homeLlmWeb').value)})});
-    document.querySelector('#homeLlmKey').value=''; status.textContent=result.message||'已保存并立即生效。'; homeToast('模型与 API 设置已保存。');
-  } catch(error) { status.textContent='保存失败：'+(error.message||'未知错误'); } finally { save.disabled=false; }
-}
+
 async function createFromHome() {
   const files=homeModelFiles, file=files[0], description=document.querySelector('#homePrompt').value.trim();
   if(!file){homeToast('请先上传至少一份模型图纸，再创建真实工艺需求。',true);return;}

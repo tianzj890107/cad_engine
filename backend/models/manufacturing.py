@@ -13,6 +13,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from .coercion import StrList
 from .cost import WebSource
 from .ir import OpenQuestion
 from .material import Timing
@@ -65,7 +66,7 @@ class ManufacturingRecommendation(BaseModel):
     additional: List[AdditionalProcess] = Field(default_factory=list, description="其它关键工艺评估清单")
     bom: List[BomItem] = Field(default_factory=list, description="按工序分解的工艺 BOM")
     bom_summary: Optional[str] = Field(None, description="BOM 结构组成说明")
-    assumptions: List[str] = Field(default_factory=list, description="关键假设")
+    assumptions: StrList = Field(default_factory=list, description="关键假设")
     open_questions: List[OpenQuestion] = Field(default_factory=list, description="需澄清的问题")
     search_sources: List[WebSource] = Field(default_factory=list, description="联网检索来源(可追溯)")
 
@@ -95,7 +96,7 @@ class ManufacturingPlan(BaseModel):
     additional: List[AdditionalProcess] = Field(default_factory=list)
     bom: BomPlan = Field(default_factory=BomPlan)
     timing: Timing = Field(default_factory=Timing)
-    assumptions: List[str] = Field(default_factory=list)
+    assumptions: StrList = Field(default_factory=list)
     open_questions: List[OpenQuestion] = Field(default_factory=list)
     search_sources: List[WebSource] = Field(default_factory=list)
     updated_at: Optional[str] = None

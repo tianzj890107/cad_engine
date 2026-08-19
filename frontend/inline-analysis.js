@@ -1,4 +1,4 @@
-/* 2.1 零件详情内嵌的工艺拆解/成本分析面板。复用原独立页面的接口和编辑能力。 */
+/* 2.1 零件详情内嵌的工艺推荐/成本测算面板。复用原独立页面的接口和编辑能力。 */
 (() => {
   "use strict";
 
@@ -57,7 +57,7 @@
   function renderShell(state) {
     const { context, mode } = state;
     const partName = context.part.name || context.part.part_id;
-    const title = mode === "process" ? "工艺拆解" : "成本分析";
+    const title = mode === "process" ? "工艺推荐" : "成本测算";
     const icon = window.cadWorkbenchIcons?.[mode] || "";
     const notePlaceholder = mode === "process"
       ? "补充工艺说明，如材料状态、关键表面粗糙度、设备或检验要求…"
@@ -71,9 +71,9 @@
       <div class="inline-analysis-title"><span class="inline-analysis-icon">${icon}</span><div><strong>${title}</strong><small>${esc(context.part.part_id)} · ${esc(partName)}</small></div></div>
         <button type="button" class="inline-analysis-close" data-inline-close>返回零件详情</button>
       </div>
-      <div class="inline-analysis-tabs"><button type="button" data-inline-mode="process" class="${mode === "process" ? "active" : ""}">工艺拆解</button><button type="button" data-inline-mode="cost" class="${mode === "cost" ? "active" : ""}">成本分析</button></div>
+      <div class="inline-analysis-tabs"><button type="button" data-inline-mode="process" class="${mode === "process" ? "active" : ""}">工艺推荐</button><button type="button" data-inline-mode="cost" class="${mode === "cost" ? "active" : ""}">成本测算</button></div>
       <div class="inline-analysis-inputs"><textarea data-inline-note rows="2" placeholder="${notePlaceholder}"></textarea>${quantity}<label class="inline-file-picker"><input data-inline-files type="file" multiple accept="image/*,.txt,.md,.csv,.json,.pdf,.yaml,.yml" /><span>选择补充文件</span><em data-inline-files-name>未选择文件</em></label></div>
-      <div class="inline-analysis-actions"><button type="button" class="inline-action primary start-parse-btn" data-inline-generate>${mode === "process" ? "生成工艺拆解" : "生成成本分析"}</button><button type="button" class="inline-action" data-inline-edit disabled>编辑</button><button type="button" class="inline-action save" data-inline-save hidden>保存</button></div>
+      <div class="inline-analysis-actions"><button type="button" class="inline-action primary start-parse-btn" data-inline-generate>${mode === "process" ? "生成工艺推荐" : "生成成本测算"}</button><button type="button" class="inline-action" data-inline-edit disabled>编辑</button><button type="button" class="inline-action save" data-inline-save hidden>保存</button></div>
       <div class="inline-analysis-status" data-inline-status></div>
       <div class="inline-analysis-body" data-inline-body>正在读取${title}…</div>
     </section>`;
@@ -103,10 +103,22 @@
     root.querySelector("[data-inline-save]").onclick = () => save(state);
   }
 
+  // 知识库检索报告：说明这次推荐用的是库里的哪条路线、哪条价格。
+  // 与 plan/analysis 分开取 —— 人工改了工艺路线，依据不该跟着变。
+  const lookupPath = mode => (mode === "process" ? "process-lookup" : "cost-lookup");
+
+  async function loadLibrary(state) {
+    try {
+      const report = await jsonFetch(
+        `/api/projects/${encodeURIComponent(state.context.projectId)}/parts/${encodeURIComponent(state.context.part.part_id)}/${lookupPath(state.mode)}`);
+      if (active === state) state.library = report && Object.keys(report).length ? report : null;
+    } catch { /* 没有依据不影响看结果 */ }
+  }
+
   async function load(state) {
     try {
       const url = `/api/projects/${encodeURIComponent(state.context.projectId)}/parts/${encodeURIComponent(state.context.part.part_id)}/${state.mode}`;
-      const data = await jsonFetch(url);
+      const [data] = await Promise.all([jsonFetch(url), loadLibrary(state)]);
       if (active !== state) return;
       if (state.mode === "process") {
         state.plan = data.plan;
@@ -120,11 +132,11 @@
       render(state);
       setStatus(state, state.mode === "process"
         ? (state.plan ? "已加载工艺路线。可编辑或重新生成。" : "尚未生成工艺路线。")
-        : (state.analysis ? "已加载成本分析。可编辑或重新生成。" : "尚未生成成本分析。"));
+        : (state.analysis ? "已加载成本测算。可编辑或重新生成。" : "尚未生成成本测算。"));
     } catch (error) {
       if (active !== state) return;
       state.root.querySelector("[data-inline-body]").innerHTML = `<div class="inline-empty error">读取失败：${esc(error.message)}</div>`;
-      setStatus(state, `${state.mode === "process" ? "工艺拆解" : "成本分析"}读取失败`, false, true);
+      setStatus(state, `${state.mode === "process" ? "工艺推荐" : "成本测算"}读取失败`, false, true);
     }
   }
 
@@ -144,8 +156,8 @@
     const edit = root.querySelector("[data-inline-edit]");
     const save = root.querySelector("[data-inline-save]");
     const label = state.mode === "process"
-      ? (data ? "重新生成工艺拆解" : "生成工艺拆解")
-      : (data ? "重新生成成本分析" : "生成成本分析");
+      ? (data ? "重新生成工艺推荐" : "生成工艺推荐")
+      : (data ? "重新生成成本测算" : "生成成本测算");
     generate.disabled = state.busy;
     generate.setAttribute("aria-label", state.busy ? `${label}中` : label);
     if (state.busy) {
@@ -179,7 +191,7 @@
     if (state.busy) return;
     state.busy = true;
     renderControls(state);
-    const title = state.mode === "process" ? "工艺拆解" : "成本分析";
+    const title = state.mode === "process" ? "工艺推荐" : "成本测算";
     setStatus(state, `${title}生成中…`, true);
     try {
       let url = `/api/projects/${encodeURIComponent(state.context.projectId)}/parts/${encodeURIComponent(state.context.part.part_id)}/${state.mode}`;
@@ -190,6 +202,7 @@
       const submitted = await jsonFetch(url, { method: "POST", body: extraForm(state) });
       const result = await poll(state, submitted.task_id);
       if (active !== state) return;
+      if (result.library) state.library = result.library;
       if (state.mode === "process") {
         state.plan = result.plan;
         state.validation = result.validation;
@@ -210,12 +223,20 @@
   }
 
   async function poll(state, taskId) {
+    const title = state.mode === "process" ? "工艺推荐" : "成本测算";
     while (true) {
       await sleep(1200);
       const task = await jsonFetch(`/api/projects/${encodeURIComponent(state.context.projectId)}/tasks/${encodeURIComponent(taskId)}`);
+      // 把知识库检索的每一步同时播给 Agent 对话框，处理过程要在对话里看得见。
+      window.dispatchEvent(new CustomEvent("agent:task-progress", {
+        detail: { label: title, taskId, status: task.status,
+                  progress: task.progress || "",
+                  log: Array.isArray(task.progress_log) ? task.progress_log : [],
+                  error: task.error || "" },
+      }));
       if (task.status === "succeeded") return task.result;
       if (task.status === "failed") throw new Error(task.error || "任务失败");
-      if (active === state) setStatus(state, `${state.mode === "process" ? "工艺拆解" : "成本分析"}：${task.progress || "正在处理"}…`, true);
+      if (active === state) setStatus(state, `${title}：${task.progress || "正在处理"}…`, true);
     }
   }
 
@@ -225,7 +246,7 @@
     else collectCostEdits(state);
     state.busy = true;
     renderControls(state);
-    setStatus(state, `保存${state.mode === "process" ? "工艺路线" : "成本分析"}…`, true);
+    setStatus(state, `保存${state.mode === "process" ? "工艺路线" : "成本测算"}…`, true);
     try {
       const payload = state.mode === "process" ? state.plan : state.analysis;
       const data = await jsonFetch(`/api/projects/${encodeURIComponent(state.context.projectId)}/parts/${encodeURIComponent(state.context.part.part_id)}/${state.mode}`, {
@@ -250,11 +271,66 @@
     }
   }
 
+  // ------------------------------------------------------------ 知识库依据
+  // 这两张卡回答的是「这个数字凭什么」：工序编号来自哪条路线模板，
+  // 单价来自哪条价格记录。没有它，推荐结果就只是一段无法核对的文字。
+  function processLibraryCard(report) {
+    if (!report) return "";
+    const route = report.route;
+    let html = `<section class="inline-card inline-library"><div class="inline-card-title">库内依据 · 工艺库</div>`;
+    if (route) {
+      html += `<div class="inline-row"><b>路线模板</b>${esc(route.route_code)} ${esc(route.name || "")}</div>`;
+      html += `<div class="inline-hint">${esc(route.source || "")} · ${(route.steps || []).length} 道工序</div>`;
+      (route.steps || []).forEach(step => {
+        html += `<div class="inline-lib-step"><code>${esc(step.step_code || "")}</code> ${esc(step.name || "")}`
+              + `<small>准备 ${step.setup_min ?? "—"} min · 设备类 ${esc(step.equipment_class || "未指定")}</small></div>`;
+      });
+    } else {
+      html += `<div class="inline-warn">⚠ 库内无适用路线模板，本次工艺为全新编制</div>`;
+    }
+    (report.extra_steps || []).forEach(step => {
+      html += `<div class="inline-lib-step extra"><code>${esc(step.step_code || "")}</code> ${esc(step.name || "")}`
+            + `<small>${esc(step.reason || "")}</small></div>`;
+    });
+    (report.feature_gaps || []).forEach(gap => {
+      html += `<div class="inline-warn">⚠ 库内空白：特征 ${esc(gap)} 无对应工序，需工艺开发</div>`;
+    });
+    (report.notes || []).forEach(note => { html += `<div class="inline-hint">${esc(note)}</div>`; });
+    return `${html}</section>`;
+  }
+
+  function costLibraryCard(report) {
+    if (!report) return "";
+    const material = report.material || {};
+    const price = material.price;
+    let html = `<section class="inline-card inline-library"><div class="inline-card-title">库内依据 · 成本库</div>`;
+    html += `<div class="inline-hint">取价时点 ${esc(report.priced_at || "")} · 核算批量 ${report.quantity || 1}</div>`;
+    if (price) {
+      html += `<div class="inline-row"><b>物料价</b>${esc(material.material_code || "")} ${esc(material.name || "")}`
+            + ` — <strong>${money(price.price)}</strong> ${esc(price.currency || "")}/${esc(price.unit || "")}</div>`;
+      html += `<div class="inline-hint">${esc(price.price_type || "")} · ${esc(price.valid_from || "")} 起 · price_id=${esc(String(price.price_id))}</div>`;
+    } else {
+      html += `<div class="inline-warn">⚠ 物料「${esc(material.spec || "未标注")}」库内无有效价格，本项为联网估算</div>`;
+    }
+    (report.rates || []).forEach(rate => {
+      html += `<div class="inline-lib-step${rate.fallback ? " extra" : ""}"><code>${esc(rate.rate_code)}</code> ${esc(rate.name || rate.rate_type)}`
+            + ` — ${money(rate.value)} ${esc(rate.unit || "")}`
+            + (rate.fallback ? `<small>库内无 ${esc(rate.requested_scope || "")} 作用域费率，已回退全厂通用值</small>` : "")
+            + `</div>`;
+    });
+    if ((report.factors || []).length) {
+      html += `<div class="inline-row"><b>计价系数</b>` + report.factors
+        .map(f => `${esc(f.factor_type)}=${esc(String(f.value))}`).join("、") + `</div>`;
+    }
+    (report.gaps || []).forEach(gap => { html += `<div class="inline-warn">⚠ ${esc(gap)}</div>`; });
+    return `${html}</section>`;
+  }
+
   function renderProcess(state) {
     const body = state.root.querySelector("[data-inline-body]");
     const plan = state.plan;
     if (!plan) {
-      body.innerHTML = `<div class="inline-empty">尚未生成工艺拆解。点击上方“生成工艺拆解”，AI 将依据当前零件的特征、材料、尺寸编制结构化加工工艺路线。</div>`;
+      body.innerHTML = `<div class="inline-empty">尚未生成工艺推荐。点击上方“生成工艺推荐”，AI 将依据当前零件的特征、材料、尺寸编制结构化加工工艺路线。</div>`;
       return;
     }
     const validation = state.validation || {};
@@ -271,7 +347,7 @@
     html += `</section><section class="inline-card"><div class="inline-card-title">工艺流程图</div><div class="inline-hint">点击节点定位到工序明细</div>${processFlow(plan.steps || [])}</section></div>`;
     html += `<div class="inline-col inline-col-mid"><section class="inline-card"><div class="inline-card-title">工序明细</div><div class="inline-steps">`;
     (plan.steps || []).forEach((step, index) => { html += processStep(step, index, state.editing); });
-    html += `</div></section></div><div class="inline-col inline-col-right"><section class="inline-card"><div class="inline-card-title">待澄清</div>`;
+    html += `</div></section></div><div class="inline-col inline-col-right">${processLibraryCard(state.library)}<section class="inline-card"><div class="inline-card-title">待澄清</div>`;
     const questions = plan.open_questions || [];
     if (questions.length) questions.forEach(q => { html += `<div class="inline-question">❓ ${esc(q.field)}：${esc(q.reason)}${q.guess ? `（猜测：${esc(q.guess)}）` : ""}</div>`; });
     else html += `<div class="inline-hint">暂无待澄清问题</div>`;
@@ -350,7 +426,7 @@
     const body = state.root.querySelector("[data-inline-body]");
     const analysis = state.analysis;
     if (!analysis) {
-      body.innerHTML = `<div class="inline-empty">尚未生成成本分析。设定批量后点击上方“生成成本分析”，AI 将联网检索材料、外购、加工等行情并拆解结构化成本。</div>`;
+      body.innerHTML = `<div class="inline-empty">尚未生成成本测算。设定批量后点击上方“生成成本测算”，AI 将联网检索材料、外购、加工等行情并拆解结构化成本。</div>`;
       return;
     }
     const summary = state.summary || {};
@@ -370,6 +446,7 @@
     html += `</section><section class="inline-card"><div class="inline-card-title">成本明细</div><div class="inline-cost-table-wrap"><table class="inline-cost-table"><thead><tr><th>类别</th><th>分项</th><th>计算依据</th><th>数量</th><th>单位</th><th>单价</th><th>金额(元)</th><th>来源</th><th>置信</th></tr></thead><tbody>`;
     (analysis.items || []).forEach((item, index) => { html += costItemRow(item, index, state.editing); });
     html += `</tbody></table></div>${state.editing ? `<div class="inline-hint">提示：保存后平台会按数量×单价重算金额与合计。</div>` : ""}</section>`;
+    html += costLibraryCard(state.library);
     if ((analysis.price_references || []).length) {
       html += `<section class="inline-card"><div class="inline-card-title">价格依据（联网检索）</div>`;
       analysis.price_references.forEach(reference => { html += `<div class="inline-reference"><b>${esc(reference.item)}</b> — <strong>${esc(reference.price)}</strong><small>${esc(reference.source || "")}${reference.date ? ` · ${esc(reference.date)}` : ""}${reference.url ? ` · <a href="${attr(reference.url)}" target="_blank" rel="noopener">查看来源 ↗</a>` : ""}</small></div>`; });

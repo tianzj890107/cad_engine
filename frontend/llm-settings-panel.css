@@ -1,0 +1,73 @@
+/* 全局模型设置面板。首页对话框与 2.1 页 Agent 弹层共用同一套类名，
+   两处外观一致 —— 之前正是「两套表单」才导致配置口径对不上。
+   变量带兜底值，因为首页与 2.1 页各自定义了不同的设计变量。 */
+.llm-set-row { padding: 5px 2px 9px; }
+.llm-set-label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--oc-text-2, #62636d);
+  font-size: 12px;
+}
+.llm-set-input {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border: .5px solid var(--oc-border-2, #d9d9e3);
+  border-radius: 8px;
+  background: var(--oc-bg-1, #fff);
+  color: var(--oc-text-1, #1f2023);
+  font: 12.5px/1.4 inherit;
+  outline: 0;
+}
+.llm-set-input:focus { border-color: var(--oc-accent, #8b5cf6); }
+.llm-set-input:disabled { background: var(--oc-bg-2, #f7f7f8); color: var(--oc-text-3, #9a9ba6); }
+.llm-set-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 2px;
+  color: var(--oc-text-1, #1f2023);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.llm-set-hint {
+  margin-top: 3px;
+  color: var(--oc-text-3, #9a9ba6);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+.llm-set-btn {
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border: .5px solid var(--oc-border-2, #d9d9e3);
+  border-radius: 8px;
+  background: var(--oc-bg-2, #f7f7f8);
+  color: var(--oc-text-1, #1f2023);
+  font: 12px/1.4 inherit;
+  cursor: pointer;
+}
+.llm-set-btn:hover:not(:disabled) { border-color: var(--oc-accent, #8b5cf6); }
+.llm-set-btn:disabled { opacity: .5; cursor: not-allowed; }
+.llm-set-status {
+  min-height: 16px;
+  margin-top: 8px;
+  padding: 6px 2px 2px;
+  border-top: .5px solid var(--oc-border-3, #e7e7ea);
+  color: var(--oc-text-3, #9a9ba6);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.llm-set-status.err { color: #dc2626; }
+
+/* Agent 小窗里的弹层比首页对话框窄，输入区留一点内边距 */
+.oc-settings .llm-set-host { padding: 0 8px 4px; }
+.llm-set-warn {
+  margin-top: 4px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 10.5px;
+  line-height: 1.5;
+}

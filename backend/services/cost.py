@@ -74,10 +74,18 @@ def analyze_cost(
     part: Part, overall: Optional[DesignIR] = None, geom: Optional[dict] = None,
     quantity: int = 1, web: bool = True, note: str = "",
     attachments: Optional[List[Tuple[str, bytes]]] = None,
+    library: str = "",
 ) -> CostAnalysis:
+    """library 是调用前从成本库检索出的价格/费率摘要（cost_lookup.as_prompt）。
+
+    它排在联网检索之前给出：企业自己的合同价和车间费率优先于行情价，
+    联网只用来补库内缺的那几项。
+    """
     use_web = web and claude_client.WEB_SEARCH_AVAILABLE
     prompt = _part_prompt(part, overall, geom, quantity)
     content = [claude_client.text_block(prompt), claude_client.text_block(claude_client.web_search_notice(use_web))]
+    if library.strip():
+        content.append(claude_client.text_block(library.strip()))
     if note and note.strip():
         content.append(claude_client.text_block(f"【用户补充说明(请优先采用)】\n{note.strip()}"))
     content.extend(claude_client.attachment_blocks(attachments))

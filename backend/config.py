@@ -175,6 +175,15 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL", f"sqlite:///{(DATA_DIR / 'app.db').as_posix()}"
 )
 
+# ---- DA 数据库(docs/数据架构设计_DA.md 的落地) ----
+# 知识库(零部件/工艺步骤/物料/费率)与项目数据的结构化表,单文件 SQLite。
+# 与上面的 DATABASE_URL(通用文档存储)是两件事,互不替代。
+DA_DB_PATH = Path(os.getenv("DA_DB_PATH", DATA_DIR / "da.db"))
+
+# 知识库图库根目录:2D/3D 图纸与文档以文件夹形式存放,库里只存相对路径。
+# 放在 DATA_DIR 下的固定子目录;项目目录以 12 位 hex 命名,不会与之冲突。
+KB_DIR = Path(os.getenv("KB_DIR", DATA_DIR / "kb"))
+
 # ---- 鉴权 / RBAC ----
 # 默认关闭: 行为与之前完全一致(隐式 system/admin),便于本地开发与现有流程。
 # 私有化部署置 AUTH_ENABLED=true 开启登录与角色权限。

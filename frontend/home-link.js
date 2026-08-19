@@ -59,16 +59,4 @@
     document.body.append(back);
   }
 
-  // 所有带项目上下文的业务页共用一个悬浮 AI 对话；会话保存到项目数据，不随页面切换丢失。
-  if (projectId && !document.querySelector('script[data-project-chat]')) {
-    const root = path.includes('/apps/') ? '/' : '';
-    const css = document.createElement('link');
-    css.rel = 'stylesheet';
-    css.href = `${root}project-chat.css?v=20260810-chat-transition3`;
-    document.head.append(css);
-    const script = document.createElement('script');
-    script.src = `${root}project-chat.js?v=20260810-chat-transition3`;
-    script.dataset.projectChat = 'true';
-    document.body.append(script);
-  }
 })();

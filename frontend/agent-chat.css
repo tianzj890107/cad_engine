@@ -1,0 +1,409 @@
+/* 2.1 图纸解析页的 Agent 布局：
+     左：对话设置工具栏（沿用 open-claude 的侧栏样式与设计变量）
+     中：Agent 对话框
+     右：原 3D 工作区（不变）
+   类名统一加 oc- 前缀，避免与 workbench.css 里的通用类（.main/.side/.thread）冲突。 */
+
+:root {
+  --oc-bg-1: #ffffff;
+  --oc-bg-2: #f7f7f8;
+  --oc-bg-3: #ececf1;
+  --oc-border-3: #e7e7ea;
+  --oc-border-2: #d9d9e3;
+  --oc-accent: #8b5cf6;
+  --oc-text-1: #1f2023;
+  --oc-text-2: #62636d;
+  --oc-text-3: #9a9ba6;
+}
+
+/* ---------- 整体骨架 ---------- */
+.oc-app { display: flex; min-height: 100vh; align-items: stretch; }
+.oc-shell { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+
+/* ---------- 两个悬浮小窗 ----------
+   左：夹在「返回」（top:18px）与「上一步」（页脚）之间；
+   右：夹在「首页」与「解析报告」之间。
+   两侧各留 20px 边距与固定按钮对齐；顶部 78px 让开固定按钮的高度加间距。
+   z-index 取 1100 —— 低于固定导航（1200），高于页面内容。 */
+.oc-dock {
+  position: fixed; top: 78px; z-index: 1100; width: 208px;
+  /* 页脚是 fixed 的（上一步 / 解析报告，约 70px 高），小窗再高也不能盖住它。 */
+  max-height: calc(100vh - 78px - 88px); overflow-y: auto;
+  border: .5px solid var(--oc-border-2); border-radius: 13px; background: var(--oc-bg-1);
+  box-shadow: 0 6px 24px rgba(15, 23, 42, .1);
+  font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--oc-text-1);
+}
+.oc-dock-left { left: 20px; }
+.oc-dock-right { right: 20px; width: 190px; }
+/* 标题栏 = 折叠开关 + 可选的小按钮。开关单独成 button，因为按钮不能嵌套 ——
+   右窗的「刷新」必须是它的兄弟节点而不是子节点。 */
+.oc-dock-head { display: flex; align-items: center; padding-right: 6px; }
+.oc-dock-toggle {
+  display: flex; min-width: 0; flex: 1; align-items: center; gap: 8px; padding: 10px 12px;
+  border: 0; border-radius: 12px; background: transparent; color: inherit; font: inherit;
+  text-align: left; cursor: pointer; transition: background .15s;
+}
+.oc-dock-toggle:hover { background: var(--oc-bg-2); }
+.oc-dock-mark {
+  display: flex; width: 24px; height: 24px; flex-shrink: 0; align-items: center;
+  justify-content: center; border-radius: 8px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; font-size: 13px;
+}
+.oc-dock-title { flex: 1; font-size: 13px; font-weight: 600; }
+.oc-dock-count {
+  padding: 1px 8px; border-radius: 999px; background: var(--oc-bg-3);
+  color: var(--oc-text-2); font-size: 11px; font-weight: 600;
+}
+.oc-dock-mini {
+  display: flex; width: 22px; height: 22px; flex-shrink: 0; align-items: center;
+  justify-content: center; border: 0; border-radius: 7px; background: transparent;
+  color: var(--oc-text-3); font-size: 13px; cursor: pointer; transition: background .15s;
+}
+.oc-dock-mini:hover { background: var(--oc-bg-3); color: var(--oc-text-1); }
+.oc-dock-caret { color: var(--oc-text-3); font-size: 12px; transition: transform .2s; }
+.oc-dock.collapsed .oc-dock-caret { transform: rotate(-90deg); }
+.oc-dock-body { padding: 0 9px 9px; }
+.oc-dock.collapsed .oc-dock-body { display: none; }
+.oc-dock-hint { padding: 0 12px 10px; color: var(--oc-text-3); font-size: 11px; line-height: 1.5; }
+.oc-dock-label { padding: 8px 3px 4px; color: var(--oc-text-3); font-size: 11px; }
+.oc-dock-foot {
+  margin-top: 8px; padding-top: 8px; border-top: .5px solid var(--oc-border-3);
+}
+.oc-newchat {
+  display: flex; width: 100%; align-items: center; gap: 8px; padding: 8px 10px;
+  margin-top: 6px; border: .5px solid var(--oc-border-2); border-radius: 10px;
+  background: var(--oc-bg-1); color: var(--oc-text-1); font: inherit; cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.oc-newchat:hover { border-color: var(--oc-accent); background: var(--oc-bg-3); }
+.oc-citem {
+  display: block; width: 100%; overflow: hidden; padding: 6px 10px; border: 0;
+  border-radius: 8px; background: transparent; color: var(--oc-text-1); font: inherit;
+  text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+  transition: background .15s;
+}
+.oc-citem:hover, .oc-citem.on { background: var(--oc-bg-3); }
+.oc-side-cwd { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.oc-side-profile { color: var(--oc-text-3); font-size: 11px; }
+/* 窄屏下固定小窗会压住工作区，收成一条标题栏。 */
+@media (max-width: 1360px) {
+  .oc-dock { width: 168px; }
+  .oc-dock-right { width: 158px; }
+}
+@media (max-width: 1100px) {
+  .oc-dock-body, .oc-dock-hint { display: none; }
+  .oc-dock { width: auto; }
+  .oc-dock-title { display: none; }
+}
+
+/* ---------- 工作区：左对话 + 右 3D ---------- */
+/* 原页面是「窄左栏 + 宽中栏」两列，现在左栏换成对话框、右侧保持工作区，
+   1200px 的原始上限会把两栏都挤窄，因此在本页放宽。
+   左右各留出悬浮小窗的宽度，工作区不能被压在小窗底下。 */
+.oc-shell .page-container { max-width: 1560px; padding-right: 236px; padding-left: 236px; }
+@media (max-width: 1360px) {
+  .oc-shell .page-container { padding-right: 196px; padding-left: 196px; }
+}
+@media (max-width: 1100px) {
+  .oc-shell .page-container { padding-right: 78px; padding-left: 78px; }
+}
+
+.oc-work {
+  display: flex; min-height: 0; flex: 1; align-items: stretch; gap: var(--space-lg, 16px);
+}
+.oc-agent-pane {
+  display: flex; width: clamp(360px, 40%, 640px); min-width: 0; flex-direction: column;
+  border: 1px solid var(--oc-border-3); border-radius: 14px; background: var(--oc-bg-1);
+  /* 与 workbench.css 里 .center-panel 的视口高度保持一致，两栏顶部对齐、各自滚动。 */
+  height: calc(100vh - 38px); max-height: calc(100vh - 38px); overflow: hidden;
+  position: sticky; top: 18px; align-self: start;
+}
+/* 模型选择：只在左侧小窗里出现，对话框顶部不再有任何工具栏。 */
+.oc-modelpill {
+  display: flex; width: 100%; align-items: center; gap: 6px; padding: 7px 10px;
+  border: .5px solid var(--oc-border-2); border-radius: 10px; background: var(--oc-bg-2);
+  color: var(--oc-text-1); font: 500 12.5px/1.4 inherit; cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.oc-modelpill [data-model-name] {
+  min-width: 0; flex: 1; overflow: hidden; text-align: left;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.oc-modelpill:hover { border-color: var(--oc-accent); background: var(--oc-bg-3); }
+.oc-ibtn {
+  display: flex; width: 32px; height: 32px; align-items: center; justify-content: center;
+  border: 0; border-radius: 9px; background: transparent; color: var(--oc-text-2);
+  font-size: 17px; cursor: pointer; transition: background .15s;
+}
+.oc-ibtn:hover { background: var(--oc-bg-2); color: var(--oc-text-1); }
+
+.oc-thread { flex: 1; padding: 18px 16px; overflow-y: auto; }
+.oc-tinner { display: flex; width: 100%; max-width: 640px; margin: 0 auto; flex-direction: column; gap: 16px; }
+
+.oc-ubub {
+  max-width: 82%; align-self: flex-end; padding: 10px 14px; border-radius: 16px;
+  background: var(--oc-bg-2); font-size: 14px; line-height: 1.6;
+  white-space: pre-wrap; word-break: break-word;
+}
+.oc-amsg { display: flex; gap: 11px; }
+.oc-aav {
+  display: flex; width: 28px; height: 28px; flex-shrink: 0; align-items: center;
+  justify-content: center; border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  box-shadow: 0 2px 7px rgba(99, 102, 241, .3); color: #fff; font-size: 14px;
+}
+.oc-abody { min-width: 0; flex: 1; }
+.oc-atxt { color: var(--oc-text-1); font-size: 14px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+.oc-atxt.rendered { white-space: normal; }
+.oc-atxt.rendered p { margin: 0 0 10px; }
+.oc-atxt.rendered pre {
+  overflow: auto; padding: 11px 13px; border: .5px solid var(--oc-border-3);
+  border-radius: 10px; background: var(--oc-bg-2); font-size: 12.5px; line-height: 1.55;
+}
+.oc-atxt.rendered code { font-family: "SFMono-Regular", Consolas, monospace; }
+.oc-atxt.rendered :not(pre) > code {
+  padding: 1px 5px; border-radius: 5px; background: var(--oc-bg-3); font-size: 12.5px;
+}
+
+/* 工具调用卡片 */
+.oc-art {
+  display: flex; width: 100%; max-width: 460px; margin-top: 10px; align-items: center;
+  gap: 11px; padding: 11px 12px; border: .5px solid var(--oc-border-2);
+  border-radius: 13px; background: var(--oc-bg-1); text-align: left;
+}
+.oc-atile {
+  display: flex; width: 36px; height: 36px; flex-shrink: 0; align-items: center;
+  justify-content: center; border-radius: 9px; background: var(--oc-bg-3); font-size: 17px;
+}
+.oc-art-name { font-size: 13px; font-weight: 600; }
+.oc-art-sub {
+  overflow: hidden; color: var(--oc-text-2); font-size: 11px;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.oc-tool-result {
+  max-width: 460px; max-height: 240px; margin: 6px 0 0; overflow: auto; padding: 9px 12px;
+  border: .5px solid var(--oc-border-3); border-radius: 10px; background: var(--oc-bg-2);
+  color: var(--oc-text-2); font: 12px/1.5 "SFMono-Regular", Consolas, monospace;
+  white-space: pre-wrap; word-break: break-word;
+}
+.oc-tool-result.err { border-color: #f3b4b4; color: #dc2626; }
+.oc-err-line { margin-top: 8px; color: #dc2626; font-size: 13px; }
+.oc-spin { display: inline-block; animation: oc-spin 1s linear infinite; }
+@keyframes oc-spin { to { transform: rotate(360deg); } }
+
+/* 设计意图卡：对话里的第一条内容 */
+.oc-intent-card {
+  padding: 13px 15px; border: .5px solid var(--oc-border-2); border-radius: 13px;
+  background: var(--oc-bg-2);
+}
+.oc-intent-card h4 {
+  margin: 0 0 7px; color: var(--oc-text-2); font-size: 11px; font-weight: 600;
+  letter-spacing: .04em;
+}
+.oc-intent-card .design-intent-text {
+  color: var(--oc-text-1); font-size: 14px; line-height: 1.7; white-space: pre-wrap;
+}
+.oc-intent-meta { margin-top: 8px; color: var(--oc-text-3); font-size: 11px; }
+.oc-intent-card .start-parse-btn { width: 100%; margin-top: 12px; }
+/* 结果按钮常驻对话底部。.oc-tinner 是 flex column，其余子项 order 默认 0，
+   这里给 1 就永远排在最后 —— 即使某个异步渲染（零部件库汇总卡、进度时间线）
+   在 JS 置底之后才插进来，视觉上也不会把它顶上去。 */
+.oc-result-actions { display: flex; order: 1; flex-wrap: wrap; gap: 8px; }
+.oc-result-actions[hidden] { display: none; }
+.oc-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px;
+  border: .5px solid var(--oc-border-2); border-radius: 999px; background: var(--oc-bg-1);
+  color: var(--oc-text-1); font: 13px/1.2 inherit; cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.oc-chip:hover { border-color: var(--oc-accent); background: var(--oc-bg-3); }
+.oc-chip .oc-chip-count {
+  padding: 1px 7px; border-radius: 999px; background: var(--oc-bg-3);
+  color: var(--oc-text-2); font-size: 11px; font-weight: 600;
+}
+.oc-chip.warn { border-color: #fcd34d; background: #fffbeb; }
+.oc-chip.warn .oc-chip-count { background: #fde68a; color: #92400e; }
+
+/* 任务文件：直接列在右侧小窗里，不用点开弹窗 */
+.oc-files-list { padding-top: 2px; }
+.oc-file-group + .oc-file-group { margin-top: 14px; }
+.oc-file-group-head {
+  display: flex; align-items: center; gap: 8px; padding-bottom: 5px;
+  border-bottom: .5px solid var(--oc-border-3); color: var(--oc-text-2);
+  font-size: 11px; font-weight: 600;
+}
+.oc-file-group-count {
+  padding: 0 7px; border-radius: 999px; background: var(--oc-bg-3); font-size: 10px;
+}
+.oc-file { display: flex; align-items: flex-start; gap: 9px; padding: 7px 0; }
+.oc-file + .oc-file { border-top: .5px solid var(--oc-border-3); }
+.oc-file-icon { flex-shrink: 0; font-size: 14px; line-height: 1.5; }
+.oc-file-body { min-width: 0; flex: 1; }
+.oc-file-name {
+  display: block; overflow: hidden; color: var(--oc-text-1); font-size: 13px;
+  text-decoration: none; text-overflow: ellipsis; white-space: nowrap;
+}
+a.oc-file-name:hover { color: var(--oc-accent); text-decoration: underline; }
+.oc-file-note { color: var(--oc-text-3); font-size: 11px; line-height: 1.6; word-break: break-word; }
+.oc-file-empty { padding: 18px 0; color: var(--oc-text-3); font-size: 12px; text-align: center; }
+
+/* 处理过程时间线 */
+.oc-process-card {
+  padding: 11px 13px; border: .5px solid var(--oc-border-2); border-radius: 13px;
+  background: var(--oc-bg-2);
+}
+.oc-process-head { display: flex; align-items: center; gap: 8px; }
+.oc-process-title { color: var(--oc-text-1); font-size: 13px; font-weight: 600; }
+.oc-process-state {
+  margin-left: auto; padding: 1px 8px; border-radius: 999px; background: var(--oc-bg-3);
+  color: var(--oc-text-2); font-size: 11px;
+}
+.oc-process-state.ok { background: #dcfce7; color: #15803d; }
+.oc-process-state.err { background: #fee2e2; color: #b91c1c; }
+.oc-process-steps { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+.oc-process-step {
+  display: flex; align-items: flex-start; gap: 7px; color: var(--oc-text-2);
+  font-size: 12px; line-height: 1.65;
+}
+.oc-process-dot { flex-shrink: 0; width: 10px; font-size: 9px; line-height: 1.9; text-align: center; }
+/* 结果/依据行相对动作行缩进，一眼分得清「在做什么」和「做出了什么」。 */
+.oc-process-step.sub { padding-left: 14px; color: var(--oc-text-3); }
+.oc-process-step.sub.hit { color: #15803d; }
+.oc-process-step.sub.miss { color: #b45309; }
+.oc-process-text { min-width: 0; word-break: break-word; white-space: pre-wrap; }
+.oc-process-step.hit { color: #15803d; }
+.oc-process-step.miss { color: #b45309; }
+.oc-process-step.err { color: #b91c1c; }
+
+/* 零部件库检索结果 */
+.oc-match-card {
+  padding: 12px 14px; border: .5px solid var(--oc-border-2); border-radius: 13px;
+  background: var(--oc-bg-2);
+}
+.oc-match-card h4 {
+  margin: 0 0 9px; color: var(--oc-text-2); font-size: 11px; font-weight: 600;
+  letter-spacing: .04em;
+}
+.oc-match-stats { display: flex; flex-wrap: wrap; gap: 7px; }
+.oc-match-stat {
+  padding: 3px 10px; border-radius: 999px; background: var(--oc-bg-3);
+  color: var(--oc-text-2); font-size: 12px;
+}
+.oc-match-stat b { margin-right: 3px; font-size: 13px; }
+.oc-match-stat.reuse { background: #dcfce7; color: #15803d; }
+.oc-match-stat.modify { background: #fef3c7; color: #92400e; }
+.oc-match-stat.new { background: var(--oc-bg-3); color: var(--oc-text-2); }
+.oc-match-note { margin-top: 7px; color: var(--oc-text-3); font-size: 11px; line-height: 1.6; }
+.oc-match-list { margin-top: 9px; display: flex; flex-direction: column; gap: 7px; }
+.oc-match-row {
+  padding: 7px 10px; border: .5px solid var(--oc-border-3); border-left-width: 3px;
+  border-radius: 9px; background: var(--oc-bg-1);
+}
+.oc-match-row.reuse { border-left-color: #16a34a; }
+.oc-match-row.modify { border-left-color: #d97706; }
+.oc-match-row.new { border-left-color: var(--oc-border-2); }
+.oc-match-row-head { display: flex; align-items: center; gap: 8px; }
+.oc-match-part {
+  min-width: 0; overflow: hidden; flex: 1; color: var(--oc-text-1); font-size: 13px;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.oc-match-tag {
+  flex-shrink: 0; padding: 1px 8px; border-radius: 999px; background: var(--oc-bg-3);
+  color: var(--oc-text-2); font-size: 11px;
+}
+.oc-match-tag.reuse { background: #dcfce7; color: #15803d; }
+.oc-match-tag.modify { background: #fef3c7; color: #92400e; }
+.oc-match-hit { margin-top: 3px; color: var(--oc-text-2); font-size: 12px; }
+.oc-match-gap { margin-top: 3px; color: #b45309; font-size: 11px; line-height: 1.6; }
+
+.oc-empty {
+  display: flex; height: 100%; flex-direction: column; align-items: center;
+  justify-content: center; gap: 10px; color: var(--oc-text-3); text-align: center;
+}
+
+/* 输入区 */
+.oc-composer { padding: 6px 16px 14px; }
+.oc-cinner { width: 100%; max-width: 640px; margin: 0 auto; }
+.oc-inputbox {
+  display: flex; align-items: center; gap: 8px; padding: 9px 10px 9px 13px;
+  border: .5px solid var(--oc-border-2); border-radius: 16px; background: var(--oc-bg-2);
+  transition: border-color .15s, box-shadow .15s;
+}
+.oc-inputbox:focus-within { border-color: var(--oc-accent); box-shadow: 0 0 0 3px rgba(99, 102, 241, .12); }
+.oc-inputbox textarea {
+  min-width: 0; max-height: 120px; flex: 1; padding: 0; border: 0; background: transparent;
+  color: var(--oc-text-1); font: 14px/1.5 inherit; outline: 0; resize: none;
+}
+.oc-send {
+  display: flex; width: 34px; height: 34px; flex-shrink: 0; align-items: center;
+  justify-content: center; border: 0; border-radius: 11px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, .3); color: #fff; font-size: 17px; cursor: pointer;
+}
+.oc-send:hover { filter: brightness(1.06); }
+.oc-send:disabled { cursor: default; opacity: .5; }
+.oc-disc { margin-top: 9px; color: var(--oc-text-3); font-size: 11px; text-align: center; }
+
+/* 弹层（模型选择 / Agent 能力 / ＋ 菜单） */
+/* fixed 而不是 absolute：位置来自 getBoundingClientRect（视口坐标），
+   页面一滚动，absolute 定位就会偏掉。 */
+.oc-pop {
+  position: fixed; z-index: 1300; min-width: 210px; max-height: 360px; overflow: auto;
+  padding: 6px; border: .5px solid var(--oc-border-2); border-radius: 12px;
+  background: var(--oc-bg-1); box-shadow: 0 12px 34px rgba(0, 0, 0, .16);
+  font: 13px/1.5 inherit;
+}
+.oc-popitem {
+  display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--oc-text-1); font: inherit; text-align: left;
+  cursor: pointer;
+}
+.oc-popitem:hover { background: var(--oc-bg-3); }
+.oc-popitem .d { margin-top: 2px; color: var(--oc-text-3); font-size: 11px; white-space: normal; }
+.oc-cap-h { padding: 8px 10px 4px; color: var(--oc-text-3); font-size: 11px; font-weight: 600; }
+
+/* 模型参数设置弹层。表单本体由 llm-settings-panel.js/css 提供，这里只定宽。 */
+.oc-settings { width: 300px; max-height: 76vh; }
+.oc-set-hint { color: var(--oc-text-3); font-size: 11px; line-height: 1.5; padding: 8px 10px; }
+
+/* ---------- 抽屉：承载原左栏的资料与结果面板 ---------- */
+.oc-drawer-backdrop {
+  position: fixed; z-index: 1200; inset: 0; border: 0; padding: 0;
+  background: rgba(15, 23, 42, .38); cursor: pointer;
+}
+.oc-drawer-backdrop[hidden] { display: none; }
+.oc-drawer {
+  position: fixed; z-index: 1201; top: 0; right: 0; bottom: 0;
+  /* 工艺推荐/成本测算面板搬进来之后，抽屉要容得下它的多栏表格。 */
+  display: flex; width: min(760px, 96vw); flex-direction: column;
+  border-left: .5px solid var(--oc-border-3); background: var(--oc-bg-1);
+  box-shadow: -18px 0 48px rgba(15, 23, 42, .18);
+}
+.oc-drawer[hidden] { display: none; }
+.oc-drawer-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 13px 16px; border-bottom: .5px solid var(--oc-border-3);
+}
+.oc-drawer-title { color: var(--oc-text-1); font-size: 14px; font-weight: 600; }
+.oc-drawer-body { flex: 1; padding: 14px 16px 24px; overflow-y: auto; }
+.oc-drawer-body .panel-section { margin-bottom: 14px; }
+.oc-drawer-body .panel-section[data-drawer-hidden] { display: none; }
+
+@media (max-width: 1180px) {
+  .oc-side { display: none; }
+  .oc-work { flex-direction: column; }
+  .oc-agent-pane {
+    position: static; width: auto; height: auto; max-height: 62vh; align-self: stretch;
+  }
+}
+
+/* 工艺推荐面板原本长在更宽的右栏里，它的三栏网格靠 @media(max-width:1050px) 收成两栏。
+   媒体查询看的是视口宽度而不是容器宽度，因此在宽屏下把它放进抽屉会横向溢出 ——
+   这里按容器显式收窄，与抽屉宽度解耦。 */
+.oc-drawer .inline-process-grid {
+  grid-template-columns: minmax(135px, .7fr) minmax(240px, 1.3fr);
+}
+.oc-drawer .inline-col-right { grid-column: 1 / -1; }
+.oc-drawer .inline-analysis-host { overflow-x: auto; }

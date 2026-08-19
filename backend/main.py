@@ -15,12 +15,15 @@ import threading
 import time
 from contextlib import asynccontextmanager
 from typing import List, Optional
+from urllib.parse import quote
 
 from fastapi import (
     Body, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import (
+    FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
@@ -54,7 +57,8 @@ from .models.workflow import (
 )
 from .services import (
     approval as approval_svc, assembly, auth, bom, cleaning, cost, costest, decompose,
-    drawing2d, geometry, manufacturing, material, negotiation, pricenego, pricing,
+    component_match, cost_lookup, drawing2d, geometry, industry_templates, manufacturing,
+    llm_settings, material, negotiation, oc_agent, part_edit, pricenego, pricing, process_lookup,
     process, production, requirement_extract, step_import, summary as summary_svc, tasks, tree,
     versioning, vision, qwen_client, llm_client, model_lookup, requirement_pdf,
 )
@@ -95,14 +99,22 @@ class UpdateUserRole(BaseModel):
     role: str
 
 
-class RuntimeLlmSettingsBody(BaseModel):
-    """管理员在首页调整 Qwen 模型池；API Key 仅允许写入，绝不回显。"""
-    api_key: str = Field(default="", max_length=512)
-    base_url: str = Field(default="", max_length=500)
-    vision_models: List[str] = Field(default_factory=list, max_length=20)
-    text_models: List[str] = Field(default_factory=list, max_length=20)
-    web_search_models: List[str] = Field(default_factory=list, max_length=20)
-    provider: str = Field(default="", max_length=40)
+class LlmSettingsBody(BaseModel):
+    """全局模型配置。首页与 2.1 Agent 小窗提交的是同一个结构。
+
+    只有六项可改：多模态模型、语言模型、温度、最大 token、是否思考、API Key。
+    未传的字段保持不变，因此全部可选；API Key 只允许写入，绝不回显。
+    """
+
+    # 多模态用于图纸解析；语言模型同时用于文档分析与 Agent 对话。
+    vision_model: Optional[str] = Field(default=None, max_length=120)
+    text_model: Optional[str] = Field(default=None, max_length=120)
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    thinking: Optional[bool] = None
+    api_key: Optional[str] = Field(default=None, max_length=512)
+    # 密钥按提供商分别保存，所以写 Key 时必须一并说明是哪一家的。
+    api_key_provider: Optional[str] = Field(default=None, max_length=40)
 
 
 class ProjectManageBody(BaseModel):
@@ -549,102 +561,62 @@ def update_user_role_ep(username: str, body: UpdateUserRole, user: dict = Depend
 # --------------------------------------------------------------------------- #
 @app.get("/api/health")
 def health():
-    result = {
+    # 一律以「模型设置」为准。以前这里按 .env 的 LLM_PROVIDER 分支、再读 qwen 的
+    # 模型池，界面上改了模型健康检查却还报旧值。
+    vision = llm_settings.resolve(vision=True)
+    text = llm_settings.resolve(vision=False)
+    return {
         "status": "ok",
-        "model": active_model(),
-        "text_model": active_text_model(),
-        "llm_provider": LLM_PROVIDER,
+        "model": vision["model"],
+        "text_model": text["model"],
+        "llm_provider": text["provider"],
+        "vision_endpoint": vision["base_url"],
+        "text_endpoint": text["base_url"],
+        "api_key_configured": {
+            vision["provider"]: bool(vision["api_key"]),
+            text["provider"]: bool(text["api_key"]),
+        },
         "cadquery_available": geometry.CADQUERY_AVAILABLE,
         "auth_enabled": AUTH_ENABLED and not AUTH_AUTO_ADMIN,
     }
-    if LLM_PROVIDER == "qwen":
-        runtime = qwen_client.runtime_settings()
-        result["model"] = runtime["vision_models"][0] if runtime["vision_models"] else QWEN_MODEL
-        result["text_model"] = runtime["text_models"][0] if runtime["text_models"] else QWEN_TEXT_MODEL
-        result["qwen_model_pools"] = qwen_client.model_pool_status()
-    return result
 
 
 @app.get("/api/llm/settings")
 def get_runtime_llm_settings(user: dict = Depends(current_user)):
-    """模型设置页读取接口：所有已登录用户可见状态，密钥不会被返回。"""
-    provider_catalogs = {
-        "anthropic": {
-            "label": "Anthropic",
-            "text": ["claude-opus-4-8", "claude-sonnet-4-5"],
-            "vision": ["claude-opus-4-8", "claude-sonnet-4-5"],
-            "web": ["claude-opus-4-8", "claude-sonnet-4-5"],
-        },
-        "openai": {
-            "label": "OpenAI",
-            "text": ["gpt-5.6", "gpt-5", "gpt-4.1"],
-            "vision": ["gpt-5.6", "gpt-5", "gpt-4.1"],
-            "web": ["gpt-5.6", "gpt-5", "gpt-4.1"],
-        },
-        "qwen": {
-            "label": "Qwen / 阿里云百炼",
-            "text": ["qwen-plus", "qwen3.7-plus", "qwen-max"],
-            "vision": ["qwen3-vl-plus", "qwen3-vl-flash", "qwen-vl-plus"],
-            "web": ["qwen-plus", "qwen3.7-plus"],
-        },
-        "deepseek": {
-            "label": "DeepSeek",
-            "text": ["deepseek-chat", "deepseek-reasoner"],
-            "vision": [],
-            "web": [],
-        },
-    }
-    if LLM_PROVIDER != "qwen":
-        provider_catalogs["team"] = {
-            "label": "Team（当前团队配置）",
-            "text": [active_text_model()],
-            "vision": [active_model()],
-            "web": [],
-        }
-        return {
-            "provider": LLM_PROVIDER, "runtime_provider": LLM_PROVIDER, "editable": False, "model": active_model(),
-            "text_model": active_text_model(), "reason": "当前部署的模型提供商由服务器环境变量固定",
-            "provider_options": [{"value": key, "label": value["label"]} for key, value in provider_catalogs.items()]
-            + [{"value": "team", "label": "Team（当前团队配置）"}],
-            "provider_catalogs": provider_catalogs,
-            "web_search_available": False,
-            "web_search_scope": "当前部署提供商未开放本项目的联网搜索能力",
-        }
-    result = qwen_client.runtime_settings()
-    provider_catalogs["team"] = {
-        "label": "Team（当前团队配置）",
-        "text": result["text_models"],
-        "vision": result["vision_models"],
-        "web": result["web_search_models"],
-    }
-    result.update({"provider": "team", "runtime_provider": "qwen", "editable": user.get("role") == "admin", "model": result["vision_models"][0] if result["vision_models"] else QWEN_MODEL,
-                   "provider_options": [{"value": key, "label": value["label"]} for key, value in provider_catalogs.items()],
-                   "provider_catalogs": provider_catalogs,
-                   "web_search_available": bool(result["web_search_models"] and result["api_key_configured"]),
-                   "web_search_scope": "仅支持型号联网核验；普通工艺/成本分析不会调用联网工具"})
-    return result
+    """全局模型配置。首页「模型设置」与 2.1 Agent 小窗读的是同一份快照。
+
+    所有已登录用户都能看，只有管理员能改；密钥永远只回「是否已配置」。
+    """
+    return llm_settings.snapshot(is_admin=user.get("role") == "admin")
 
 
 @app.put("/api/llm/settings")
-def update_runtime_llm_settings(body: RuntimeLlmSettingsBody, user: dict = Depends(current_user)):
-    """仅管理员可修改全局 Qwen 模型/API 配置，并保存到 data 供重启后恢复。"""
-    _require(user, auth.ADMIN_ROLES, "需要系统管理员权限才能修改全局模型与 API 配置")
-    if body.provider and body.provider not in {"team", "qwen"}:
-        raise HTTPException(409, "当前服务只允许保存 Team（当前团队配置）的模型；切换到其他供应商需修改服务器部署配置后重启")
-    if LLM_PROVIDER != "qwen":
-        raise HTTPException(409, "当前部署不是 Qwen；切换提供商需修改服务器 .env 的 LLM_PROVIDER 后重启容器")
+def update_runtime_llm_settings(body: LlmSettingsBody, user: dict = Depends(current_user)):
+    """改写全局模型配置。**任何入口改，全局生效** —— 两个页面写的是同一处。"""
+    # exclude_unset 而不是 exclude_none：要能区分「没传这个字段」和「传了 null」。
+    # 用 exclude_none 的话，temperature=null（恢复模型默认值）会被整个丢掉，
+    # 界面上"留空"就永远生效不了。
+    patch = body.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(400, "没有要修改的设置项")
+    is_admin = user.get("role") == "admin"
     try:
-        result = qwen_client.configure_runtime_settings(
-            api_key=body.api_key or None,
-            base_url=body.base_url or None,
-            vision_models=body.vision_models or None,
-            text_models=body.text_models or None,
-            web_search_models=body.web_search_models or None,
-        )
+        result = llm_settings.update(patch, is_admin=is_admin)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    result.update({"editable": True, "message": "模型与 API 设置已保存并立即生效"})
-    return result
+    audit_llm_settings_change(user, patch)
+    return {"ok": True, "message": "模型设置已保存并立即生效", **result}
+
+
+def audit_llm_settings_change(user: dict, patch: dict) -> None:
+    """密钥的值永远不进日志，只记「改过」这件事。"""
+    store.audit("_global", "llm_settings_update", {
+        "actor": user.get("username", "system"),
+        "fields": llm_settings.changed_fields(patch),
+        "secrets_changed": llm_settings.touches_secrets(patch),
+    })
 
 
 @app.get("/api/projects")
@@ -835,6 +807,71 @@ def get_project_attachment(project_id: str, filename: str):
     return FileResponse(str(path), filename=path.name)
 
 
+@app.get("/api/projects/{project_id}/files")
+def list_project_files(project_id: str):
+    """本次任务涉及的所有文件清单：输入的图纸文档 + 流程中产出的模型、图纸、表格。
+
+    界面上的文件浮窗只认这一个接口。分散在各步骤里的产出（几何、2D 图、BOM、
+    成本表）本来只能在各自的面板里下载，评估过程一长就没人记得哪一步生成过什么；
+    汇总到一处才谈得上"过程中所有文件都能查看"。
+
+    只列**确实已经生成**的东西 —— 列一个点开是 404 的链接比不列更糟。
+    """
+    meta = store.load_meta(project_id)
+    if not meta:
+        raise HTTPException(404, "项目不存在")
+    base = f"/api/projects/{project_id}"
+    groups: List[dict] = []
+
+    inputs: List[dict] = []
+    if meta.get("source_filename"):
+        inputs.append({"name": meta["source_filename"], "kind": "image",
+                       "url": f"{base}/source", "note": "需求原图（解析依据）"})
+    for name in meta.get("attachments", []) or []:
+        inputs.append({"name": name, "kind": "doc",
+                       "url": f"{base}/attachments/{quote(name)}", "note": "技术文档 / 补充视图"})
+    if inputs:
+        groups.append({"key": "input", "title": "输入资料", "files": inputs})
+
+    models: List[dict] = []
+    for part in (store.load_geometry_result(project_id) or {}).get("parts", []):
+        for field, kind, suffix in (("stl_url", "model", "STL"), ("step_url", "model", "STEP")):
+            if part.get(field):
+                models.append({"name": f"{part.get('part_id')} {part.get('name') or ''} · {suffix}",
+                               "kind": kind, "url": part[field], "note": "生成的 3D 几何"})
+    if models:
+        groups.append({"key": "geometry", "title": "3D 几何", "files": models})
+
+    drawings: List[dict] = []
+    for part in (store.load_drawings_result(project_id) or {}).get("parts", []):
+        label = f"{part.get('part_id')} {part.get('name') or ''}"
+        for view, url in (part.get("views") or {}).items():
+            drawings.append({"name": f"{label} · {view}", "kind": "image", "url": url,
+                             "note": "生成的 2D 工程图"})
+        if part.get("dxf_url"):
+            drawings.append({"name": f"{label} · DXF", "kind": "doc", "url": part["dxf_url"],
+                             "note": "生成的 2D 工程图"})
+    if drawings:
+        groups.append({"key": "drawings", "title": "2D 工程图", "files": drawings})
+
+    tables: List[dict] = []
+    if store.load_ir(project_id):
+        tables.append({"name": "BOM.csv", "kind": "table", "url": f"{base}/bom.csv",
+                       "note": "按当前零件清单导出"})
+    if store.load_costest(project_id):
+        tables.append({"name": "成本测算.csv", "kind": "table", "url": f"{base}/costest.csv",
+                       "note": "按当前成本测算导出"})
+    if tables:
+        groups.append({"key": "tables", "title": "导出表格", "files": tables})
+
+    note = str(meta.get("note") or "").strip()
+    return {
+        "groups": groups,
+        "note": note,
+        "total": sum(len(group["files"]) for group in groups),
+    }
+
+
 def _geometry_payload(project_id: str, results) -> dict:
     base = f"/api/projects/{project_id}/geometry"
     return {
@@ -944,11 +981,20 @@ def parse(project_id: str, user: dict = Depends(current_user)):
     expected_input_revision = _input_revision(project_id)
 
     def job():
+        # 每一步都同时播「在做什么」和「做出了什么」—— 对话框里只显示动作、
+        # 不显示结果的话，用户还是得去别处翻才知道这一步到底产出了啥。
         manifest = vision.build_input_manifest(name, data, atts)
         store.audit(project_id, "drawing_parse_stage:manifest", manifest)
-        tasks.report_progress("正在读取图纸、提取文本并调用视觉模型")
+        tasks.report_progress(
+            f"读取输入：{name}"
+            + (f"、技术文档 {len(atts)} 份" if atts else "")
+            + (f"、补充说明 {len(note.strip())} 字" if note.strip() else ""))
+        tasks.report_progress(f"调用多模态模型解析图纸（{llm_settings.snapshot()['vision_model']}）")
         ir = vision.parse_drawing(data, name, note=note, attachments=atts)
-        tasks.report_progress("视觉模型已返回，正在校验尺寸、证据和 IR")
+        tasks.report_progress(
+            f"  ↳ 解析完成：{len(ir.parts)} 个零件、{len(ir.open_questions or [])} 个待澄清问题、"
+            f"证据 {len(ir.evidence_ledger)} 条")
+        tasks.report_progress("校验尺寸与证据，写入设计意图（IR）")
         _assert_input_unchanged(project_id, expected_input_revision)
         store.save_drawing_analysis(project_id, vision.pipeline_report(ir, manifest))
         store.save_ir(project_id, ir.model_dump(), stage="parsed", author=author)
@@ -960,12 +1006,134 @@ def parse(project_id: str, user: dict = Depends(current_user)):
             "ai_status": ir.ai_status.value,
             "evidence_count": len(ir.evidence_ledger),
         })
-        return ir.model_dump()
+        # 拆解的最后一步：把每个零件拿到零部件库里比一遍，标出可复用/可改制/未匹配。
+        # 检索本身不调模型，失败也不能让已经拿到的 IR 作废。
+        payload = ir.model_dump()
+        try:
+            report = component_match.match_project(
+                project_id, payload, progress=tasks.report_progress,
+            )
+            component_match.save_report(project_id, report)
+            payload["component_match"] = report
+        except Exception as exc:
+            tasks.report_progress(f"  ↳ 零部件库检索失败：{str(exc)[:120]}（不影响已得到的解析结果）")
+            store.audit(project_id, "component_match_failed", {"error": str(exc)[:200]})
+        return payload
 
     return {"task_id": tasks.submit(
         project_id, "parse", job,
         dedup_key=_task_key("parse", expected_input_revision, note, atts),
     )}
+
+
+@app.get("/api/projects/{project_id}/component-match")
+def get_component_match(project_id: str, user: dict = Depends(current_user)):
+    """图纸拆解时的零部件库检索报告。尚未解析或库为空时返回空报告。"""
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    return store.load_component_match(project_id) or {"items": [], "summary": {}}
+
+
+@app.post("/api/projects/{project_id}/component-match")
+def run_component_match(project_id: str, user: dict = Depends(current_user)):
+    """按当前 IR 重新检索零部件库（知识库更新后可单独重跑，无需重新解析图纸）。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    ir = store.load_ir(project_id)
+    if not ir:
+        raise HTTPException(400, "尚未完成图纸解析")
+
+    def job():
+        report = component_match.match_project(project_id, ir, progress=tasks.report_progress)
+        component_match.save_report(project_id, report)
+        return report
+
+    return {"task_id": tasks.submit(project_id, "component_match", job)}
+
+
+# --------------------------------------------------------------------------- #
+# 工艺推荐 / 成本测算的知识库检索
+#
+# 两个 helper 在对应的异步任务里被调用，进度经 tasks.report_progress 走既有轮询
+# 通道，因此检索过程会显示在 Agent 对话框里。检索失败一律降级为"没查到"，
+# 绝不能让它挡住后面的推荐 —— 库是辅助依据，不是前置条件。
+# --------------------------------------------------------------------------- #
+def _match_for_part(project_id: str, part_id: str) -> Optional[dict]:
+    """取该零件在图纸拆解阶段的零部件库匹配结论，用来定类别与默认路线/物料。"""
+    report = store.load_component_match(project_id) or {}
+    return next((item for item in report.get("items") or []
+                 if item.get("part_id") == part_id), None)
+
+
+def _process_lookup_for(project_id: str, part_id: str, part: dict) -> Optional[dict]:
+    try:
+        report = process_lookup.lookup_part(
+            part, match=_match_for_part(project_id, part_id),
+            progress=tasks.report_progress,
+        )
+        process_lookup.save_report(project_id, part_id, report)
+        return report
+    except Exception as exc:
+        store.audit(project_id, "process_lookup_failed",
+                    {"part_id": part_id, "error": str(exc)[:200]})
+        return None
+
+
+def _cost_lookup_for(project_id: str, part_id: str, part: dict, quantity: int) -> Optional[dict]:
+    try:
+        report = cost_lookup.lookup_part(
+            part, quantity=quantity, match=_match_for_part(project_id, part_id),
+            process_report=store.load_process_lookup(project_id, part_id),
+            progress=tasks.report_progress,
+        )
+        cost_lookup.save_report(project_id, part_id, report)
+        return report
+    except Exception as exc:
+        store.audit(project_id, "cost_lookup_failed",
+                    {"part_id": part_id, "error": str(exc)[:200]})
+        return None
+
+
+@app.get("/api/projects/{project_id}/parts/{part_id}/process-lookup")
+def get_process_lookup(project_id: str, part_id: str):
+    """工艺推荐所依据的工艺库检索报告（路线模板 / 补充工序 / 库内空白）。"""
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    return store.load_process_lookup(project_id, part_id) or {}
+
+
+@app.get("/api/projects/{project_id}/parts/{part_id}/cost-lookup")
+def get_cost_lookup(project_id: str, part_id: str):
+    """成本测算所依据的价格与费率检索报告。"""
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+    return store.load_cost_lookup(project_id, part_id) or {}
+
+
+@app.post("/api/projects/{project_id}/parts/{part_id}/library-lookup")
+def run_library_lookup(project_id: str, part_id: str, quantity: int = 1,
+                       user: dict = Depends(current_user)):
+    """只跑知识库检索，不调模型。
+
+    知识库更新（补了费率、改了路线）后可以单独重查一遍看依据变了什么，
+    不必为此重跑一次要花钱的工艺推荐或成本测算。
+    """
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    ir_dict = store.load_ir(project_id)
+    if not ir_dict:
+        raise HTTPException(400, "尚未完成图纸解析")
+    part = next((p for p in DesignIR(**ir_dict).parts if p.part_id == part_id), None)
+    if not part:
+        raise HTTPException(404, f"零件 {part_id} 不存在")
+    part_dict = part.model_dump()
+    qty = max(1, int(quantity or 1))
+
+    def job():
+        return {
+            "process": _process_lookup_for(project_id, part_id, part_dict),
+            "cost": _cost_lookup_for(project_id, part_id, part_dict, qty),
+        }
+
+    return {"task_id": tasks.submit(project_id, "library_lookup", job)}
 
 
 @app.post("/api/projects/{project_id}/verify")
@@ -1377,54 +1545,19 @@ def _save_project_chat_turn(project_id: str, user_message: str, answer: str, use
     ])
     store.save_project_chat(project_id, messages, author=user.get("username", "system"))
 
-_CHAT_FEATURE_FIELDS = {
-    "plate": {"length", "width", "thickness"},
-    "box": {"length", "width", "height"},
-    "cylinder": {"diameter", "height"},
-    "hole": {"diameter", "x", "y"},
-    "hole_pattern": {"diameter", "count_x", "count_y", "spacing_x", "spacing_y"},
-    "fillet": {"radius"},
-    "chamfer": {"distance"},
-}
-
-
 def _apply_workbench_chat_edit(part, edit: WorkbenchPartEdit) -> tuple[list[dict], bool]:
-    """对模型建议执行白名单修改，返回变更与是否需要重生几何。"""
-    changes: list[dict] = []
-    geometry_changed = False
-    if edit.name is not None and edit.name.strip() and edit.name.strip() != part.name:
-        before = part.name
-        part.name = edit.name.strip()
-        changes.append({"field": "name", "old": before, "new": part.name})
-    if edit.quantity is not None and edit.quantity != part.quantity:
-        before = part.quantity
-        part.quantity = edit.quantity
-        changes.append({"field": "quantity", "old": before, "new": part.quantity})
-    if edit.material_spec is not None and edit.material_spec.strip():
-        spec = edit.material_spec.strip()
-        before = part.material.spec if part.material else ""
-        if spec != before:
-            if part.material:
-                part.material.spec = spec
-            else:
-                part.material = Material(spec=spec)
-            changes.append({"field": "material.spec", "old": before, "new": spec})
-    for update in edit.feature_updates:
-        if update.feature_index >= len(part.features):
-            raise HTTPException(422, f"特征序号 {update.feature_index + 1} 不存在")
-        feature = part.features[update.feature_index]
-        feature_type = feature.type.value if hasattr(feature.type, "value") else str(feature.type)
-        if update.field not in _CHAT_FEATURE_FIELDS.get(feature_type, set()):
-            raise HTTPException(422, f"特征 #{update.feature_index + 1}（{feature_type}）不允许修改字段 {update.field}")
-        value = int(update.value) if update.field.startswith("count_") else float(update.value)
-        if value <= 0 and update.field not in {"x", "y"}:
-            raise HTTPException(422, f"{update.field} 必须大于 0")
-        before = getattr(feature, update.field)
-        if before != value:
-            setattr(feature, update.field, value)
-            changes.append({"field": f"features[{update.feature_index}].{update.field}", "old": before, "new": value})
-            geometry_changed = True
-    return changes, geometry_changed
+    """对模型建议执行白名单修改，返回变更与是否需要重生几何。
+
+    白名单与校验都在 `services.part_edit` 里 —— 2.1 页的 Agent 走同一份实现，
+    两条会话入口不能各有一套规则。
+    """
+    try:
+        return part_edit.apply_edit(
+            part, name=edit.name, quantity=edit.quantity,
+            material_spec=edit.material_spec, feature_updates=edit.feature_updates,
+        )
+    except part_edit.PartEditError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.post("/api/projects/{project_id}/workbench-chat")
@@ -1491,16 +1624,15 @@ def workbench_chat(
     answer = result.answer.strip()
     if not answer:
         raise HTTPException(502, "AI 未返回有效对话内容")
-    model = qwen_client.last_used_model() if LLM_PROVIDER == "qwen" else active_text_model()
+    model = llm_client.last_used_model() or active_text_model()
     edit_applied = None
     # 已导入的精确 STEP/STP 实体不允许通过文本修改 IR 特征，以免与真实实体脱节。
-    source_name = str(meta.get("source_filename") or "").lower()
-    is_imported_3d = source_name.endswith((".step", ".stp"))
+    blocked = part_edit.blocks_feature_edit(meta)
     if result.edit and result.edit.should_apply:
         if not selected:
             answer += "\n\n未选择零件，未应用参数修改。"
-        elif is_imported_3d:
-            answer += "\n\n当前为导入的精确 3D 模型，未自动改写其参数；请在原 CAD 中修改后重新导入。"
+        elif blocked:
+            answer += f"\n\n{blocked}"
         else:
             changes, geometry_changed = _apply_workbench_chat_edit(selected, result.edit)
             if changes:
@@ -1527,6 +1659,94 @@ def workbench_chat(
     })
     _save_project_chat_turn(project_id, body.message, answer, user, body.page_context or "2.1 图纸解析")
     return {"answer": answer, "model": model, "edit_applied": edit_applied}
+
+
+# --------------------------------------------------------------------------- #
+# 2.1 图纸解析 Agent（open-claude）
+#
+# 与上面的 ai-chat 不同：那是单轮文本问答，这里是带工具循环的 Agent，
+# 直接跑 open-claude 的 Conversation，前端按 SSE 逐块渲染。
+# --------------------------------------------------------------------------- #
+class AgentSendRequest(BaseModel):
+    message: str = ""
+    page_context: str = ""
+
+
+def _agent_project(project_id: str) -> None:
+    if not store.load_meta(project_id):
+        raise HTTPException(404, "项目不存在")
+
+
+@app.get("/api/projects/{project_id}/agent/meta")
+def agent_meta(project_id: str, user: dict = Depends(current_user)):
+    """左侧对话设置工具栏所需的模型、工具、技能与会话信息。"""
+    _agent_project(project_id)
+    ok, reason = oc_agent.available()
+    if not ok:
+        # 不抛 500：页面需要显示「为什么用不了」，而不是一个红色报错。
+        return {"available": False, "reason": reason}
+    try:
+        meta = oc_agent.get_agent(project_id).meta()
+    except oc_agent.AgentUnavailable as exc:
+        return {"available": False, "reason": str(exc)}
+    return {"available": True, "reason": "", **meta}
+
+
+@app.post("/api/projects/{project_id}/agent/send")
+def agent_send(project_id: str, body: AgentSendRequest, user: dict = Depends(current_user)):
+    """一轮 Agent 对话，SSE 流式返回文本、工具调用与工具结果。"""
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    _agent_project(project_id)
+    message = (body.message or "").strip()
+    if not message:
+        raise HTTPException(400, "消息不能为空")
+    ok, reason = oc_agent.available()
+    if not ok:
+        raise HTTPException(503, reason)
+    if body.page_context.strip():
+        message = f"{message}\n\n[当前页面：{body.page_context.strip()[:160]}]"
+    return StreamingResponse(
+        # 带上操作人：Agent 能改零件参数，审计必须记「是谁让它改的」。
+        oc_agent.stream_sse(project_id, message, actor=user.get("username", "system")),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.post("/api/projects/{project_id}/agent/new")
+def agent_restart_task(project_id: str, user: dict = Depends(current_user)):
+    """本次任务从头开始：清空对话上下文，并把 2.1 图纸解析的产出退回起点。
+
+    保留输入（原图、技术文档、需求单）与版本快照 —— 「从头开始」是拿同一份图纸
+    重新解析，不是把图纸删掉，也不该抹掉可追溯的历史。
+
+    Agent 不可用时**仍然重置业务产出**：模型连不上不该妨碍用户把任务重来一遍。
+    """
+    _require(user, auth.WRITE_ROLES, "需要工程师及以上权限")
+    _agent_project(project_id)
+    result = store.reset_parse_stage(project_id, author=user.get("username", "system"))
+    ok, _reason = oc_agent.available()
+    if ok:
+        try:
+            oc_agent.get_agent(project_id).reset()
+        except oc_agent.AgentUnavailable:
+            pass
+    return {"ok": True, **result}
+
+
+# 2.1 页小窗的模型设置就是全局模型设置 —— 这两条只是同一份配置的项目级别名，
+# 让前端不用为「在哪个页面」分叉出两套请求。真正的读写全在 llm_settings 里。
+@app.get("/api/projects/{project_id}/agent/settings")
+def agent_settings(project_id: str, user: dict = Depends(current_user)):
+    _agent_project(project_id)
+    return get_runtime_llm_settings(user)
+
+
+@app.put("/api/projects/{project_id}/agent/settings")
+def update_agent_settings(project_id: str, body: LlmSettingsBody,
+                          user: dict = Depends(current_user)):
+    _agent_project(project_id)
+    return update_runtime_llm_settings(body, user)
 
 
 @app.get("/api/projects/{project_id}/ai-chat")
@@ -1592,7 +1812,7 @@ def project_chat(
     answer = result.answer.strip()
     if not answer:
         raise HTTPException(502, "AI 未返回有效对话内容")
-    model = qwen_client.last_used_model() if LLM_PROVIDER == "qwen" else active_text_model()
+    model = llm_client.last_used_model() or active_text_model()
     _save_project_chat_turn(project_id, body.message, answer, user, body.page_context)
     store.audit(project_id, "project_chat", {
         "by": user.get("username", "system"), "page": body.page_context, "model": model,
@@ -1681,11 +1901,18 @@ async def generate_process(
     expected_ir = _digest_value(ir_dict)
 
     def job():
-        plan = process.decompose_process(part, overall=ir, geom=geom, note=note, attachments=atts)
+        # 先查企业工艺库，再让模型排产。库里已有的路线/工序/标准工时是硬依据，
+        # 检索失败不能挡住推荐 —— 退回原来的通用工艺口径即可。
+        lookup = _process_lookup_for(project_id, part_id, part.model_dump())
+        plan = process.decompose_process(
+            part, overall=ir, geom=geom, note=note, attachments=atts,
+            library=process_lookup.as_prompt(lookup) if lookup else "",
+        )
         _assert_ir_unchanged(project_id, expected_ir)
         plan_dict = plan.model_dump()
         store.save_process(project_id, part_id, plan_dict, author=author)
-        return {"plan": plan_dict, "validation": process.compute(plan_dict)}
+        return {"plan": plan_dict, "validation": process.compute(plan_dict),
+                "library": lookup}
 
     return {"task_id": tasks.submit(
         project_id, "process", job,
@@ -1753,14 +1980,17 @@ async def generate_cost(
     expected_ir = _digest_value(ir_dict)
 
     def job():
+        # 先把企业库里的物料价与费率钉死，模型只在库内缺口上联网估算。
+        lookup = _cost_lookup_for(project_id, part_id, part.model_dump(), qty)
         tasks.report_progress("正在调用模型生成零件成本拆解")
         analysis = cost.analyze_cost(part, overall=ir, geom=geom, quantity=qty,
-                                     note=note, attachments=atts)
+                                     note=note, attachments=atts,
+                                     library=cost_lookup.as_prompt(lookup) if lookup else "")
         tasks.report_progress("成本结果已返回，正在重算金额并保存价格依据")
         _assert_ir_unchanged(project_id, expected_ir)
         a_dict = analysis.model_dump()
         store.save_cost(project_id, part_id, a_dict, author=author)
-        return {"analysis": a_dict, "summary": cost.compute(a_dict)}
+        return {"analysis": a_dict, "summary": cost.compute(a_dict), "library": lookup}
 
     return {"task_id": tasks.submit(
         project_id, "cost", job,
@@ -3831,22 +4061,9 @@ def _requirement_precheck(project_id: str, doc: RequirementDoc) -> dict:
     """基于已保存需求字段的确定性完整性检查；不调用任何 AI/模型。"""
     data = doc.data or {}
     meta = store.load_meta(project_id) or {}
-    industry = str(data.get("industry") or "semiconductor").strip().lower()
-    product_checks = [
-        ("三、产品技术规格（Section C）", ["product_name", "product_model", "overall_dimensions", "base_material"], "产品基础规格已录入"),
-        ("3.1 基础参数", ["product_name", "wafer_size", "base_material", "overall_dimensions"], "基础参数已录入"),
-        ("3.2 精度与性能参数", ["roughness", "adsorption_uniformity", "temperature_range", "cleanliness"], "性能要求已录入"),
-        ("3.3 应用场景", ["target_equipment", "process_stage", "vacuum_environment"], "应用场景已录入"),
-    ]
-    if industry == "battery":
-        product_checks = [
-            ("三、产品技术规格（Section C）", ["battery_model", "cathode_material", "anode_material", "nominal_voltage"], "电芯基础规格已录入"),
-            ("3.1 基本电性能参数", ["battery_model", "cathode_material", "anode_material", "nominal_voltage"], "基本电性能参数已录入"),
-            ("3.2 安全与可靠性参数", ["battery_operating_temperature", "cycle_life"], "安全与可靠性参数已录入"),
-            ("3.3 核心工艺特点", ["stacking_process"], "核心工艺特点已录入"),
-            ("3.4 形状与尺寸", ["battery_form_factor"], "形状与尺寸已录入"),
-        ]
-    elif industry == "flexible":
+    industry = str(data.get("industry") or industry_templates.DEFAULT_INDUSTRY).strip().lower()
+    if industry == "flexible":
+        # 历史草稿：规格字段由 AI 动态生成，必填项只能从字段本身读。
         dynamic_fields = (data.get("flexible_spec") or {}).get("fields") or []
         required_by_section = {
             section: [str(field.get("key") or "") for field in dynamic_fields if field.get("section") == section and field.get("required")]
@@ -3858,11 +4075,16 @@ def _requirement_precheck(project_id: str, doc: RequirementDoc) -> dict:
             ("3.2 精度与性能参数", required_by_section["3.2"], "AI 生成的性能要求已录入"),
             ("3.3 应用场景", required_by_section["3.3"], "AI 生成的应用场景已录入"),
         ]
+    else:
+        product_checks = [
+            (label, list(fields), ok_message)
+            for label, fields, ok_message in industry_templates.section_checks(industry)
+        ]
     checks = [
         ("一、需求基本信息（Section A）", ["title", "requirement_type", "priority", "bu", "disclosure", "description"], "基础信息完整"),
         ("二、客户与项目信息（Section B）", ["customer_type", "customer_industry", "final_customer_name", "project_name", "project_code", "product_iteration"], "客户与项目字段完整"),
         *product_checks,
-        ("3.4 图纸与技术资料", [], "原始图纸已关联"),
+        (f"{industry_templates.FILE_BLOCK_SECTION.get(industry, '3.4')} 图纸与技术资料", [], "原始图纸已关联"),
         ("四、市场与商务信息（Section D）", ["annual_forecast", "first_sample_due", "mass_production_due"], "商务信息已录入"),
         ("五、项目时间计划（Section E）", ["evaluation_due", "milestones"], "时间节点已录入"),
         ("六、分类与标签（Section F）", ["category_a", "product_type", "complexity"], "分类清晰"),
@@ -3876,7 +4098,7 @@ def _requirement_precheck(project_id: str, doc: RequirementDoc) -> dict:
     }
     for label, fields, ok_message in checks:
         missing = [field for field in fields if not _is_filled(data.get(field, dynamic_values.get(field)))]
-        if label == "3.4 图纸与技术资料" or label.startswith("七、"):
+        if label.endswith("图纸与技术资料") or label.startswith("七、"):
             if not meta.get("source_filename"):
                 missing.append("source")
         if missing:
@@ -3942,7 +4164,7 @@ def _normalize_requirement_ai_check(rule_check: dict, result: RequirementAiCheck
     summary = (result.summary or "").strip()[:500]
     if not summary:
         summary = "AI 已完成需求单检查，请根据各项结论补充或确认。"
-    actual_model = str(qwen_client.last_used_model() or "").strip()
+    actual_model = str(llm_client.last_used_model() or "").strip()
     return {
         "items": rows,
         "ok": all(row["status"] == "ok" for row in rows),
@@ -4053,10 +4275,11 @@ def _apply_requirement_document_extraction(
     recommended: dict[str, str] = {}
     recommendation_confidence: dict[str, float] = {}
     industry_selection = str(data.get("industry_selection") or data.get("industry") or "semiconductor").strip().lower()
-    detected_industry = str(result.industry or "flexible").strip().lower()
-    if detected_industry not in {"semiconductor", "battery", "flexible"}:
-        detected_industry = "flexible"
-    industry = industry_selection if industry_selection in {"semiconductor", "battery", "flexible"} else "semiconductor"
+    detected_industry = str(result.industry or industry_templates.DEFAULT_INDUSTRY).strip().lower()
+    supported = (*industry_templates.INDUSTRIES, "flexible")
+    if detected_industry not in supported:
+        detected_industry = industry_templates.DEFAULT_INDUSTRY
+    industry = industry_selection if industry_selection in supported else industry_templates.DEFAULT_INDUSTRY
     required_recommendation_fields = requirement_extract._required_recommendation_fields_for_industry(industry)
     previous_extraction = data.get("document_extraction") or {}
     previous_recommendations = dict(previous_extraction.get("recommendations") or {})
@@ -4129,14 +4352,14 @@ def _apply_requirement_document_extraction(
         recommendation_confidence[key] = max(0.0, min(1.0, confidence))
     data["industry"] = industry
     data["industry_assessment"] = {
-        "selected_mode": industry_selection if industry_selection in {"semiconductor", "battery", "flexible"} else "semiconductor",
+        "selected_mode": industry_selection if industry_selection in supported else industry_templates.DEFAULT_INDUSTRY,
         "detected_industry": detected_industry,
         "effective_industry": industry,
         "confidence": max(0.0, min(1.0, float(result.industry_confidence or 0.0))),
         "reason": str(result.industry_reason or "").strip()[:160],
         "assessed_at": _now_str(),
         # 只记录本次请求实际成功使用的模型；没有返回实际标识时保持为空。
-        "model": qwen_client.last_used_model() or "",
+        "model": llm_client.last_used_model() or "",
     }
     if industry == "flexible" and result.flexible_spec_fields:
         existing_spec = dict(data.get("flexible_spec") or {})
@@ -4218,7 +4441,7 @@ def _apply_requirement_document_extraction(
     data["document_extraction"] = {
         "engine": "qwen_text",
         # 只记录本次请求实际成功使用的模型；没有返回实际标识时保持为空。
-        "model": qwen_client.last_used_model() or "",
+        "model": llm_client.last_used_model() or "",
         "processed_files": processed_files,
         "skipped_files": skipped_files,
         # 仅记录文本模型从技术资料带入的字段；客户/产品历史比对另有独立留痕。
@@ -4389,19 +4612,21 @@ def ai_check_requirement(project_id: str, user: dict = Depends(current_user)):
     )
     if len(payload) > 24000:
         payload = payload[:24000] + "\n【表单内容已按检查上下文预算截断】"
-    content = [qwen_client.text_block("【待确认的工艺评估需求表单】\n" + payload)]
+    # 走统一分派层：直接用 qwen_client 会绕过「模型设置」，
+    # 出现"配了 opus5 却报 Qwen 调用失败"。
+    content = [llm_client.text_block("【待确认的工艺评估需求表单】\n" + payload)]
     source = store.source_path(project_id)
     source_name = meta.get("source_filename") or "source.png"
     if source and source.exists() and source.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"):
         image_bytes = source.read_bytes()
         if len(image_bytes) <= 5 * 1024 * 1024:
             content.extend([
-                qwen_client.text_block(f"【原始工程图：{source_name}】"),
-                qwen_client.image_block(image_bytes, source_name, detail="low"),
+                llm_client.text_block(f"【原始工程图：{source_name}】"),
+                llm_client.image_block(image_bytes, source_name, detail="low"),
             ])
         else:
-            content.append(qwen_client.text_block("【原始工程图过大，本次仅检查表单字段】"))
-    result = qwen_client.run(
+            content.append(llm_client.text_block("【原始工程图过大，本次仅检查表单字段】"))
+    result = llm_client.run(
         _REQUIREMENT_AI_CHECK_SYSTEM, content, RequirementAiCheckResult, max_tokens=1800,
     )
     check = _normalize_requirement_ai_check(rule_check, result)

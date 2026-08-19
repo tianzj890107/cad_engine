@@ -13,6 +13,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from .coercion import StrList
 from .cost import WebSource
 from .ir import OpenQuestion
 
@@ -28,8 +29,8 @@ class BodyCandidate(BaseModel):
     cte: Optional[str] = Field(None, description="热膨胀系数 CTE,如 '4.5 ppm/K'")
     mechanical: Optional[str] = Field(None, description="机械强度/断裂韧性等")
     cost_level: Optional[str] = Field(None, description="成本水平,如 '低/中/高' 或大致单价")
-    pros: List[str] = Field(default_factory=list, description="优点")
-    cons: List[str] = Field(default_factory=list, description="缺点/风险")
+    pros: StrList = Field(default_factory=list, description="优点")
+    cons: StrList = Field(default_factory=list, description="缺点/风险")
     recommended: bool = Field(False, description="是否为推荐项")
     source: Optional[str] = Field(None, description="主要依据/出处")
 
@@ -72,7 +73,7 @@ class MaterialRecommendation(BaseModel):
     layers: List[MetalLayer] = Field(default_factory=list, description="金属化层结构")
     metallization_rationale: Optional[str] = Field(None, description="电极/金属化方案理由")
     requirements: List[PowderRequirement] = Field(default_factory=list, description="推荐的粉末纯度/粒径要求")
-    assumptions: List[str] = Field(default_factory=list, description="关键假设")
+    assumptions: StrList = Field(default_factory=list, description="关键假设")
     open_questions: List[OpenQuestion] = Field(default_factory=list, description="需澄清的问题")
     search_sources: List[WebSource] = Field(default_factory=list, description="联网检索来源(可追溯)")
 
@@ -127,7 +128,7 @@ class MaterialPlan(BaseModel):
     metallization: Metallization = Field(default_factory=Metallization)
     supply: SupplyEvaluation = Field(default_factory=SupplyEvaluation)
     timing: Timing = Field(default_factory=Timing)
-    assumptions: List[str] = Field(default_factory=list)
+    assumptions: StrList = Field(default_factory=list)
     open_questions: List[OpenQuestion] = Field(default_factory=list)
     search_sources: List[WebSource] = Field(default_factory=list)
     updated_at: Optional[str] = None

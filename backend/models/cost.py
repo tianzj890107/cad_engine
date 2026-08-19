@@ -15,6 +15,7 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from .coercion import StrList
 from .ir import OpenQuestion
 
 
@@ -152,7 +153,7 @@ class CostAnalysis(BaseModel):
     search_sources: List[WebSource] = Field(
         default_factory=list, description="平台自动收集的 web_search 检索来源(标题+链接,可点击核查)"
     )
-    assumptions: List[str] = Field(
+    assumptions: StrList = Field(
         default_factory=list, description="估算所做的关键假设(批量/损耗/费率等)"
     )
     open_questions: List[OpenQuestion] = Field(

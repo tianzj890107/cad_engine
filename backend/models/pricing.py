@@ -13,6 +13,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from .coercion import StrList
 from .cost import WebSource
 from .ir import OpenQuestion
 from .material import Timing
@@ -59,7 +60,7 @@ class PricingRecommendation(BaseModel):
     markup_rate: Optional[float] = Field(None, description="建议成本加成率/利润率(%)")
     factors: List[PricingFactor] = Field(default_factory=list, description="各维度调整建议(覆盖 5 个维度)")
     summary: Optional[str] = Field(None, description="定价思路/说明")
-    assumptions: List[str] = Field(default_factory=list, description="关键假设")
+    assumptions: StrList = Field(default_factory=list, description="关键假设")
     open_questions: List[OpenQuestion] = Field(default_factory=list, description="需澄清的问题")
     search_sources: List[WebSource] = Field(default_factory=list, description="联网检索来源(可追溯)")
 
@@ -80,7 +81,7 @@ class PricingPlan(BaseModel):
     approval: PricingApproval = Field(default_factory=PricingApproval)
     summary: Optional[str] = None
     timing: Timing = Field(default_factory=Timing)
-    assumptions: List[str] = Field(default_factory=list)
+    assumptions: StrList = Field(default_factory=list)
     open_questions: List[OpenQuestion] = Field(default_factory=list)
     search_sources: List[WebSource] = Field(default_factory=list)
     updated_at: Optional[str] = None

@@ -13,6 +13,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from .coercion import StrList
 from .cost import WebSource
 from .ir import OpenQuestion
 from .material import Timing
@@ -64,7 +65,7 @@ class ProductionRecommendation(BaseModel):
     outsourcing: List[OutsourcePlan] = Field(default_factory=list, description="外协安排建议")
     capacity_summary: Optional[str] = Field(None, description="产能评估结论")
     conclusion: Optional[str] = Field(None, description="总体匹配/外协结论")
-    assumptions: List[str] = Field(default_factory=list, description="关键假设")
+    assumptions: StrList = Field(default_factory=list, description="关键假设")
     open_questions: List[OpenQuestion] = Field(default_factory=list, description="需澄清的问题")
     search_sources: List[WebSource] = Field(default_factory=list, description="联网检索来源(可追溯)")
 
@@ -94,7 +95,7 @@ class ProductionPlan(BaseModel):
     capacity_summary: Optional[str] = None
     conclusion: Optional[str] = None
     timing: Timing = Field(default_factory=Timing)
-    assumptions: List[str] = Field(default_factory=list)
+    assumptions: StrList = Field(default_factory=list)
     open_questions: List[OpenQuestion] = Field(default_factory=list)
     search_sources: List[WebSource] = Field(default_factory=list)
     updated_at: Optional[str] = None
